@@ -51,7 +51,7 @@ local ESPController = ESPModule.new({
 })
 
 local Window = Library:CreateWindow({
-    Title = 'Leetware',
+    Title = 'leetware',
     Center = true,
     AutoShow = true
 })
@@ -485,14 +485,14 @@ SaveManager:SetIgnoreIndexes({
     'MenuKeybind'
 })
 
-ThemeManager:SetFolder('Leetware')
-SaveManager:SetFolder('Leetware/configs')
+ThemeManager:SetFolder('leetware')
+SaveManager:SetFolder('leetware/configs')
 
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
 Library:SetWatermarkVisibility(true)
-Library:SetWatermark('Leetware')
+Library:SetWatermark(string.format("leetware // %d FPS // %d ms", math.floor(1 / game:GetService("RunService").RenderStepped:Wait()), math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())))
 
 Library:OnUnload(function()
     if ESPController then
