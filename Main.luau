@@ -1,8 +1,11 @@
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
-local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
+
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -64,7 +67,7 @@ local Tabs = {
 
 local MainGroupBox = Tabs.Main:AddLeftGroupbox('Main')
 
-MainGroupBox:AddLabel('Leetware')
+MainGroupBox:AddLabel('leetware')
 
 MainGroupBox:AddButton('Placeholder Button', function()
 end)
@@ -492,7 +495,7 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
 Library:SetWatermarkVisibility(true)
-Library:SetWatermark(string.format("leetware // %d FPS // %d ms", math.floor(1 / game:GetService("RunService").RenderStepped:Wait()), math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())))
+Library:SetWatermark(string.format("leetware | %d FPS | %d ms", math.floor(1 / game:GetService("RunService").RenderStepped:Wait()), math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())))
 
 Library:OnUnload(function()
     if ESPController then
