@@ -40,7 +40,7 @@ local ESPSettings = {
     Name_Scale = 14,
     Font = "UI",
 
-    HealthBorder_Color = Color3.fromRGB(255, 255, 255),
+    HealthBorder_Color = Color3.fromRGB(0, 0, 0),
     HealthFill_Color = Color3.fromRGB(255, 255, 255)
 }
 
