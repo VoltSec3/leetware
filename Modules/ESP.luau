@@ -22,35 +22,9 @@ function ESP.new(config)
     local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
     local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
 
-    local GradientVertex = [[
-struct VSOut
-{
-    float4 pos : SV_POSITION;
-    float2 uv  : TEXCOORD0;
-};
-
-VSOut main(uint id : SV_VertexID)
-{
-    VSOut o;
-
-    float2 pos[3] = {
-        float2(-1.0, -1.0),
-        float2(-1.0,  3.0),
-        float2( 3.0, -1.0)
-    };
-
-    float2 uv[3] = {
-        float2(0.0, 1.0),
-        float2(0.0, -1.0),
-        float2(2.0, 1.0)
-    };
-
-    o.pos = float4(pos[id], 0.0, 1.0);
-    o.uv = uv[id];
-
-    return o;
-}
-]]
+    local GradientColumns = 32
+    local GradientRows = 32
+    local GradientCount = GradientColumns * GradientRows
 
     local function ValidColor(value, fallback)
         if typeof(value) == "Color3" then
@@ -58,17 +32,6 @@ VSOut main(uint id : SV_VertexID)
         end
 
         return fallback
-    end
-
-    local function ColorToShader(value, fallback)
-        local color = ValidColor(value, fallback)
-
-        return string.format(
-            "float3(%.6f, %.6f, %.6f)",
-            color.R,
-            color.G,
-            color.B
-        )
     end
 
     local function NewLine(color, thickness)
@@ -87,8 +50,8 @@ VSOut main(uint id : SV_VertexID)
         square.Visible = false
         square.Position = Vector2.new(0, 0)
         square.Size = Vector2.new(0, 0)
-        square.Thickness = 1
-        square.Filled = false
+        square.Thickness = 0
+        square.Filled = true
         square.Transparency = 1
         square.Color = ValidColor(color, DefaultBoxColor)
         return square
@@ -107,101 +70,6 @@ VSOut main(uint id : SV_VertexID)
         text.Transparency = 1
         text.Color = DefaultTextColor
         return text
-    end
-
-    local function NewGradient()
-        local shader = Drawing.new("Shader")
-        shader.Visible = false
-        shader.Position = Vector2.new(0, 0)
-        shader.Size = Vector2.new(0, 0)
-        shader.Transparency = 1
-        shader.ZIndex = 0
-        shader.Vertex = GradientVertex
-        shader.Pixel = [[
-cbuffer Params : register(b0)
-{
-    float time;
-    float2 resolution;
-    float2 mouse;
-};
-
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
-{
-    float2 p = uv - 0.5;
-
-    float angle = 0.0;
-    float c = cos(angle);
-    float s = sin(angle);
-
-    float2 rotated = float2(
-        p.x * c - p.y * s,
-        p.x * s + p.y * c
-    );
-
-    float t = saturate(rotated.y + 0.5);
-
-    float3 color1 = float3(1.0, 0.0, 0.0);
-    float3 color2 = float3(0.0, 0.0, 1.0);
-
-    float3 finalColor = lerp(color1, color2, t);
-
-    return float4(finalColor, 1.0);
-}
-]]
-        shader:Create()
-        return shader
-    end
-
-    local function UpdateGradientShader(shader)
-        local color1 = ColorToShader(
-            Settings.Gradient_Color_1,
-            DefaultBoxColor
-        )
-
-        local color2 = ColorToShader(
-            Settings.Gradient_Color_2,
-            DefaultBoxColor
-        )
-
-        local rotation = math.rad(
-            tonumber(Settings.Gradient_Rotation) or 0
-        )
-
-        local pixelShader = string.format([[
-cbuffer Params : register(b0)
-{
-    float time;
-    float2 resolution;
-    float2 mouse;
-};
-
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
-{
-    float2 p = uv - 0.5;
-
-    float angle = %.8f;
-
-    float c = cos(angle);
-    float s = sin(angle);
-
-    float2 rotated = float2(
-        p.x * c - p.y * s,
-        p.x * s + p.y * c
-    );
-
-    float t = saturate(rotated.y + 0.5);
-
-    float3 color1 = %s;
-    float3 color2 = %s;
-
-    float3 finalColor = lerp(color1, color2, t);
-
-    return float4(finalColor, 1.0);
-}
-]], rotation, color1, color2)
-
-        shader.Pixel = pixelShader
-        shader:Create()
     end
 
     local function HideLibrary(library)
@@ -309,6 +177,177 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
         Objects[plr] = nil
     end
 
+    local function CreateGradientObjects()
+        local objects = table.create(GradientCount)
+
+        for index = 1, GradientCount do
+            objects[index] = NewSquare()
+        end
+
+        return objects
+    end
+
+    local function GetGradientColor(
+        x,
+        y,
+        width,
+        height,
+        rotation,
+        color1,
+        color2
+    )
+        local nx = (x / width) * 2 - 1
+        local ny = (y / height) * 2 - 1
+
+        local radians = math.rad(rotation)
+
+        local cosValue = math.cos(radians)
+        local sinValue = math.sin(radians)
+
+        local rotatedY =
+            nx * sinValue +
+            ny * cosValue
+
+        local diagonal =
+            math.sqrt(2)
+
+        local t =
+            (rotatedY + diagonal) /
+            (diagonal * 2)
+
+        t = math.clamp(t, 0, 1)
+
+        return color1:Lerp(color2, t)
+    end
+
+    local function UpdateGradient(
+        gradient,
+        left,
+        top,
+        width,
+        height,
+        rotation,
+        opacity
+    )
+        local color1 = ValidColor(
+            Settings.Gradient_Color_1,
+            DefaultBoxColor
+        )
+
+        local color2 = ValidColor(
+            Settings.Gradient_Color_2,
+            DefaultBoxColor
+        )
+
+        local cellWidth =
+            width / GradientColumns
+
+        local cellHeight =
+            height / GradientRows
+
+        local overlapX =
+            math.min(
+                1,
+                cellWidth * 0.08
+            )
+
+        local overlapY =
+            math.min(
+                1,
+                cellHeight * 0.08
+            )
+
+        local index = 1
+
+        for row = 0, GradientRows - 1 do
+            local y =
+                top +
+                row * cellHeight
+
+            local sampleY =
+                row * cellHeight +
+                cellHeight * 0.5
+
+            for column = 0, GradientColumns - 1 do
+                local x =
+                    left +
+                    column * cellWidth
+
+                local sampleX =
+                    column * cellWidth +
+                    cellWidth * 0.5
+
+                local object =
+                    gradient[index]
+
+                local positionX =
+                    x - overlapX * 0.5
+
+                local positionY =
+                    y - overlapY * 0.5
+
+                local sizeX =
+                    cellWidth + overlapX
+
+                local sizeY =
+                    cellHeight + overlapY
+
+                local minimumX = left
+                local minimumY = top
+                local maximumX = left + width
+                local maximumY = top + height
+
+                if positionX < minimumX then
+                    sizeX -= minimumX - positionX
+                    positionX = minimumX
+                end
+
+                if positionY < minimumY then
+                    sizeY -= minimumY - positionY
+                    positionY = minimumY
+                end
+
+                if positionX + sizeX > maximumX then
+                    sizeX =
+                        maximumX - positionX
+                end
+
+                if positionY + sizeY > maximumY then
+                    sizeY =
+                        maximumY - positionY
+                end
+
+                object.Position =
+                    Vector2.new(
+                        positionX,
+                        positionY
+                    )
+
+                object.Size =
+                    Vector2.new(
+                        math.max(sizeX, 0),
+                        math.max(sizeY, 0)
+                    )
+
+                object.Color =
+                    GetGradientColor(
+                        sampleX,
+                        sampleY,
+                        width,
+                        height,
+                        rotation,
+                        color1,
+                        color2
+                    )
+
+                object.Transparency = opacity
+                object.Visible = true
+
+                index += 1
+            end
+        end
+    end
+
     local function CreateObject(plr)
         if plr == Player or Objects[plr] then
             return
@@ -330,27 +369,29 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             BoxRight = NewLine(),
 
             Fill = NewSquare(),
-            Gradient = NewGradient(),
+            Gradient = CreateGradientObjects(),
 
             Name = NewText(),
             Team = NewText(),
 
-            HealthOutline = NewSquare(
-                DefaultHealthBorder
-            ),
+            HealthOutline =
+                NewSquare(
+                    DefaultHealthBorder
+                ),
 
-            HealthBar = NewSquare(
-                DefaultHealthFill
-            )
+            HealthBar =
+                NewSquare(
+                    DefaultHealthFill
+                )
         }
 
-        library.Fill.Filled = true
-
         library.HealthOutline.Filled = false
-        library.HealthOutline.Color = DefaultHealthBorder
+        library.HealthOutline.Color =
+            DefaultHealthBorder
 
         library.HealthBar.Filled = true
-        library.HealthBar.Color = DefaultHealthFill
+        library.HealthBar.Color =
+            DefaultHealthFill
 
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
@@ -359,555 +400,680 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
         originPart.CanQuery = false
         originPart.CanTouch = false
         originPart.Anchored = true
-        originPart.Size = Vector3.new(1, 1, 1)
+        originPart.Size =
+            Vector3.new(
+                1,
+                1,
+                1
+            )
 
         local data = {
             Library = library,
             OriginPart = originPart,
-            Connection = nil,
-            LastGradientRotation = nil,
-            LastGradientColor1 = nil,
-            LastGradientColor2 = nil
+            Connection = nil
         }
 
         Objects[plr] = data
 
         HideLibrary(library)
 
-        data.Connection = RunService.RenderStepped:Connect(function()
-            local success = pcall(function()
-                Camera = Workspace.CurrentCamera
+        data.Connection =
+            RunService.RenderStepped:Connect(
+                function()
+                    Camera =
+                        Workspace.CurrentCamera
 
-                if not Camera then
-                    HideLibrary(library)
-                    return
-                end
-
-                if not Settings.Enabled then
-                    HideLibrary(library)
-                    return
-                end
-
-                local character = plr.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                local head = character and character:FindFirstChild("Head")
-
-                if not character
-                    or not humanoid
-                    or not root
-                    or not head
-                    or humanoid.Health <= 0 then
-
-                    HideLibrary(library)
-                    return
-                end
-
-                local rootPosition, visible = Camera:WorldToViewportPoint(
-                    root.Position
-                )
-
-                if not visible or rootPosition.Z <= 0 then
-                    HideLibrary(library)
-                    return
-                end
-
-                originPart.Size = Vector3.new(
-                    root.Size.X,
-                    root.Size.Y * 1.5,
-                    root.Size.Z
-                )
-
-                originPart.CFrame = CFrame.new(
-                    root.Position,
-                    Camera.CFrame.Position
-                )
-
-                local sizeX = originPart.Size.X
-                local sizeY = originPart.Size.Y
-
-                local topLeft = Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(sizeX, sizeY, 0)
-                    ).Position
-                )
-
-                local topRight = Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(-sizeX, sizeY, 0)
-                    ).Position
-                )
-
-                local bottomLeft = Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(sizeX, -sizeY, 0)
-                    ).Position
-                )
-
-                local bottomRight = Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(-sizeX, -sizeY, 0)
-                    ).Position
-                )
-
-                local left = math.min(
-                    topLeft.X,
-                    topRight.X,
-                    bottomLeft.X,
-                    bottomRight.X
-                )
-
-                local right = math.max(
-                    topLeft.X,
-                    topRight.X,
-                    bottomLeft.X,
-                    bottomRight.X
-                )
-
-                local top = math.min(
-                    topLeft.Y,
-                    topRight.Y,
-                    bottomLeft.Y,
-                    bottomRight.Y
-                )
-
-                local bottom = math.max(
-                    topLeft.Y,
-                    topRight.Y,
-                    bottomLeft.Y,
-                    bottomRight.Y
-                )
-
-                local width = math.max(
-                    right - left,
-                    1
-                )
-
-                local height = math.max(
-                    bottom - top,
-                    1
-                )
-
-                local distance = (
-                    Camera.CFrame.Position -
-                    root.Position
-                ).Magnitude
-
-                local offset = math.clamp(
-                    1 / math.max(distance, 0.01) * 750,
-                    2,
-                    300
-                )
-
-                local boxColor = GetESPColor(plr)
-
-                library.TL1.Color = boxColor
-                library.TL2.Color = boxColor
-                library.TR1.Color = boxColor
-                library.TR2.Color = boxColor
-                library.BL1.Color = boxColor
-                library.BL2.Color = boxColor
-                library.BR1.Color = boxColor
-                library.BR2.Color = boxColor
-                library.BoxTop.Color = boxColor
-                library.BoxBottom.Color = boxColor
-                library.BoxLeft.Color = boxColor
-                library.BoxRight.Color = boxColor
-
-                library.TL1.From = Vector2.new(
-                    topLeft.X,
-                    topLeft.Y
-                )
-
-                library.TL1.To = Vector2.new(
-                    topLeft.X + offset,
-                    topLeft.Y
-                )
-
-                library.TL2.From = Vector2.new(
-                    topLeft.X,
-                    topLeft.Y
-                )
-
-                library.TL2.To = Vector2.new(
-                    topLeft.X,
-                    topLeft.Y + offset
-                )
-
-                library.TR1.From = Vector2.new(
-                    topRight.X,
-                    topRight.Y
-                )
-
-                library.TR1.To = Vector2.new(
-                    topRight.X - offset,
-                    topRight.Y
-                )
-
-                library.TR2.From = Vector2.new(
-                    topRight.X,
-                    topRight.Y
-                )
-
-                library.TR2.To = Vector2.new(
-                    topRight.X,
-                    topRight.Y + offset
-                )
-
-                library.BL1.From = Vector2.new(
-                    bottomLeft.X,
-                    bottomLeft.Y
-                )
-
-                library.BL1.To = Vector2.new(
-                    bottomLeft.X + offset,
-                    bottomLeft.Y
-                )
-
-                library.BL2.From = Vector2.new(
-                    bottomLeft.X,
-                    bottomLeft.Y
-                )
-
-                library.BL2.To = Vector2.new(
-                    bottomLeft.X,
-                    bottomLeft.Y - offset
-                )
-
-                library.BR1.From = Vector2.new(
-                    bottomRight.X,
-                    bottomRight.Y
-                )
-
-                library.BR1.To = Vector2.new(
-                    bottomRight.X - offset,
-                    bottomRight.Y
-                )
-
-                library.BR2.From = Vector2.new(
-                    bottomRight.X,
-                    bottomRight.Y
-                )
-
-                library.BR2.To = Vector2.new(
-                    bottomRight.X,
-                    bottomRight.Y - offset
-                )
-
-                library.BoxTop.From = Vector2.new(
-                    left,
-                    top
-                )
-
-                library.BoxTop.To = Vector2.new(
-                    right,
-                    top
-                )
-
-                library.BoxBottom.From = Vector2.new(
-                    left,
-                    bottom
-                )
-
-                library.BoxBottom.To = Vector2.new(
-                    right,
-                    bottom
-                )
-
-                library.BoxLeft.From = Vector2.new(
-                    left,
-                    top
-                )
-
-                library.BoxLeft.To = Vector2.new(
-                    left,
-                    bottom
-                )
-
-                library.BoxRight.From = Vector2.new(
-                    right,
-                    top
-                )
-
-                library.BoxRight.To = Vector2.new(
-                    right,
-                    bottom
-                )
-
-                local boxStyle = Settings.BoxStyle or "Corner"
-
-                local corner = boxStyle == "Corner"
-                local normal = boxStyle == "Normal"
-
-                library.TL1.Visible = corner
-                library.TL2.Visible = corner
-                library.TR1.Visible = corner
-                library.TR2.Visible = corner
-                library.BL1.Visible = corner
-                library.BL2.Visible = corner
-                library.BR1.Visible = corner
-                library.BR2.Visible = corner
-
-                library.BoxTop.Visible = normal
-                library.BoxBottom.Visible = normal
-                library.BoxLeft.Visible = normal
-                library.BoxRight.Visible = normal
-
-                local opacity = tonumber(
-                    Settings.Fill_Opacity
-                ) or 0.15
-
-                opacity = math.clamp(
-                    opacity,
-                    0,
-                    1
-                )
-
-                if Settings.FillBoxGradient then
-                    library.Fill.Visible = false
-                    library.Gradient.Visible = true
-                    library.Gradient.Position = Vector2.new(
-                        left,
-                        top
-                    )
-                    library.Gradient.Size = Vector2.new(
-                        width,
-                        height
-                    )
-                    library.Gradient.Transparency = opacity
-
-                    local gradientColor1 =
-                        ValidColor(
-                            Settings.Gradient_Color_1,
-                            DefaultBoxColor
-                        )
-
-                    local gradientColor2 =
-                        ValidColor(
-                            Settings.Gradient_Color_2,
-                            DefaultBoxColor
-                        )
-
-                    local gradientRotation =
-                        tonumber(
-                            Settings.Gradient_Rotation
-                        ) or 0
-
-                    if gradientColor1 ~= data.LastGradientColor1
-                        or gradientColor2 ~= data.LastGradientColor2
-                        or gradientRotation ~= data.LastGradientRotation then
-
-                        data.LastGradientColor1 =
-                            gradientColor1
-
-                        data.LastGradientColor2 =
-                            gradientColor2
-
-                        data.LastGradientRotation =
-                            gradientRotation
-
-                        UpdateGradientShader(
-                            library.Gradient
-                        )
+                    if not Camera then
+                        HideLibrary(library)
+                        return
                     end
-                else
-                    library.Gradient.Visible = false
 
-                    if Settings.FillBox then
-                        library.Fill.Visible = true
-                        library.Fill.Color = ValidColor(
-                            Settings.Fill_Box_Color,
-                            DefaultBoxColor
-                        )
-                        library.Fill.Transparency = opacity
-                        library.Fill.Position =
-                            Vector2.new(left, top)
-                        library.Fill.Size =
-                            Vector2.new(width, height)
-                    else
-                        library.Fill.Visible = false
+                    if not Settings.Enabled then
+                        HideLibrary(library)
+                        return
                     end
-                end
 
-                local nameScale = tonumber(
-                    Settings.Name_Scale
-                ) or 14
+                    local character =
+                        plr.Character
 
-                nameScale = math.clamp(
-                    nameScale,
-                    1,
-                    100
-                )
-
-                library.Name.Visible =
-                    Settings.ShowName
-
-                library.Name.Text =
-                    tostring(plr.Name)
-
-                library.Name.Color =
-                    GetTextColor(
-                        plr,
-                        "Name"
-                    )
-
-                library.Name.Size =
-                    nameScale
-
-                library.Name.Font =
-                    Fonts[
-                        Settings.Font
-                    ] or Fonts.UI
-
-                library.Name.Position =
-                    Vector2.new(
-                        (left + right) / 2,
-                        top - nameScale - 5
-                    )
-
-                library.Team.Visible =
-                    Settings.ShowTeam
-
-                library.Team.Text =
-                    plr.Team
-                        and tostring(
-                            plr.Team.Name
+                    local humanoid =
+                        character and
+                        character:FindFirstChildOfClass(
+                            "Humanoid"
                         )
-                        or "Neutral"
 
-                library.Team.Color =
-                    GetTextColor(
-                        plr,
-                        "Team"
-                    )
-
-                library.Team.Size =
-                    math.max(
-                        nameScale - 1,
-                        10
-                    )
-
-                library.Team.Font =
-                    Fonts[
-                        Settings.Font
-                    ] or Fonts.UI
-
-                library.Team.Position =
-                    Vector2.new(
-                        (left + right) / 2,
-                        top - (
-                            Settings.ShowName
-                            and nameScale + 19
-                            or 18
+                    local root =
+                        character and
+                        character:FindFirstChild(
+                            "HumanoidRootPart"
                         )
-                    )
 
-                local healthRatio = 0
+                    local head =
+                        character and
+                        character:FindFirstChild(
+                            "Head"
+                        )
 
-                if humanoid.MaxHealth
-                    and humanoid.MaxHealth > 0 then
+                    if not character
+                        or not humanoid
+                        or not root
+                        or not head
+                        or humanoid.Health <= 0 then
 
-                    healthRatio = math.clamp(
-                        humanoid.Health /
-                            humanoid.MaxHealth,
-                        0,
-                        1
-                    )
-                end
+                        HideLibrary(library)
+                        return
+                    end
 
-                local healthWidth = 5
-                local healthGap = 5
+                    local rootPosition,
+                        visible =
+                        Camera:WorldToViewportPoint(
+                            root.Position
+                        )
 
-                library.HealthOutline.Visible =
-                    Settings.ShowHealth
+                    if not visible
+                        or rootPosition.Z <= 0 then
 
-                library.HealthOutline.Color =
-                    ValidColor(
-                        Settings.HealthBorder_Color,
-                        DefaultHealthBorder
-                    )
+                        HideLibrary(library)
+                        return
+                    end
 
-                library.HealthOutline.Position =
-                    Vector2.new(
-                        right + healthGap,
-                        top
-                    )
+                    originPart.Size =
+                        Vector3.new(
+                            root.Size.X,
+                            root.Size.Y * 1.5,
+                            root.Size.Z
+                        )
 
-                library.HealthOutline.Size =
-                    Vector2.new(
-                        healthWidth,
-                        height
-                    )
+                    originPart.CFrame =
+                        CFrame.new(
+                            root.Position,
+                            Camera.CFrame.Position
+                        )
 
-                library.HealthBar.Visible =
-                    Settings.ShowHealth
+                    local sizeX =
+                        originPart.Size.X
 
-                library.HealthBar.Color =
-                    ValidColor(
-                        Settings.HealthFill_Color,
-                        DefaultHealthFill
-                    )
+                    local sizeY =
+                        originPart.Size.Y
 
-                library.HealthBar.Position =
-                    Vector2.new(
-                        right + healthGap + 1,
-                        bottom -
-                            ((height - 2) * healthRatio) -
-                            1
-                    )
+                    local topLeft =
+                        Camera:WorldToViewportPoint(
+                            (
+                                originPart.CFrame *
+                                CFrame.new(
+                                    sizeX,
+                                    sizeY,
+                                    0
+                                )
+                            ).Position
+                        )
 
-                library.HealthBar.Size =
-                    Vector2.new(
-                        healthWidth - 2,
+                    local topRight =
+                        Camera:WorldToViewportPoint(
+                            (
+                                originPart.CFrame *
+                                CFrame.new(
+                                    -sizeX,
+                                    sizeY,
+                                    0
+                                )
+                            ).Position
+                        )
+
+                    local bottomLeft =
+                        Camera:WorldToViewportPoint(
+                            (
+                                originPart.CFrame *
+                                CFrame.new(
+                                    sizeX,
+                                    -sizeY,
+                                    0
+                                )
+                            ).Position
+                        )
+
+                    local bottomRight =
+                        Camera:WorldToViewportPoint(
+                            (
+                                originPart.CFrame *
+                                CFrame.new(
+                                    -sizeX,
+                                    -sizeY,
+                                    0
+                                )
+                            ).Position
+                        )
+
+                    local left =
+                        math.min(
+                            topLeft.X,
+                            topRight.X,
+                            bottomLeft.X,
+                            bottomRight.X
+                        )
+
+                    local right =
                         math.max(
-                            (height - 2) * healthRatio,
-                            0
+                            topLeft.X,
+                            topRight.X,
+                            bottomLeft.X,
+                            bottomRight.X
                         )
-                    )
 
-                local thickness
+                    local top =
+                        math.min(
+                            topLeft.Y,
+                            topRight.Y,
+                            bottomLeft.Y,
+                            bottomRight.Y
+                        )
 
-                if Settings.Autothickness then
-                    thickness = math.clamp(
-                        1 /
-                            math.max(distance, 0.01) *
-                            100,
-                        1,
-                        4
-                    )
-                else
-                    thickness =
+                    local bottom =
+                        math.max(
+                            topLeft.Y,
+                            topRight.Y,
+                            bottomLeft.Y,
+                            bottomRight.Y
+                        )
+
+                    local width =
+                        math.max(
+                            right - left,
+                            1
+                        )
+
+                    local height =
+                        math.max(
+                            bottom - top,
+                            1
+                        )
+
+                    local distance =
+                        (
+                            Camera.CFrame.Position -
+                            root.Position
+                        ).Magnitude
+
+                    local offset =
+                        math.clamp(
+                            1 /
+                                math.max(
+                                    distance,
+                                    0.01
+                                ) *
+                                750,
+                            2,
+                            300
+                        )
+
+                    local boxColor =
+                        GetESPColor(plr)
+
+                    library.TL1.Color = boxColor
+                    library.TL2.Color = boxColor
+                    library.TR1.Color = boxColor
+                    library.TR2.Color = boxColor
+                    library.BL1.Color = boxColor
+                    library.BL2.Color = boxColor
+                    library.BR1.Color = boxColor
+                    library.BR2.Color = boxColor
+
+                    library.BoxTop.Color = boxColor
+                    library.BoxBottom.Color = boxColor
+                    library.BoxLeft.Color = boxColor
+                    library.BoxRight.Color = boxColor
+
+                    library.TL1.From =
+                        Vector2.new(
+                            topLeft.X,
+                            topLeft.Y
+                        )
+
+                    library.TL1.To =
+                        Vector2.new(
+                            topLeft.X + offset,
+                            topLeft.Y
+                        )
+
+                    library.TL2.From =
+                        Vector2.new(
+                            topLeft.X,
+                            topLeft.Y
+                        )
+
+                    library.TL2.To =
+                        Vector2.new(
+                            topLeft.X,
+                            topLeft.Y + offset
+                        )
+
+                    library.TR1.From =
+                        Vector2.new(
+                            topRight.X,
+                            topRight.Y
+                        )
+
+                    library.TR1.To =
+                        Vector2.new(
+                            topRight.X - offset,
+                            topRight.Y
+                        )
+
+                    library.TR2.From =
+                        Vector2.new(
+                            topRight.X,
+                            topRight.Y
+                        )
+
+                    library.TR2.To =
+                        Vector2.new(
+                            topRight.X,
+                            topRight.Y + offset
+                        )
+
+                    library.BL1.From =
+                        Vector2.new(
+                            bottomLeft.X,
+                            bottomLeft.Y
+                        )
+
+                    library.BL1.To =
+                        Vector2.new(
+                            bottomLeft.X + offset,
+                            bottomLeft.Y
+                        )
+
+                    library.BL2.From =
+                        Vector2.new(
+                            bottomLeft.X,
+                            bottomLeft.Y
+                        )
+
+                    library.BL2.To =
+                        Vector2.new(
+                            bottomLeft.X,
+                            bottomLeft.Y - offset
+                        )
+
+                    library.BR1.From =
+                        Vector2.new(
+                            bottomRight.X,
+                            bottomRight.Y
+                        )
+
+                    library.BR1.To =
+                        Vector2.new(
+                            bottomRight.X - offset,
+                            bottomRight.Y
+                        )
+
+                    library.BR2.From =
+                        Vector2.new(
+                            bottomRight.X,
+                            bottomRight.Y
+                        )
+
+                    library.BR2.To =
+                        Vector2.new(
+                            bottomRight.X,
+                            bottomRight.Y - offset
+                        )
+
+                    library.BoxTop.From =
+                        Vector2.new(
+                            left,
+                            top
+                        )
+
+                    library.BoxTop.To =
+                        Vector2.new(
+                            right,
+                            top
+                        )
+
+                    library.BoxBottom.From =
+                        Vector2.new(
+                            left,
+                            bottom
+                        )
+
+                    library.BoxBottom.To =
+                        Vector2.new(
+                            right,
+                            bottom
+                        )
+
+                    library.BoxLeft.From =
+                        Vector2.new(
+                            left,
+                            top
+                        )
+
+                    library.BoxLeft.To =
+                        Vector2.new(
+                            left,
+                            bottom
+                        )
+
+                    library.BoxRight.From =
+                        Vector2.new(
+                            right,
+                            top
+                        )
+
+                    library.BoxRight.To =
+                        Vector2.new(
+                            right,
+                            bottom
+                        )
+
+                    local boxStyle =
+                        Settings.BoxStyle
+                        or "Corner"
+
+                    local corner =
+                        boxStyle == "Corner"
+
+                    local normal =
+                        boxStyle == "Normal"
+
+                    library.TL1.Visible =
+                        corner
+
+                    library.TL2.Visible =
+                        corner
+
+                    library.TR1.Visible =
+                        corner
+
+                    library.TR2.Visible =
+                        corner
+
+                    library.BL1.Visible =
+                        corner
+
+                    library.BL2.Visible =
+                        corner
+
+                    library.BR1.Visible =
+                        corner
+
+                    library.BR2.Visible =
+                        corner
+
+                    library.BoxTop.Visible =
+                        normal
+
+                    library.BoxBottom.Visible =
+                        normal
+
+                    library.BoxLeft.Visible =
+                        normal
+
+                    library.BoxRight.Visible =
+                        normal
+
+                    local opacity =
                         tonumber(
-                            Settings.Box_Thickness
-                        ) or 2
+                            Settings.Fill_Opacity
+                        ) or 0.15
+
+                    opacity =
+                        math.clamp(
+                            opacity,
+                            0,
+                            1
+                        )
+
+                    if Settings.FillBoxGradient then
+                        library.Fill.Visible =
+                            false
+
+                        UpdateGradient(
+                            library.Gradient,
+                            left,
+                            top,
+                            width,
+                            height,
+                            tonumber(
+                                Settings.Gradient_Rotation
+                            ) or 0,
+                            opacity
+                        )
+                    else
+                        for _, object
+                            in ipairs(
+                                library.Gradient
+                            ) do
+
+                            object.Visible =
+                                false
+                        end
+
+                        if Settings.FillBox then
+                            library.Fill.Visible =
+                                true
+
+                            library.Fill.Color =
+                                ValidColor(
+                                    Settings.Fill_Box_Color,
+                                    DefaultBoxColor
+                                )
+
+                            library.Fill.Transparency =
+                                opacity
+
+                            library.Fill.Position =
+                                Vector2.new(
+                                    left,
+                                    top
+                                )
+
+                            library.Fill.Size =
+                                Vector2.new(
+                                    width,
+                                    height
+                                )
+                        else
+                            library.Fill.Visible =
+                                false
+                        end
+                    end
+
+                    local nameScale =
+                        tonumber(
+                            Settings.Name_Scale
+                        ) or 14
+
+                    nameScale =
+                        math.clamp(
+                            nameScale,
+                            1,
+                            100
+                        )
+
+                    library.Name.Visible =
+                        Settings.ShowName
+
+                    library.Name.Text =
+                        tostring(
+                            plr.Name
+                        )
+
+                    library.Name.Color =
+                        GetTextColor(
+                            plr,
+                            "Name"
+                        )
+
+                    library.Name.Size =
+                        nameScale
+
+                    library.Name.Font =
+                        Fonts[
+                            Settings.Font
+                        ] or Fonts.UI
+
+                    library.Name.Position =
+                        Vector2.new(
+                            (left + right) / 2,
+                            top -
+                                nameScale -
+                                5
+                        )
+
+                    library.Team.Visible =
+                        Settings.ShowTeam
+
+                    library.Team.Text =
+                        plr.Team
+                            and tostring(
+                                plr.Team.Name
+                            )
+                            or "Neutral"
+
+                    library.Team.Color =
+                        GetTextColor(
+                            plr,
+                            "Team"
+                        )
+
+                    library.Team.Size =
+                        math.max(
+                            nameScale - 1,
+                            10
+                        )
+
+                    library.Team.Font =
+                        Fonts[
+                            Settings.Font
+                        ] or Fonts.UI
+
+                    library.Team.Position =
+                        Vector2.new(
+                            (left + right) / 2,
+                            top -
+                                (
+                                    Settings.ShowName
+                                    and nameScale + 19
+                                    or 18
+                                )
+                        )
+
+                    local healthRatio =
+                        0
+
+                    if humanoid.MaxHealth
+                        and humanoid.MaxHealth > 0 then
+
+                        healthRatio =
+                            math.clamp(
+                                humanoid.Health /
+                                    humanoid.MaxHealth,
+                                0,
+                                1
+                            )
+                    end
+
+                    local healthWidth =
+                        5
+
+                    local healthGap =
+                        5
+
+                    library.HealthOutline.Visible =
+                        Settings.ShowHealth
+
+                    library.HealthOutline.Color =
+                        ValidColor(
+                            Settings.HealthBorder_Color,
+                            DefaultHealthBorder
+                        )
+
+                    library.HealthOutline.Position =
+                        Vector2.new(
+                            right +
+                                healthGap,
+                            top
+                        )
+
+                    library.HealthOutline.Size =
+                        Vector2.new(
+                            healthWidth,
+                            height
+                        )
+
+                    library.HealthBar.Visible =
+                        Settings.ShowHealth
+
+                    library.HealthBar.Color =
+                        ValidColor(
+                            Settings.HealthFill_Color,
+                            DefaultHealthFill
+                        )
+
+                    library.HealthBar.Position =
+                        Vector2.new(
+                            right +
+                                healthGap +
+                                1,
+                            bottom -
+                                (
+                                    (height - 2) *
+                                    healthRatio
+                                ) -
+                                1
+                        )
+
+                    library.HealthBar.Size =
+                        Vector2.new(
+                            healthWidth - 2,
+                            math.max(
+                                (height - 2) *
+                                    healthRatio,
+                                0
+                            )
+                        )
+
+                    local thickness
+
+                    if Settings.Autothickness then
+                        thickness =
+                            math.clamp(
+                                1 /
+                                    math.max(
+                                        distance,
+                                        0.01
+                                    ) *
+                                    100,
+                                1,
+                                4
+                            )
+                    else
+                        thickness =
+                            tonumber(
+                                Settings.Box_Thickness
+                            ) or 2
+                    end
+
+                    SetThickness({
+                        TL1 = library.TL1,
+                        TL2 = library.TL2,
+                        TR1 = library.TR1,
+                        TR2 = library.TR2,
+                        BL1 = library.BL1,
+                        BL2 = library.BL2,
+                        BR1 = library.BR1,
+                        BR2 = library.BR2,
+                        BoxTop = library.BoxTop,
+                        BoxBottom = library.BoxBottom,
+                        BoxLeft = library.BoxLeft,
+                        BoxRight = library.BoxRight,
+                        HealthOutline =
+                            library.HealthOutline
+                    }, thickness)
                 end
-
-                SetThickness({
-                    TL1 = library.TL1,
-                    TL2 = library.TL2,
-                    TR1 = library.TR1,
-                    TR2 = library.TR2,
-                    BL1 = library.BL1,
-                    BL2 = library.BL2,
-                    BR1 = library.BR1,
-                    BR2 = library.BR2,
-                    BoxTop = library.BoxTop,
-                    BoxBottom = library.BoxBottom,
-                    BoxLeft = library.BoxLeft,
-                    BoxRight = library.BoxRight,
-                    HealthOutline =
-                        library.HealthOutline
-                }, thickness)
-            end)
-
-            if not success then
-                HideLibrary(library)
-            end
-        end)
+            )
     end
 
     local controller = {}
