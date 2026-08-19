@@ -224,23 +224,13 @@ Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box_Color = Options.ESPBoxColor.Value
 end)
 
-local NormalBoxToggle = BoxGroupBox:AddToggle('ESPNormalBox', {
+BoxGroupBox:AddToggle('ESPNormalBox', {
     Text = 'Normal Box',
     Default = ESPSettings.NormalBox
 })
 
-NormalBoxToggle:AddColorPicker('ESPBoxColorNormal', {
-    Default = ESPSettings.Box_Color,
-    Title = 'Box Color'
-})
-
 Toggles.ESPNormalBox:OnChanged(function()
     ESPSettings.NormalBox = Toggles.ESPNormalBox.Value
-end)
-
-Options.ESPBoxColorNormal:OnChanged(function()
-    ESPSettings.Box_Color = Options.ESPBoxColorNormal.Value
-    Options.ESPBoxColor:SetValue(Options.ESPBoxColorNormal.Value)
 end)
 
 BoxGroupBox:AddToggle('ESPRainbow', {
@@ -312,28 +302,28 @@ Options.ESPFillBoxColor:OnChanged(function()
     ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
 end)
 
-FillGroupBox:AddToggle('ESPFillBoxGradient', {
+local GradientToggle = FillGroupBox:AddToggle('ESPFillBoxGradient', {
     Text = 'Gradient',
     Default = ESPSettings.FillBoxGradient
+})
+
+GradientToggle:AddColorPicker('ESPGradientColor1', {
+    Default = ESPSettings.Gradient_Color_1,
+    Title = 'Gradient Start'
+})
+
+GradientToggle:AddColorPicker('ESPGradientColor2', {
+    Default = ESPSettings.Gradient_Color_2,
+    Title = 'Gradient End'
 })
 
 Toggles.ESPFillBoxGradient:OnChanged(function()
     ESPSettings.FillBoxGradient = Toggles.ESPFillBoxGradient.Value
 end)
 
-FillGroupBox:AddLabel('Gradient Start'):AddColorPicker('ESPGradientColor1', {
-    Default = ESPSettings.Gradient_Color_1,
-    Title = 'Gradient Start'
-})
-
 Options.ESPGradientColor1:OnChanged(function()
     ESPSettings.Gradient_Color_1 = Options.ESPGradientColor1.Value
 end)
-
-FillGroupBox:AddLabel('Gradient End'):AddColorPicker('ESPGradientColor2', {
-    Default = ESPSettings.Gradient_Color_2,
-    Title = 'Gradient End'
-})
 
 Options.ESPGradientColor2:OnChanged(function()
     ESPSettings.Gradient_Color_2 = Options.ESPGradientColor2.Value
@@ -419,7 +409,7 @@ InfoGroupBox:AddDropdown('ESPFont', {
         'Plex',
         'Monospace'
     },
-    Default = ESPSettings.Font,
+    Default = 1,
     Multi = false,
     Text = 'Font'
 })
