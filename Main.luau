@@ -33,14 +33,15 @@ local ESPSettings = {
 
     ShowName = false,
     ShowTeam = false,
+    ShowHealth = false,
     CustomTextColor = false,
     Name_Color = Color3.fromRGB(255, 255, 255),
     Team_Text_Color = Color3.fromRGB(255, 255, 255),
     Name_Scale = 14,
     Font = "UI",
 
-    ShowHealth = false,
-    HealthBar_Color = Color3.fromRGB(255, 255, 255)
+    HealthBorder_Color = Color3.fromRGB(255, 255, 255),
+    HealthFill_Color = Color3.fromRGB(255, 255, 255)
 }
 
 local ESPModule = loadstring(game:HttpGet(espRepo))()
@@ -380,6 +381,33 @@ Options.ESPTeamTextColor:OnChanged(function()
     ESPSettings.Team_Text_Color = Options.ESPTeamTextColor.Value
 end)
 
+local ShowHealthToggle = InfoGroupBox:AddToggle('ESPShowHealth', {
+    Text = 'Show Health',
+    Default = ESPSettings.ShowHealth
+})
+
+ShowHealthToggle:AddColorPicker('ESPHealthBorderColor', {
+    Default = ESPSettings.HealthBorder_Color,
+    Title = 'Health Border Color'
+})
+
+ShowHealthToggle:AddColorPicker('ESPHealthFillColor', {
+    Default = ESPSettings.HealthFill_Color,
+    Title = 'Health Fill Color'
+})
+
+Toggles.ESPShowHealth:OnChanged(function()
+    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
+end)
+
+Options.ESPHealthBorderColor:OnChanged(function()
+    ESPSettings.HealthBorder_Color = Options.ESPHealthBorderColor.Value
+end)
+
+Options.ESPHealthFillColor:OnChanged(function()
+    ESPSettings.HealthFill_Color = Options.ESPHealthFillColor.Value
+end)
+
 InfoGroupBox:AddToggle('ESPCustomTextColor', {
     Text = 'Custom Text Colors',
     Default = ESPSettings.CustomTextColor
@@ -416,26 +444,6 @@ InfoGroupBox:AddDropdown('ESPFont', {
 
 Options.ESPFont:OnChanged(function()
     ESPSettings.Font = Options.ESPFont.Value
-end)
-
-local HealthGroupBox = Tabs.Visuals:AddRightGroupbox('Health')
-
-local HealthToggle = HealthGroupBox:AddToggle('ESPShowHealth', {
-    Text = 'Show Health',
-    Default = ESPSettings.ShowHealth
-})
-
-HealthToggle:AddColorPicker('ESPHealthBarColor', {
-    Default = ESPSettings.HealthBar_Color,
-    Title = 'Health Bar Color'
-})
-
-Toggles.ESPShowHealth:OnChanged(function()
-    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
-end)
-
-Options.ESPHealthBarColor:OnChanged(function()
-    ESPSettings.HealthBar_Color = Options.ESPHealthBarColor.Value
 end)
 
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
@@ -485,7 +493,7 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
 Library:SetWatermarkVisibility(true)
-Library:SetWatermark(string.format("leetware | %d FPS | %d ms", math.floor(1 / game:GetService("RunService").RenderStepped:Wait()), math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())))
+Library:SetWatermark('leetware')
 
 Library:OnUnload(function()
     if ESPController then

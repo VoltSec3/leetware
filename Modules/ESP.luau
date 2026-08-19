@@ -17,13 +17,25 @@ function ESP.new(config)
         Monospace = 3
     }
 
+    local DefaultBoxColor = Color3.fromRGB(255, 0, 0)
+    local DefaultTextColor = Color3.fromRGB(255, 255, 255)
+    local DefaultHealthColor = Color3.fromRGB(255, 255, 255)
+
+    local function ValidColor(value, fallback)
+        if typeof(value) == "Color3" then
+            return value
+        end
+
+        return fallback
+    end
+
     local function NewLine(color, thickness)
         local line = Drawing.new("Line")
         line.Visible = false
         line.From = Vector2.new(0, 0)
         line.To = Vector2.new(0, 0)
-        line.Color = color
-        line.Thickness = thickness
+        line.Color = ValidColor(color, DefaultBoxColor)
+        line.Thickness = thickness or 1
         line.Transparency = 1
         return line
     end
@@ -36,6 +48,7 @@ function ESP.new(config)
         square.Thickness = 1
         square.Filled = false
         square.Transparency = 1
+        square.Color = DefaultBoxColor
         return square
     end
 
@@ -50,6 +63,7 @@ function ESP.new(config)
         text.Position = Vector2.new(0, 0)
         text.Font = Fonts.UI
         text.Transparency = 1
+        text.Color = DefaultTextColor
         return text
     end
 
@@ -65,30 +79,16 @@ function ESP.new(config)
         end
     end
 
-    local function SetColor(library, color)
-        for _, object in pairs(library) do
-            if typeof(object) == "table" then
-                for _, nested in pairs(object) do
-                    nested.Color = color
-                end
-            else
-                object.Color = color
-            end
-        end
-    end
-
     local function SetThickness(library, thickness)
         for _, object in pairs(library) do
             if typeof(object) == "table" then
                 for _, nested in pairs(object) do
-                    if nested.Thickness then
+                    if nested.Thickness ~= nil then
                         nested.Thickness = thickness
                     end
                 end
-            else
-                if object.Thickness then
-                    object.Thickness = thickness
-                end
+            elseif object.Thickness ~= nil then
+                object.Thickness = thickness
             end
         end
     end
@@ -100,30 +100,36 @@ function ESP.new(config)
         end
 
         if Settings.Team_Color then
-            return plr.TeamColor.Color
+            if plr.TeamColor then
+                local teamColor = plr.TeamColor.Color
+
+                if typeof(teamColor) == "Color3" then
+                    return teamColor
+                end
+            end
         end
 
         if Settings.Team_Check then
-            if plr.TeamColor == Player.TeamColor then
+            if plr.TeamColor and Player.TeamColor and plr.TeamColor == Player.TeamColor then
                 return Color3.fromRGB(0, 255, 0)
             end
 
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return Settings.Box_Color
+        return ValidColor(Settings.Box_Color, DefaultBoxColor)
     end
 
-    local function GetTextColor(plr, type)
+    local function GetTextColor(plr, textType)
         if not Settings.CustomTextColor then
             return GetESPColor(plr)
         end
 
-        if type == "Name" then
-            return Settings.Name_Color
+        if textType == "Name" then
+            return ValidColor(Settings.Name_Color, DefaultTextColor)
         end
 
-        return Settings.Team_Text_Color
+        return ValidColor(Settings.Team_Text_Color, DefaultTextColor)
     end
 
     local function DestroyObject(plr)
@@ -168,24 +174,24 @@ function ESP.new(config)
         for i = 1, 24 do
             local square = NewSquare()
             square.Filled = true
-            square.Transparency = Settings.Fill_Opacity
+            square.Transparency = 0.15
             gradientObjects[i] = square
         end
 
         local library = {
-            TL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            TL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            TR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            TR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+            TL1 = NewLine(DefaultBoxColor, 2),
+            TL2 = NewLine(DefaultBoxColor, 2),
+            TR1 = NewLine(DefaultBoxColor, 2),
+            TR2 = NewLine(DefaultBoxColor, 2),
+            BL1 = NewLine(DefaultBoxColor, 2),
+            BL2 = NewLine(DefaultBoxColor, 2),
+            BR1 = NewLine(DefaultBoxColor, 2),
+            BR2 = NewLine(DefaultBoxColor, 2),
 
-            BoxTop = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BoxBottom = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BoxLeft = NewLine(Settings.Box_Color, Settings.Box_Thickness),
-            BoxRight = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+            BoxTop = NewLine(DefaultBoxColor, 2),
+            BoxBottom = NewLine(DefaultBoxColor, 2),
+            BoxLeft = NewLine(DefaultBoxColor, 2),
+            BoxRight = NewLine(DefaultBoxColor, 2),
 
             Fill = NewSquare(),
             Gradient = gradientObjects,
@@ -198,14 +204,15 @@ function ESP.new(config)
         }
 
         library.Fill.Filled = true
-        library.Fill.Transparency = Settings.Fill_Opacity
+        library.Fill.Transparency = 0.15
 
         library.HealthOutline.Filled = false
         library.HealthOutline.Transparency = 1
+        library.HealthOutline.Color = DefaultHealthColor
 
         library.HealthBar.Filled = true
         library.HealthBar.Transparency = 1
-        library.HealthBar.Color = Settings.HealthBar_Color
+        library.HealthBar.Color = DefaultHealthColor
 
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
@@ -295,25 +302,22 @@ function ESP.new(config)
             local height = math.max(bottom - top, 1)
 
             local distance = (Camera.CFrame.Position - root.Position).Magnitude
-            local offset = math.clamp(1 / distance * 750, 2, 300)
+            local offset = math.clamp(1 / math.max(distance, 0.01) * 750, 2, 300)
 
-            local color = GetESPColor(plr)
+            local color = ValidColor(GetESPColor(plr), DefaultBoxColor)
 
-            SetColor({
-                TL1 = library.TL1,
-                TL2 = library.TL2,
-                TR1 = library.TR1,
-                TR2 = library.TR2,
-                BL1 = library.BL1,
-                BL2 = library.BL2,
-                BR1 = library.BR1,
-                BR2 = library.BR2,
-                BoxTop = library.BoxTop,
-                BoxBottom = library.BoxBottom,
-                BoxLeft = library.BoxLeft,
-                BoxRight = library.BoxRight,
-                HealthOutline = library.HealthOutline
-            }, color)
+            library.TL1.Color = color
+            library.TL2.Color = color
+            library.TR1.Color = color
+            library.TR2.Color = color
+            library.BL1.Color = color
+            library.BL2.Color = color
+            library.BR1.Color = color
+            library.BR2.Color = color
+            library.BoxTop.Color = color
+            library.BoxBottom.Color = color
+            library.BoxLeft.Color = color
+            library.BoxRight.Color = color
 
             library.TL1.From = Vector2.new(topLeft.X, topLeft.Y)
             library.TL1.To = Vector2.new(topLeft.X + offset, topLeft.Y)
@@ -365,28 +369,45 @@ function ESP.new(config)
             library.BoxLeft.Visible = Settings.NormalBox
             library.BoxRight.Visible = Settings.NormalBox
 
-            library.Fill.Transparency = Settings.Fill_Opacity
+            local fillOpacity = tonumber(Settings.Fill_Opacity)
+
+            if not fillOpacity then
+                fillOpacity = 0.15
+            end
+
+            fillOpacity = math.clamp(fillOpacity, 0, 1)
+
+            library.Fill.Transparency = fillOpacity
 
             for _, object in ipairs(library.Gradient) do
-                object.Transparency = Settings.Fill_Opacity
+                object.Transparency = fillOpacity
             end
 
             if Settings.FillBoxGradient then
                 library.Fill.Visible = false
 
+                local gradientColor1 = ValidColor(Settings.Gradient_Color_1, DefaultBoxColor)
+                local gradientColor2 = ValidColor(Settings.Gradient_Color_2, DefaultBoxColor)
+
                 for i = 1, #library.Gradient do
                     local alpha = (i - 1) / (#library.Gradient - 1)
-                    local gradientColor = Settings.Gradient_Color_1:Lerp(Settings.Gradient_Color_2, alpha)
+                    local gradientColor = gradientColor1:Lerp(gradientColor2, alpha)
                     local stripHeight = height / #library.Gradient
 
                     library.Gradient[i].Visible = true
                     library.Gradient[i].Color = gradientColor
-                    library.Gradient[i].Position = Vector2.new(left, top + ((i - 1) * stripHeight))
-                    library.Gradient[i].Size = Vector2.new(width, stripHeight + 1)
+                    library.Gradient[i].Position = Vector2.new(
+                        left,
+                        top + ((i - 1) * stripHeight)
+                    )
+                    library.Gradient[i].Size = Vector2.new(
+                        width,
+                        stripHeight + 1
+                    )
                 end
             elseif Settings.FillBox then
                 library.Fill.Visible = true
-                library.Fill.Color = Settings.Fill_Box_Color
+                library.Fill.Color = ValidColor(Settings.Fill_Box_Color, DefaultBoxColor)
                 library.Fill.Position = Vector2.new(left, top)
                 library.Fill.Size = Vector2.new(width, height)
 
@@ -401,38 +422,69 @@ function ESP.new(config)
                 end
             end
 
-            local nameColor = GetTextColor(plr, "Name")
-            local teamColor = GetTextColor(plr, "Team")
+            local nameColor = ValidColor(GetTextColor(plr, "Name"), DefaultTextColor)
+            local teamColor = ValidColor(GetTextColor(plr, "Team"), DefaultTextColor)
 
             library.Name.Visible = Settings.ShowName
             library.Team.Visible = Settings.ShowTeam
 
-            library.Name.Text = plr.Name
+            local nameScale = tonumber(Settings.Name_Scale)
+
+            if not nameScale then
+                nameScale = 14
+            end
+
+            nameScale = math.clamp(nameScale, 1, 100)
+
+            library.Name.Text = tostring(plr.Name)
             library.Name.Color = nameColor
-            library.Name.Size = Settings.Name_Scale
+            library.Name.Size = nameScale
             library.Name.Font = Fonts[Settings.Font] or Fonts.UI
             library.Name.Position = Vector2.new(
                 (left + right) / 2,
-                top - (Settings.Name_Scale + 5)
+                top - (nameScale + 5)
             )
 
-            library.Team.Text = plr.Team and plr.Team.Name or "Neutral"
+            local teamName = "Neutral"
+
+            if plr.Team then
+                teamName = tostring(plr.Team.Name)
+            end
+
+            library.Team.Text = teamName
             library.Team.Color = teamColor
-            library.Team.Size = math.max(Settings.Name_Scale - 1, 10)
+            library.Team.Size = math.max(nameScale - 1, 10)
             library.Team.Font = Fonts[Settings.Font] or Fonts.UI
             library.Team.Position = Vector2.new(
                 (left + right) / 2,
-                top - (Settings.ShowName and (Settings.Name_Scale + 19) or 18)
+                top - (Settings.ShowName and (nameScale + 19) or 18)
             )
 
             local healthRatio = 0
 
-            if humanoid.MaxHealth > 0 then
-                healthRatio = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            if humanoid.MaxHealth and humanoid.MaxHealth > 0 then
+                healthRatio = math.clamp(
+                    humanoid.Health / humanoid.MaxHealth,
+                    0,
+                    1
+                )
             end
 
             local healthWidth = 5
             local healthGap = 5
+
+            local healthBorderColor = ValidColor(
+                Settings.HealthBorder_Color,
+                DefaultHealthColor
+            )
+
+            local healthFillColor = ValidColor(
+                Settings.HealthFill_Color,
+                DefaultHealthColor
+            )
+
+            library.HealthOutline.Color = healthBorderColor
+            library.HealthBar.Color = healthFillColor
 
             library.HealthOutline.Visible = Settings.ShowHealth
             library.HealthBar.Visible = Settings.ShowHealth
@@ -457,43 +509,33 @@ function ESP.new(config)
                 math.max((height - 2) * healthRatio, 0)
             )
 
-            library.HealthBar.Color = Settings.HealthBar_Color
+            local thickness
 
             if Settings.Autothickness then
-                local value = math.clamp(1 / distance * 100, 1, 4)
-
-                SetThickness({
-                    TL1 = library.TL1,
-                    TL2 = library.TL2,
-                    TR1 = library.TR1,
-                    TR2 = library.TR2,
-                    BL1 = library.BL1,
-                    BL2 = library.BL2,
-                    BR1 = library.BR1,
-                    BR2 = library.BR2,
-                    BoxTop = library.BoxTop,
-                    BoxBottom = library.BoxBottom,
-                    BoxLeft = library.BoxLeft,
-                    BoxRight = library.BoxRight,
-                    HealthOutline = library.HealthOutline
-                }, value)
+                thickness = math.clamp(
+                    1 / math.max(distance, 0.01) * 100,
+                    1,
+                    4
+                )
             else
-                SetThickness({
-                    TL1 = library.TL1,
-                    TL2 = library.TL2,
-                    TR1 = library.TR1,
-                    TR2 = library.TR2,
-                    BL1 = library.BL1,
-                    BL2 = library.BL2,
-                    BR1 = library.BR1,
-                    BR2 = library.BR2,
-                    BoxTop = library.BoxTop,
-                    BoxBottom = library.BoxBottom,
-                    BoxLeft = library.BoxLeft,
-                    BoxRight = library.BoxRight,
-                    HealthOutline = library.HealthOutline
-                }, Settings.Box_Thickness)
+                thickness = tonumber(Settings.Box_Thickness) or 2
             end
+
+            SetThickness({
+                TL1 = library.TL1,
+                TL2 = library.TL2,
+                TR1 = library.TR1,
+                TR2 = library.TR2,
+                BL1 = library.BL1,
+                BL2 = library.BL2,
+                BR1 = library.BR1,
+                BR2 = library.BR2,
+                BoxTop = library.BoxTop,
+                BoxBottom = library.BoxBottom,
+                BoxLeft = library.BoxLeft,
+                BoxRight = library.BoxRight,
+                HealthOutline = library.HealthOutline
+            }, thickness)
         end)
     end
 
