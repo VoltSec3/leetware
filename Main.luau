@@ -12,6 +12,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Stats = game:GetService("Stats")
+local UserInputService = game:GetService("UserInputService")
+
 local Player = Players.LocalPlayer
 
 local ESPSettings = {
@@ -23,6 +25,7 @@ local ESPSettings = {
     Team_Color = false,
     Rainbow = false,
     Autothickness = false,
+    Corner_Length = nil,
     FillBox = false,
     Fill_Box_Color = Color3.fromRGB(255, 0, 0),
     Fill_Opacity = 0.15,
@@ -36,6 +39,7 @@ local ESPSettings = {
     Font = "UI",
     HealthBorder_Color = Color3.fromRGB(0, 0, 0),
     HealthFill_Color = Color3.fromRGB(255, 255, 255),
+
     Chams = {
         Enabled = false,
         FillColor = Color3.fromRGB(255, 0, 0),
@@ -44,6 +48,7 @@ local ESPSettings = {
         OutlineTransparency = 0,
         AlwaysOnTop = true
     },
+
     Tracers = {
         Enabled = false,
         Color = Color3.fromRGB(255, 0, 0),
@@ -62,7 +67,8 @@ local ESPController = ESPModule.new({
     RunService = RunService,
     Workspace = Workspace,
     Player = Player,
-    Settings = ESPSettings
+    Settings = ESPSettings,
+    UserInputService = UserInputService
 })
 
 local ChamsController = ChamsModule.new({
@@ -248,9 +254,7 @@ Options.ESPBoxStyle:OnChanged(function()
     ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
 end)
 
-local BoxColorToggle = BoxGroupBox:AddLabel('Box Color')
-
-BoxColorToggle:AddColorPicker('ESPBoxColor', {
+BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
     Default = ESPSettings.Box_Color,
     Title = 'Box Color'
 })
@@ -374,10 +378,23 @@ Options.ESPChamsFillTransparency:OnChanged(function()
     ESPSettings.Chams.FillTransparency = Options.ESPChamsFillTransparency.Value / 100
 end)
 
-ChamsGroupBox:AddLabel('Outline Color'):AddColorPicker('ESPChamsOutlineColor', {
-    Default = ESPSettings.Chams.OutlineColor,
-    Title = 'Chams Outline Color'
+local ChamsOutlineToggle = ChamsGroupBox:AddToggle('ESPChamsOutline', {
+    Text = 'Outline',
+    Default = ESPSettings.Chams.OutlineTransparency < 1
 })
+
+ChamsOutlineToggle:AddColorPicker('ESPChamsOutlineColor', {
+    Default = ESPSettings.Chams.OutlineColor,
+    Title = 'Outline Color'
+})
+
+Toggles.ESPChamsOutline:OnChanged(function()
+    if Toggles.ESPChamsOutline.Value then
+        ESPSettings.Chams.OutlineTransparency = 0
+    else
+        ESPSettings.Chams.OutlineTransparency = 1
+    end
+end)
 
 Options.ESPChamsOutlineColor:OnChanged(function()
     ESPSettings.Chams.OutlineColor = Options.ESPChamsOutlineColor.Value
@@ -455,7 +472,7 @@ TracerGroupBox:AddDropdown('ESPTracerOrigin', {
     Values = {
         'Bottom',
         'Center',
-        'Mouse'
+        'Top'
     },
     Default = 1,
     Multi = false,
@@ -611,7 +628,6 @@ SaveManager:SetIgnoreIndexes({
 
 ThemeManager:SetFolder('leetware')
 SaveManager:SetFolder('leetware/configs')
-
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
@@ -621,7 +637,7 @@ local fps = 0
 local frames = 0
 local last = os.clock()
 
-Library:SetWatermark('leetware | 0 FPS | 0 ms')
+Library:SetWatermark("leetware | 0 FPS | 0 ms")
 
 RunService.Heartbeat:Connect(function()
     frames += 1
@@ -637,7 +653,7 @@ RunService.Heartbeat:Connect(function()
 
         Library:SetWatermark(
             string.format(
-                'leetware | %d FPS | %d ms',
+                "leetware | %d FPS | %d ms",
                 fps,
                 ping
             )
