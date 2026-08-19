@@ -36,15 +36,21 @@ local ESPSettings = {
     Font = "UI",
     HealthBorder_Color = Color3.fromRGB(0, 0, 0),
     HealthFill_Color = Color3.fromRGB(255, 255, 255),
-    Chams = false,
-    Chams_Color = Color3.fromRGB(255, 0, 0),
-    Chams_Transparency = 0.5,
-    Chams_Outline = true,
-    Chams_Outline_Color = Color3.fromRGB(255, 255, 255),
-    Tracers = false,
-    Tracer_Color = Color3.fromRGB(255, 0, 0),
-    Tracer_Thickness = 1,
-    Tracer_Origin = "Bottom"
+    Chams = {
+        Enabled = false,
+        FillColor = Color3.fromRGB(255, 0, 0),
+        FillTransparency = 0.5,
+        OutlineColor = Color3.fromRGB(255, 255, 255),
+        OutlineTransparency = 0,
+        AlwaysOnTop = true
+    },
+    Tracers = {
+        Enabled = false,
+        Color = Color3.fromRGB(255, 0, 0),
+        Thickness = 1,
+        Transparency = 1,
+        Origin = "Bottom"
+    }
 }
 
 local ESPModule = loadstring(game:HttpGet(espRepo))()
@@ -228,7 +234,7 @@ Toggles.ESPEnabled:OnChanged(function()
     ESPSettings.Enabled = Toggles.ESPEnabled.Value
 end)
 
-local BoxStyle = BoxGroupBox:AddDropdown('ESPBoxStyle', {
+BoxGroupBox:AddDropdown('ESPBoxStyle', {
     Values = {
         'Corner',
         'Normal'
@@ -242,23 +248,12 @@ Options.ESPBoxStyle:OnChanged(function()
     ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
 end)
 
-BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
+local BoxColorToggle = BoxGroupBox:AddLabel('Box Color')
+
+BoxColorToggle:AddColorPicker('ESPBoxColor', {
     Default = ESPSettings.Box_Color,
     Title = 'Box Color'
 })
-
-Options.ESPBoxColor:OnChanged(function()
-    ESPSettings.Box_Color = Options.ESPBoxColor.Value
-end)
-
-BoxStyle:AddColorPicker('ESPBoxColor', {
-    Default = ESPSettings.Box_Color,
-    Title = 'Box Color'
-})
-
-Options.ESPBoxStyle:OnChanged(function()
-    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
-end)
 
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box_Color = Options.ESPBoxColor.Value
@@ -348,19 +343,19 @@ end)
 
 local ChamsGroupBox = Tabs.Visuals:AddRightGroupbox('Chams')
 
-ChamsGroupBox:AddToggle('ESPChams', {
+local ChamsToggle = ChamsGroupBox:AddToggle('ESPChams', {
     Text = 'Enabled',
     Default = ESPSettings.Chams.Enabled
+})
+
+ChamsToggle:AddColorPicker('ESPChamsFillColor', {
+    Default = ESPSettings.Chams.FillColor,
+    Title = 'Fill Color'
 })
 
 Toggles.ESPChams:OnChanged(function()
     ESPSettings.Chams.Enabled = Toggles.ESPChams.Value
 end)
-
-local ChamsFill = ChamsGroupBox:AddLabel('Fill Color'):AddColorPicker('ESPChamsFillColor', {
-    Default = ESPSettings.Chams.FillColor,
-    Title = 'Chams Fill Color'
-})
 
 Options.ESPChamsFillColor:OnChanged(function()
     ESPSettings.Chams.FillColor = Options.ESPChamsFillColor.Value
@@ -412,19 +407,19 @@ end)
 
 local TracerGroupBox = Tabs.Visuals:AddLeftGroupbox('Tracers')
 
-TracerGroupBox:AddToggle('ESPTracers', {
+local TracerToggle = TracerGroupBox:AddToggle('ESPTracers', {
     Text = 'Enabled',
     Default = ESPSettings.Tracers.Enabled
+})
+
+TracerToggle:AddColorPicker('ESPTracerColor', {
+    Default = ESPSettings.Tracers.Color,
+    Title = 'Tracer Color'
 })
 
 Toggles.ESPTracers:OnChanged(function()
     ESPSettings.Tracers.Enabled = Toggles.ESPTracers.Value
 end)
-
-TracerGroupBox:AddLabel('Tracer Color'):AddColorPicker('ESPTracerColor', {
-    Default = ESPSettings.Tracers.Color,
-    Title = 'Tracer Color'
-})
 
 Options.ESPTracerColor:OnChanged(function()
     ESPSettings.Tracers.Color = Options.ESPTracerColor.Value
@@ -607,9 +602,7 @@ MenuGroup:AddLabel('Config Bind'):AddKeyPicker('ConfigBind', {
 local ConfigGroup = Tabs['UI Settings']:AddRightGroupbox('Configs')
 
 ThemeManager:SetLibrary(Library)
-
 SaveManager:SetLibrary(Library)
-
 SaveManager:IgnoreThemeSettings()
 
 SaveManager:SetIgnoreIndexes({
@@ -617,22 +610,18 @@ SaveManager:SetIgnoreIndexes({
 })
 
 ThemeManager:SetFolder('leetware')
-
 SaveManager:SetFolder('leetware/configs')
 
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
-
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
 Library:SetWatermarkVisibility(true)
 
 local fps = 0
-
 local frames = 0
-
 local last = os.clock()
 
-Library:SetWatermark("leetware | 0 FPS | 0 ms")
+Library:SetWatermark('leetware | 0 FPS | 0 ms')
 
 RunService.Heartbeat:Connect(function()
     frames += 1
@@ -641,16 +630,14 @@ RunService.Heartbeat:Connect(function()
 
     if now - last >= 0.25 then
         fps = math.round(frames / (now - last))
-
         frames = 0
-
         last = now
 
         local ping = math.round(Stats.PerformanceStats.Ping:GetValue())
 
         Library:SetWatermark(
             string.format(
-                "leetware | %d FPS | %d ms",
+                'leetware | %d FPS | %d ms',
                 fps,
                 ping
             )
@@ -662,6 +649,16 @@ Library:OnUnload(function()
     if ESPController then
         ESPController:Destroy()
         ESPController = nil
+    end
+
+    if ChamsController then
+        ChamsController:Destroy()
+        ChamsController = nil
+    end
+
+    if TracersController then
+        TracersController:Destroy()
+        TracersController = nil
     end
 
     Library.Unloaded = true
