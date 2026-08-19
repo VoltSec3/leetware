@@ -6,6 +6,7 @@ function ESP.new(config)
     local Workspace = config.Workspace
     local Player = config.Player
     local Settings = config.Settings
+    local UserInputService = config.UserInputService or game:GetService("UserInputService")
 
     local Camera = Workspace.CurrentCamera
     local Objects = {}
@@ -26,40 +27,34 @@ function ESP.new(config)
         if typeof(value) == "Color3" then
             return value
         end
-
         return fallback
     end
 
     local function NewLine(color, thickness)
         local line = Drawing.new("Line")
-
         line.Visible = false
         line.From = Vector2.new(0, 0)
         line.To = Vector2.new(0, 0)
         line.Color = ValidColor(color, DefaultBoxColor)
         line.Thickness = thickness or 2
         line.Transparency = 1
-
         return line
     end
 
     local function NewSquare(color)
         local square = Drawing.new("Square")
-
         square.Visible = false
         square.Position = Vector2.new(0, 0)
         square.Size = Vector2.new(0, 0)
-        square.Thickness = 0
+        square.Thickness = 1
         square.Filled = true
         square.Transparency = 1
         square.Color = ValidColor(color, DefaultBoxColor)
-
         return square
     end
 
     local function NewText()
         local text = Drawing.new("Text")
-
         text.Visible = false
         text.Text = ""
         text.Size = 14
@@ -70,26 +65,27 @@ function ESP.new(config)
         text.Font = Fonts.UI
         text.Transparency = 1
         text.Color = DefaultTextColor
-
         return text
     end
 
     local function NewHighlight()
         local highlight = Instance.new("Highlight")
-
         highlight.Enabled = false
-        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.FillColor = DefaultBoxColor
         highlight.FillTransparency = 0.5
         highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         highlight.OutlineTransparency = 0
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         highlight.Adornee = nil
         highlight.Parent = nil
-
         return highlight
     end
 
     local function HideObject(object)
+        if not object then
+            return
+        end
+
         if typeof(object) == "Instance" then
             if object:IsA("Highlight") then
                 object.Enabled = false
@@ -115,11 +111,11 @@ function ESP.new(config)
         for _, object in pairs(library) do
             if typeof(object) == "table" then
                 for _, nested in pairs(object) do
-                    if nested.Thickness ~= nil then
+                    if nested and nested.Thickness ~= nil then
                         nested.Thickness = thickness
                     end
                 end
-            elseif object.Thickness ~= nil then
+            elseif object and object.Thickness ~= nil then
                 object.Thickness = thickness
             end
         end
@@ -131,10 +127,7 @@ function ESP.new(config)
         end
 
         if Settings.Team_Color and plr.TeamColor then
-            return ValidColor(
-                plr.TeamColor.Color,
-                DefaultBoxColor
-            )
+            return ValidColor(plr.TeamColor.Color, DefaultBoxColor)
         end
 
         if Settings.Team_Check then
@@ -147,10 +140,7 @@ function ESP.new(config)
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return ValidColor(
-            Settings.Box_Color,
-            DefaultBoxColor
-        )
+        return ValidColor(Settings.Box_Color, DefaultBoxColor)
     end
 
     local function GetTextColor(plr, textType)
@@ -183,6 +173,14 @@ function ESP.new(config)
         return plr.TeamColor == Player.TeamColor
     end
 
+    local function DestroyDrawing(object)
+        if object then
+            pcall(function()
+                object:Remove()
+            end)
+        end
+    end
+
     local function DestroyObject(plr)
         local data = Objects[plr]
 
@@ -192,23 +190,28 @@ function ESP.new(config)
 
         if data.Connection then
             data.Connection:Disconnect()
+            data.Connection = nil
         end
 
         if data.OriginPart then
             data.OriginPart:Destroy()
+            data.OriginPart = nil
         end
 
         if data.Chams then
             data.Chams:Destroy()
+            data.Chams = nil
         end
 
-        for _, object in pairs(data.Library) do
-            if typeof(object) == "table" then
-                for _, nested in pairs(object) do
-                    nested:Remove()
+        if data.Library then
+            for _, object in pairs(data.Library) do
+                if typeof(object) == "table" then
+                    for _, nested in pairs(object) do
+                        DestroyDrawing(nested)
+                    end
+                else
+                    DestroyDrawing(object)
                 end
-            else
-                object:Remove()
             end
         end
 
@@ -217,7 +220,8 @@ function ESP.new(config)
 
     local function GetTracerOrigin()
         local viewport = Camera.ViewportSize
-        local origin = Settings.Tracers.Origin or "Bottom"
+        local tracerSettings = Settings.Tracers or {}
+        local origin = tracerSettings.Origin or "Bottom"
 
         if origin == "Center" then
             return Vector2.new(
@@ -234,6 +238,60 @@ function ESP.new(config)
             viewport.X / 2,
             viewport.Y
         )
+    end
+
+    local function GetCharacterBounds(character)
+        local parts = {}
+
+        for _, object in ipairs(character:GetChildren()) do
+            if object:IsA("BasePart") then
+                table.insert(parts, object)
+            end
+        end
+
+        if #parts == 0 then
+            return nil
+        end
+
+        local minX = math.huge
+        local minY = math.huge
+        local maxX = -math.huge
+        local maxY = -math.huge
+        local anyVisible = false
+
+        for _, part in ipairs(parts) do
+            local cf = part.CFrame
+            local half = part.Size / 2
+
+            local corners = {
+                cf * Vector3.new(-half.X, -half.Y, -half.Z),
+                cf * Vector3.new(-half.X, -half.Y, half.Z),
+                cf * Vector3.new(-half.X, half.Y, -half.Z),
+                cf * Vector3.new(-half.X, half.Y, half.Z),
+                cf * Vector3.new(half.X, -half.Y, -half.Z),
+                cf * Vector3.new(half.X, -half.Y, half.Z),
+                cf * Vector3.new(half.X, half.Y, -half.Z),
+                cf * Vector3.new(half.X, half.Y, half.Z)
+            }
+
+            for _, corner in ipairs(corners) do
+                local position, visible = Camera:WorldToViewportPoint(corner)
+
+                if position.Z > 0 then
+                    anyVisible = anyVisible or visible
+                    minX = math.min(minX, position.X)
+                    minY = math.min(minY, position.Y)
+                    maxX = math.max(maxX, position.X)
+                    maxY = math.max(maxY, position.Y)
+                end
+            end
+        end
+
+        if not anyVisible or minX == math.huge then
+            return nil
+        end
+
+        return minX, minY, maxX, maxY
     end
 
     local function CreateObject(plr)
@@ -267,21 +325,10 @@ function ESP.new(config)
         library.HealthBar.Filled = true
         library.HealthBar.Color = DefaultHealthFill
 
-        local originPart = Instance.new("Part")
-
-        originPart.Parent = Workspace
-        originPart.Transparency = 1
-        originPart.CanCollide = false
-        originPart.CanQuery = false
-        originPart.CanTouch = false
-        originPart.Anchored = true
-        originPart.Size = Vector3.new(1, 1, 1)
-
         local chams = NewHighlight()
 
         local data = {
             Library = library,
-            OriginPart = originPart,
             Chams = chams,
             Connection = nil
         }
@@ -295,33 +342,26 @@ function ESP.new(config)
 
             if not Camera then
                 HideLibrary(library)
-
                 chams.Enabled = false
-
                 return
             end
 
             if not Settings.Enabled then
                 HideLibrary(library)
-
                 chams.Enabled = false
-
                 return
             end
 
             local character = plr.Character
 
-            local humanoid =
-                character and
-                character:FindFirstChildOfClass("Humanoid")
+            local humanoid = character
+                and character:FindFirstChildOfClass("Humanoid")
 
-            local root =
-                character and
-                character:FindFirstChild("HumanoidRootPart")
+            local root = character
+                and character:FindFirstChild("HumanoidRootPart")
 
-            local head =
-                character and
-                character:FindFirstChild("Head")
+            local head = character
+                and character:FindFirstChild("Head")
 
             if not character
                 or not humanoid
@@ -329,125 +369,34 @@ function ESP.new(config)
                 or not head
                 or humanoid.Health <= 0 then
                 HideLibrary(library)
-
                 chams.Enabled = false
-
                 return
             end
 
             if IsTeamBlocked(plr) then
                 HideLibrary(library)
-
                 chams.Enabled = false
-
                 return
             end
 
-            local rootPosition, visible =
+            local rootPosition, rootVisible =
                 Camera:WorldToViewportPoint(root.Position)
 
-            local headPosition, headVisible =
-                Camera:WorldToViewportPoint(head.Position)
-
-            if not visible
-                or not headVisible
-                or rootPosition.Z <= 0 then
+            if rootPosition.Z <= 0 then
                 HideLibrary(library)
-
                 chams.Enabled = false
-
                 return
             end
 
-            originPart.Size = Vector3.new(
-                root.Size.X,
-                root.Size.Y * 1.5,
-                root.Size.Z
-            )
+            local bounds = GetCharacterBounds(character)
 
-            originPart.CFrame = CFrame.new(
-                root.Position,
-                Camera.CFrame.Position
-            )
+            if not bounds then
+                HideLibrary(library)
+                chams.Enabled = false
+                return
+            end
 
-            local sizeX = originPart.Size.X
-            local sizeY = originPart.Size.Y
-
-            local topLeft =
-                Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(
-                            sizeX,
-                            sizeY,
-                            0
-                        )
-                    ).Position
-                )
-
-            local topRight =
-                Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(
-                            -sizeX,
-                            sizeY,
-                            0
-                        )
-                    ).Position
-                )
-
-            local bottomLeft =
-                Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(
-                            sizeX,
-                            -sizeY,
-                            0
-                        )
-                    ).Position
-                )
-
-            local bottomRight =
-                Camera:WorldToViewportPoint(
-                    (
-                        originPart.CFrame *
-                        CFrame.new(
-                            -sizeX,
-                            -sizeY,
-                            0
-                        )
-                    ).Position
-                )
-
-            local left = math.min(
-                topLeft.X,
-                topRight.X,
-                bottomLeft.X,
-                bottomRight.X
-            )
-
-            local right = math.max(
-                topLeft.X,
-                topRight.X,
-                bottomLeft.X,
-                bottomRight.X
-            )
-
-            local top = math.min(
-                topLeft.Y,
-                topRight.Y,
-                bottomLeft.Y,
-                bottomRight.Y
-            )
-
-            local bottom = math.max(
-                topLeft.Y,
-                topRight.Y,
-                bottomLeft.Y,
-                bottomRight.Y
-            )
+            local left, top, right, bottom = bounds
 
             local width = math.max(
                 right - left,
@@ -480,125 +429,77 @@ function ESP.new(config)
             library.BoxLeft.Color = boxColor
             library.BoxRight.Color = boxColor
 
-            library.TL1.From = Vector2.new(
-                topLeft.X,
-                topLeft.Y
+            local cornerLength = math.clamp(
+                tonumber(Settings.Corner_Length) or math.min(width, height) * 0.25,
+                1,
+                math.max(width, height)
             )
 
+            cornerLength = math.min(
+                cornerLength,
+                width / 2,
+                height / 2
+            )
+
+            library.TL1.From = Vector2.new(left, top)
             library.TL1.To = Vector2.new(
-                topLeft.X + math.min(offset or 0, width / 2),
-                topLeft.Y
+                left + cornerLength,
+                top
             )
 
-            library.TL2.From = Vector2.new(
-                topLeft.X,
-                topLeft.Y
-            )
-
+            library.TL2.From = Vector2.new(left, top)
             library.TL2.To = Vector2.new(
-                topLeft.X,
-                topLeft.Y + math.min(offset or 0, height / 2)
+                left,
+                top + cornerLength
             )
 
-            library.TR1.From = Vector2.new(
-                topRight.X,
-                topRight.Y
-            )
-
+            library.TR1.From = Vector2.new(right, top)
             library.TR1.To = Vector2.new(
-                topRight.X - math.min(offset or 0, width / 2),
-                topRight.Y
+                right - cornerLength,
+                top
             )
 
-            library.TR2.From = Vector2.new(
-                topRight.X,
-                topRight.Y
-            )
-
+            library.TR2.From = Vector2.new(right, top)
             library.TR2.To = Vector2.new(
-                topRight.X,
-                topRight.Y + math.min(offset or 0, height / 2)
+                right,
+                top + cornerLength
             )
 
-            library.BL1.From = Vector2.new(
-                bottomLeft.X,
-                bottomLeft.Y
-            )
-
+            library.BL1.From = Vector2.new(left, bottom)
             library.BL1.To = Vector2.new(
-                bottomLeft.X + math.min(offset or 0, width / 2),
-                bottomLeft.Y
+                left + cornerLength,
+                bottom
             )
 
-            library.BL2.From = Vector2.new(
-                bottomLeft.X,
-                bottomLeft.Y
-            )
-
+            library.BL2.From = Vector2.new(left, bottom)
             library.BL2.To = Vector2.new(
-                bottomLeft.X,
-                bottomLeft.Y - math.min(offset or 0, height / 2)
+                left,
+                bottom - cornerLength
             )
 
-            library.BR1.From = Vector2.new(
-                bottomRight.X,
-                bottomRight.Y
-            )
-
+            library.BR1.From = Vector2.new(right, bottom)
             library.BR1.To = Vector2.new(
-                bottomRight.X - math.min(offset or 0, width / 2),
-                bottomRight.Y
+                right - cornerLength,
+                bottom
             )
 
-            library.BR2.From = Vector2.new(
-                bottomRight.X,
-                bottomRight.Y
-            )
-
+            library.BR2.From = Vector2.new(right, bottom)
             library.BR2.To = Vector2.new(
-                bottomRight.X,
-                bottomRight.Y - math.min(offset or 0, height / 2)
-            )
-
-            library.BoxTop.From = Vector2.new(
-                left,
-                top
-            )
-
-            library.BoxTop.To = Vector2.new(
                 right,
-                top
+                bottom - cornerLength
             )
 
-            library.BoxBottom.From = Vector2.new(
-                left,
-                bottom
-            )
+            library.BoxTop.From = Vector2.new(left, top)
+            library.BoxTop.To = Vector2.new(right, top)
 
-            library.BoxBottom.To = Vector2.new(
-                right,
-                bottom
-            )
+            library.BoxBottom.From = Vector2.new(left, bottom)
+            library.BoxBottom.To = Vector2.new(right, bottom)
 
-            library.BoxLeft.From = Vector2.new(
-                left,
-                top
-            )
+            library.BoxLeft.From = Vector2.new(left, top)
+            library.BoxLeft.To = Vector2.new(left, bottom)
 
-            library.BoxLeft.To = Vector2.new(
-                left,
-                bottom
-            )
-
-            library.BoxRight.From = Vector2.new(
-                right,
-                top
-            )
-
-            library.BoxRight.To = Vector2.new(
-                right,
-                bottom
-            )
+            library.BoxRight.From = Vector2.new(right, top)
+            library.BoxRight.To = Vector2.new(right, bottom)
 
             local boxStyle = Settings.BoxStyle or "Corner"
 
@@ -619,10 +520,7 @@ function ESP.new(config)
             library.BoxLeft.Visible = normal
             library.BoxRight.Visible = normal
 
-            local opacity =
-                tonumber(
-                    Settings.Fill_Opacity
-                ) or 0.15
+            local opacity = tonumber(Settings.Fill_Opacity) or 0.15
 
             opacity = math.clamp(
                 opacity,
@@ -632,45 +530,34 @@ function ESP.new(config)
 
             if Settings.FillBox then
                 library.Fill.Visible = true
-
-                library.Fill.Color =
-                    ValidColor(
-                        Settings.Fill_Box_Color,
-                        DefaultBoxColor
-                    )
-
-                library.Fill.Transparency =
-                    opacity
-
-                library.Fill.Position =
-                    Vector2.new(
-                        left,
-                        top
-                    )
-
-                library.Fill.Size =
-                    Vector2.new(
-                        width,
-                        height
-                    )
+                library.Fill.Color = ValidColor(
+                    Settings.Fill_Box_Color,
+                    DefaultBoxColor
+                )
+                library.Fill.Transparency = opacity
+                library.Fill.Position = Vector2.new(
+                    left,
+                    top
+                )
+                library.Fill.Size = Vector2.new(
+                    width,
+                    height
+                )
             else
                 library.Fill.Visible = false
             end
 
             local nameScale =
-                tonumber(
-                    Settings.Name_Scale
-                ) or 14
+                tonumber(Settings.Name_Scale) or 14
 
-            nameScale =
-                math.clamp(
-                    nameScale,
-                    1,
-                    100
-                )
+            nameScale = math.clamp(
+                nameScale,
+                1,
+                100
+            )
 
             library.Name.Visible =
-                Settings.ShowName
+                Settings.ShowName == true
 
             library.Name.Text =
                 tostring(plr.Name)
@@ -685,9 +572,7 @@ function ESP.new(config)
                 nameScale
 
             library.Name.Font =
-                Fonts[
-                    Settings.Font
-                ] or Fonts.UI
+                Fonts[Settings.Font] or Fonts.UI
 
             library.Name.Position =
                 Vector2.new(
@@ -696,13 +581,11 @@ function ESP.new(config)
                 )
 
             library.Team.Visible =
-                Settings.ShowTeam
+                Settings.ShowTeam == true
 
             library.Team.Text =
                 plr.Team
-                and tostring(
-                    plr.Team.Name
-                )
+                and tostring(plr.Team.Name)
                 or "Neutral"
 
             library.Team.Color =
@@ -718,9 +601,7 @@ function ESP.new(config)
                 )
 
             library.Team.Font =
-                Fonts[
-                    Settings.Font
-                ] or Fonts.UI
+                Fonts[Settings.Font] or Fonts.UI
 
             library.Team.Position =
                 Vector2.new(
@@ -749,7 +630,7 @@ function ESP.new(config)
             local healthGap = 5
 
             library.HealthOutline.Visible =
-                Settings.ShowHealth
+                Settings.ShowHealth == true
 
             library.HealthOutline.Color =
                 ValidColor(
@@ -770,7 +651,7 @@ function ESP.new(config)
                 )
 
             library.HealthBar.Visible =
-                Settings.ShowHealth
+                Settings.ShowHealth == true
 
             library.HealthBar.Color =
                 ValidColor(
@@ -782,10 +663,7 @@ function ESP.new(config)
                 Vector2.new(
                     right + healthGap + 1,
                     bottom -
-                        (
-                            (height - 2) *
-                            healthRatio
-                        ) -
+                        ((height - 2) * healthRatio) -
                         1
                 )
 
@@ -793,13 +671,15 @@ function ESP.new(config)
                 Vector2.new(
                     healthWidth - 2,
                     math.max(
-                        (height - 2) *
-                        healthRatio,
+                        (height - 2) * healthRatio,
                         0
                     )
                 )
 
-            local tracerSettings = Settings.Tracers or {}
+            local tracerSettings =
+                typeof(Settings.Tracers) == "table"
+                and Settings.Tracers
+                or {}
 
             local tracerEnabled =
                 tracerSettings.Enabled == true
@@ -807,7 +687,8 @@ function ESP.new(config)
             library.Tracer.Visible = tracerEnabled
 
             if tracerEnabled then
-                local tracerOrigin = GetTracerOrigin()
+                local tracerOrigin =
+                    GetTracerOrigin()
 
                 library.Tracer.From =
                     tracerOrigin
@@ -848,10 +729,18 @@ function ESP.new(config)
                     )
             end
 
-            local chamsSettings = Settings.Chams or {}
+            local chamsSettings =
+                typeof(Settings.Chams) == "table"
+                and Settings.Chams
+                or {}
 
-            if chamsSettings.Enabled then
+            if chamsSettings.Enabled == true then
+                if chams.Parent ~= Workspace then
+                    chams.Parent = Workspace
+                end
+
                 chams.Adornee = character
+
                 chams.FillColor =
                     Settings.Rainbow
                     and Color3.fromHSV(
@@ -895,30 +784,26 @@ function ESP.new(config)
                     )
 
                 chams.DepthMode =
-                    chamsSettings.AlwaysOnTop
+                    chamsSettings.AlwaysOnTop == true
                     and Enum.HighlightDepthMode.AlwaysOnTop
                     or Enum.HighlightDepthMode.Occluded
-
-                if chams.Parent ~= Workspace then
-                    chams.Parent = Workspace
-                end
 
                 chams.Enabled = true
             else
                 chams.Enabled = false
+                chams.Adornee = nil
             end
 
             local thickness
 
-            if Settings.Autothickness then
+            if Settings.Autothickness == true then
                 thickness =
                     math.clamp(
-                        1 /
+                        100 /
                             math.max(
                                 distance,
                                 0.01
-                            ) *
-                            100,
+                            ),
                         1,
                         4
                     )
@@ -929,21 +814,35 @@ function ESP.new(config)
                     ) or 2
             end
 
-            SetThickness({
-                TL1 = library.TL1,
-                TL2 = library.TL2,
-                TR1 = library.TR1,
-                TR2 = library.TR2,
-                BL1 = library.BL1,
-                BL2 = library.BL2,
-                BR1 = library.BR1,
-                BR2 = library.BR2,
-                BoxTop = library.BoxTop,
-                BoxBottom = library.BoxBottom,
-                BoxLeft = library.BoxLeft,
-                BoxRight = library.BoxRight,
-                HealthOutline = library.HealthOutline
-            }, thickness)
+            thickness = math.max(
+                thickness,
+                1
+            )
+
+            SetThickness(
+                {
+                    TL1 = library.TL1,
+                    TL2 = library.TL2,
+                    TR1 = library.TR1,
+                    TR2 = library.TR2,
+                    BL1 = library.BL1,
+                    BL2 = library.BL2,
+                    BR1 = library.BR1,
+                    BR2 = library.BR2,
+                    BoxTop = library.BoxTop,
+                    BoxBottom = library.BoxBottom,
+                    BoxLeft = library.BoxLeft,
+                    BoxRight = library.BoxRight
+                },
+                thickness
+            )
+
+            library.HealthOutline.Thickness = 1
+            library.Tracer.Thickness =
+                math.max(
+                    tonumber(tracerSettings.Thickness) or 1,
+                    1
+                )
         end)
     end
 
@@ -954,18 +853,14 @@ function ESP.new(config)
     end
 
     controller.PlayerAdded =
-        Players.PlayerAdded:Connect(
-            function(plr)
-                CreateObject(plr)
-            end
-        )
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
 
     controller.PlayerRemoving =
-        Players.PlayerRemoving:Connect(
-            function(plr)
-                DestroyObject(plr)
-            end
-        )
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
 
     function controller:Destroy()
         if controller.PlayerAdded then

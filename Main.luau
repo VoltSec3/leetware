@@ -1,23 +1,17 @@
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
 
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
+local chamsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/Chams.luau'
+local tracersRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/Tracers.luau'
 
 local Players = game:GetService("Players")
-
 local RunService = game:GetService("RunService")
-
 local Workspace = game:GetService("Workspace")
-
 local Stats = game:GetService("Stats")
-
-local UserInputService = game:GetService("UserInputService")
-
 local Player = Players.LocalPlayer
 
 local ESPSettings = {
@@ -42,26 +36,38 @@ local ESPSettings = {
     Font = "UI",
     HealthBorder_Color = Color3.fromRGB(0, 0, 0),
     HealthFill_Color = Color3.fromRGB(255, 255, 255),
-    Chams = {
-        Enabled = false,
-        FillColor = Color3.fromRGB(255, 0, 0),
-        FillTransparency = 0.5,
-        OutlineColor = Color3.fromRGB(255, 255, 255),
-        OutlineTransparency = 0,
-        AlwaysOnTop = true
-    },
-    Tracers = {
-        Enabled = false,
-        Color = Color3.fromRGB(255, 0, 0),
-        Thickness = 1,
-        Transparency = 1,
-        Origin = "Bottom"
-    }
+    Chams = false,
+    Chams_Color = Color3.fromRGB(255, 0, 0),
+    Chams_Transparency = 0.5,
+    Chams_Outline = true,
+    Chams_Outline_Color = Color3.fromRGB(255, 255, 255),
+    Tracers = false,
+    Tracer_Color = Color3.fromRGB(255, 0, 0),
+    Tracer_Thickness = 1,
+    Tracer_Origin = "Bottom"
 }
 
 local ESPModule = loadstring(game:HttpGet(espRepo))()
+local ChamsModule = loadstring(game:HttpGet(chamsRepo))()
+local TracersModule = loadstring(game:HttpGet(tracersRepo))()
 
 local ESPController = ESPModule.new({
+    Players = Players,
+    RunService = RunService,
+    Workspace = Workspace,
+    Player = Player,
+    Settings = ESPSettings
+})
+
+local ChamsController = ChamsModule.new({
+    Players = Players,
+    RunService = RunService,
+    Workspace = Workspace,
+    Player = Player,
+    Settings = ESPSettings
+})
+
+local TracersController = TracersModule.new({
     Players = Players,
     RunService = RunService,
     Workspace = Workspace,
@@ -231,6 +237,19 @@ local BoxStyle = BoxGroupBox:AddDropdown('ESPBoxStyle', {
     Multi = false,
     Text = 'Box Style'
 })
+
+Options.ESPBoxStyle:OnChanged(function()
+    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
+end)
+
+BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
+    Default = ESPSettings.Box_Color,
+    Title = 'Box Color'
+})
+
+Options.ESPBoxColor:OnChanged(function()
+    ESPSettings.Box_Color = Options.ESPBoxColor.Value
+end)
 
 BoxStyle:AddColorPicker('ESPBoxColor', {
     Default = ESPSettings.Box_Color,
