@@ -22,10 +22,6 @@ function ESP.new(config)
     local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
     local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
 
-    local GradientColumns = 24
-    local GradientRows = 32
-    local GradientCount = GradientColumns * GradientRows
-
     local function ValidColor(value, fallback)
         if typeof(value) == "Color3" then
             return value
@@ -36,29 +32,34 @@ function ESP.new(config)
 
     local function NewLine(color, thickness)
         local line = Drawing.new("Line")
+
         line.Visible = false
         line.From = Vector2.new(0, 0)
         line.To = Vector2.new(0, 0)
         line.Color = ValidColor(color, DefaultBoxColor)
         line.Thickness = thickness or 2
         line.Transparency = 1
+
         return line
     end
 
-    local function NewSquare()
+    local function NewSquare(color)
         local square = Drawing.new("Square")
+
         square.Visible = false
         square.Position = Vector2.new(0, 0)
         square.Size = Vector2.new(0, 0)
         square.Thickness = 0
         square.Filled = true
         square.Transparency = 1
-        square.Color = DefaultBoxColor
+        square.Color = ValidColor(color, DefaultBoxColor)
+
         return square
     end
 
     local function NewText()
         local text = Drawing.new("Text")
+
         text.Visible = false
         text.Text = ""
         text.Size = 14
@@ -69,11 +70,33 @@ function ESP.new(config)
         text.Font = Fonts.UI
         text.Transparency = 1
         text.Color = DefaultTextColor
+
         return text
     end
 
+    local function NewHighlight()
+        local highlight = Instance.new("Highlight")
+
+        highlight.Enabled = false
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Adornee = nil
+        highlight.Parent = nil
+
+        return highlight
+    end
+
     local function HideObject(object)
-        object.Visible = false
+        if typeof(object) == "Instance" then
+            if object:IsA("Highlight") then
+                object.Enabled = false
+            end
+        else
+            object.Visible = false
+        end
     end
 
     local function HideLibrary(library)
@@ -118,7 +141,6 @@ function ESP.new(config)
             if plr.TeamColor
                 and Player.TeamColor
                 and plr.TeamColor == Player.TeamColor then
-
                 return Color3.fromRGB(0, 255, 0)
             end
 
@@ -149,6 +171,18 @@ function ESP.new(config)
         )
     end
 
+    local function IsTeamBlocked(plr)
+        if not Settings.Team_Check then
+            return false
+        end
+
+        if not plr.TeamColor or not Player.TeamColor then
+            return false
+        end
+
+        return plr.TeamColor == Player.TeamColor
+    end
+
     local function DestroyObject(plr)
         local data = Objects[plr]
 
@@ -164,6 +198,10 @@ function ESP.new(config)
             data.OriginPart:Destroy()
         end
 
+        if data.Chams then
+            data.Chams:Destroy()
+        end
+
         for _, object in pairs(data.Library) do
             if typeof(object) == "table" then
                 for _, nested in pairs(object) do
@@ -177,152 +215,31 @@ function ESP.new(config)
         Objects[plr] = nil
     end
 
-    local function EnsureGradient(library)
-        if #library.Gradient == GradientCount then
-            return
+    local function GetTracerOrigin()
+        local viewport = Camera.ViewportSize
+        local origin = Settings.Tracers.Origin or "Bottom"
+
+        if origin == "Center" then
+            return Vector2.new(
+                viewport.X / 2,
+                viewport.Y / 2
+            )
         end
 
-        for _, object in ipairs(library.Gradient) do
-            object:Remove()
+        if origin == "Mouse" then
+            return UserInputService:GetMouseLocation()
         end
 
-        table.clear(library.Gradient)
-
-        for _ = 1, GradientCount do
-            library.Gradient[#library.Gradient + 1] = NewSquare()
-        end
-    end
-
-    local function UpdateGradientColors(library, rotation)
-        local color1 = ValidColor(
-            Settings.Gradient_Color_1,
-            DefaultBoxColor
+        return Vector2.new(
+            viewport.X / 2,
+            viewport.Y
         )
-
-        local color2 = ValidColor(
-            Settings.Gradient_Color_2,
-            DefaultBoxColor
-        )
-
-        local angle = math.rad(rotation)
-        local cosAngle = math.cos(angle)
-        local sinAngle = math.sin(angle)
-
-        local index = 1
-
-        for y = 0, GradientRows - 1 do
-            for x = 0, GradientColumns - 1 do
-                local nx = ((x + 0.5) / GradientColumns) * 2 - 1
-                local ny = ((y + 0.5) / GradientRows) * 2 - 1
-
-                local rotatedY =
-                    nx * sinAngle +
-                    ny * cosAngle
-
-                local t = math.clamp(
-                    rotatedY * 0.5 + 0.5,
-                    0,
-                    1
-                )
-
-                library.Gradient[index].Color =
-                    color1:Lerp(color2, t)
-
-                index += 1
-            end
-        end
-    end
-
-    local function UpdateGradientGeometry(
-        library,
-        left,
-        top,
-        width,
-        height,
-        opacity
-    )
-        local cellWidth = width / GradientColumns
-        local cellHeight = height / GradientRows
-
-        local overlapX = math.min(
-            0.75,
-            cellWidth * 0.12
-        )
-
-        local overlapY = math.min(
-            0.75,
-            cellHeight * 0.12
-        )
-
-        local index = 1
-
-        for y = 0, GradientRows - 1 do
-            for x = 0, GradientColumns - 1 do
-                local positionX =
-                    left +
-                    x * cellWidth -
-                    overlapX * 0.5
-
-                local positionY =
-                    top +
-                    y * cellHeight -
-                    overlapY * 0.5
-
-                local sizeX =
-                    cellWidth +
-                    overlapX
-
-                local sizeY =
-                    cellHeight +
-                    overlapY
-
-                if positionX < left then
-                    sizeX -= left - positionX
-                    positionX = left
-                end
-
-                if positionY < top then
-                    sizeY -= top - positionY
-                    positionY = top
-                end
-
-                local right = positionX + sizeX
-                local bottom = positionY + sizeY
-
-                if right > left + width then
-                    sizeX -= right - (left + width)
-                end
-
-                if bottom > top + height then
-                    sizeY -= bottom - (top + height)
-                end
-
-                local object = library.Gradient[index]
-
-                object.Position = Vector2.new(
-                    positionX,
-                    positionY
-                )
-
-                object.Size = Vector2.new(
-                    math.max(sizeX, 0),
-                    math.max(sizeY, 0)
-                )
-
-                object.Transparency = opacity
-                object.Visible = true
-
-                index += 1
-            end
-        end
     end
 
     local function CreateObject(plr)
         if plr == Player or Objects[plr] then
             return
         end
-
-        local gradient = {}
 
         local library = {
             TL1 = NewLine(),
@@ -333,34 +250,25 @@ function ESP.new(config)
             BL2 = NewLine(),
             BR1 = NewLine(),
             BR2 = NewLine(),
-
             BoxTop = NewLine(),
             BoxBottom = NewLine(),
             BoxLeft = NewLine(),
             BoxRight = NewLine(),
-
             Fill = NewSquare(),
-            Gradient = gradient,
-
             Name = NewText(),
             Team = NewText(),
-
-            HealthOutline = NewSquare(
-                DefaultHealthBorder
-            ),
-
-            HealthBar = NewSquare(
-                DefaultHealthFill
-            )
+            HealthOutline = NewSquare(DefaultHealthBorder),
+            HealthBar = NewSquare(DefaultHealthFill),
+            Tracer = NewLine()
         }
 
         library.HealthOutline.Filled = false
         library.HealthOutline.Color = DefaultHealthBorder
-
         library.HealthBar.Filled = true
         library.HealthBar.Color = DefaultHealthFill
 
         local originPart = Instance.new("Part")
+
         originPart.Parent = Workspace
         originPart.Transparency = 1
         originPart.CanCollide = false
@@ -369,14 +277,13 @@ function ESP.new(config)
         originPart.Anchored = true
         originPart.Size = Vector3.new(1, 1, 1)
 
+        local chams = NewHighlight()
+
         local data = {
             Library = library,
             OriginPart = originPart,
-            Connection = nil,
-
-            LastGradientRotation = nil,
-            LastGradientColor1 = nil,
-            LastGradientColor2 = nil
+            Chams = chams,
+            Connection = nil
         }
 
         Objects[plr] = data
@@ -388,15 +295,22 @@ function ESP.new(config)
 
             if not Camera then
                 HideLibrary(library)
+
+                chams.Enabled = false
+
                 return
             end
 
             if not Settings.Enabled then
                 HideLibrary(library)
+
+                chams.Enabled = false
+
                 return
             end
 
             local character = plr.Character
+
             local humanoid =
                 character and
                 character:FindFirstChildOfClass("Humanoid")
@@ -414,16 +328,34 @@ function ESP.new(config)
                 or not root
                 or not head
                 or humanoid.Health <= 0 then
-
                 HideLibrary(library)
+
+                chams.Enabled = false
+
+                return
+            end
+
+            if IsTeamBlocked(plr) then
+                HideLibrary(library)
+
+                chams.Enabled = false
+
                 return
             end
 
             local rootPosition, visible =
                 Camera:WorldToViewportPoint(root.Position)
 
-            if not visible or rootPosition.Z <= 0 then
+            local headPosition, headVisible =
+                Camera:WorldToViewportPoint(head.Position)
+
+            if not visible
+                or not headVisible
+                or rootPosition.Z <= 0 then
                 HideLibrary(library)
+
+                chams.Enabled = false
+
                 return
             end
 
@@ -533,18 +465,6 @@ function ESP.new(config)
                     root.Position
                 ).Magnitude
 
-            local offset =
-                math.clamp(
-                    1 /
-                        math.max(
-                            distance,
-                            0.01
-                        ) *
-                        750,
-                    2,
-                    300
-                )
-
             local boxColor = GetESPColor(plr)
 
             library.TL1.Color = boxColor
@@ -566,7 +486,7 @@ function ESP.new(config)
             )
 
             library.TL1.To = Vector2.new(
-                topLeft.X + offset,
+                topLeft.X + math.min(offset or 0, width / 2),
                 topLeft.Y
             )
 
@@ -577,7 +497,7 @@ function ESP.new(config)
 
             library.TL2.To = Vector2.new(
                 topLeft.X,
-                topLeft.Y + offset
+                topLeft.Y + math.min(offset or 0, height / 2)
             )
 
             library.TR1.From = Vector2.new(
@@ -586,7 +506,7 @@ function ESP.new(config)
             )
 
             library.TR1.To = Vector2.new(
-                topRight.X - offset,
+                topRight.X - math.min(offset or 0, width / 2),
                 topRight.Y
             )
 
@@ -597,7 +517,7 @@ function ESP.new(config)
 
             library.TR2.To = Vector2.new(
                 topRight.X,
-                topRight.Y + offset
+                topRight.Y + math.min(offset or 0, height / 2)
             )
 
             library.BL1.From = Vector2.new(
@@ -606,7 +526,7 @@ function ESP.new(config)
             )
 
             library.BL1.To = Vector2.new(
-                bottomLeft.X + offset,
+                bottomLeft.X + math.min(offset or 0, width / 2),
                 bottomLeft.Y
             )
 
@@ -617,7 +537,7 @@ function ESP.new(config)
 
             library.BL2.To = Vector2.new(
                 bottomLeft.X,
-                bottomLeft.Y - offset
+                bottomLeft.Y - math.min(offset or 0, height / 2)
             )
 
             library.BR1.From = Vector2.new(
@@ -626,7 +546,7 @@ function ESP.new(config)
             )
 
             library.BR1.To = Vector2.new(
-                bottomRight.X - offset,
+                bottomRight.X - math.min(offset or 0, width / 2),
                 bottomRight.Y
             )
 
@@ -637,7 +557,7 @@ function ESP.new(config)
 
             library.BR2.To = Vector2.new(
                 bottomRight.X,
-                bottomRight.Y - offset
+                bottomRight.Y - math.min(offset or 0, height / 2)
             )
 
             library.BoxTop.From = Vector2.new(
@@ -680,14 +600,10 @@ function ESP.new(config)
                 bottom
             )
 
-            local boxStyle =
-                Settings.BoxStyle or "Corner"
+            local boxStyle = Settings.BoxStyle or "Corner"
 
-            local corner =
-                boxStyle == "Corner"
-
-            local normal =
-                boxStyle == "Normal"
+            local corner = boxStyle == "Corner"
+            local normal = boxStyle == "Normal"
 
             library.TL1.Visible = corner
             library.TL2.Visible = corner
@@ -714,90 +630,31 @@ function ESP.new(config)
                 1
             )
 
-            if Settings.FillBoxGradient then
-                library.Fill.Visible = false
+            if Settings.FillBox then
+                library.Fill.Visible = true
 
-                EnsureGradient(library)
-
-                local rotation =
-                    tonumber(
-                        Settings.Gradient_Rotation
-                    ) or 0
-
-                local color1 =
+                library.Fill.Color =
                     ValidColor(
-                        Settings.Gradient_Color_1,
+                        Settings.Fill_Box_Color,
                         DefaultBoxColor
                     )
 
-                local color2 =
-                    ValidColor(
-                        Settings.Gradient_Color_2,
-                        DefaultBoxColor
-                    )
-
-                if rotation ~=
-                        data.LastGradientRotation
-                    or color1 ~=
-                        data.LastGradientColor1
-                    or color2 ~=
-                        data.LastGradientColor2 then
-
-                    data.LastGradientRotation =
-                        rotation
-
-                    data.LastGradientColor1 =
-                        color1
-
-                    data.LastGradientColor2 =
-                        color2
-
-                    UpdateGradientColors(
-                        library,
-                        rotation
-                    )
-                end
-
-                UpdateGradientGeometry(
-                    library,
-                    left,
-                    top,
-                    width,
-                    height,
+                library.Fill.Transparency =
                     opacity
-                )
+
+                library.Fill.Position =
+                    Vector2.new(
+                        left,
+                        top
+                    )
+
+                library.Fill.Size =
+                    Vector2.new(
+                        width,
+                        height
+                    )
             else
-                for _, object in ipairs(
-                    library.Gradient
-                ) do
-                    object.Visible = false
-                end
-
-                if Settings.FillBox then
-                    library.Fill.Visible = true
-                    library.Fill.Color =
-                        ValidColor(
-                            Settings.Fill_Box_Color,
-                            DefaultBoxColor
-                        )
-
-                    library.Fill.Transparency =
-                        opacity
-
-                    library.Fill.Position =
-                        Vector2.new(
-                            left,
-                            top
-                        )
-
-                    library.Fill.Size =
-                        Vector2.new(
-                            width,
-                            height
-                        )
-                else
-                    library.Fill.Visible = false
-                end
+                library.Fill.Visible = false
             end
 
             local nameScale =
@@ -843,10 +700,10 @@ function ESP.new(config)
 
             library.Team.Text =
                 plr.Team
-                    and tostring(
-                        plr.Team.Name
-                    )
-                    or "Neutral"
+                and tostring(
+                    plr.Team.Name
+                )
+                or "Neutral"
 
             library.Team.Color =
                 GetTextColor(
@@ -879,7 +736,6 @@ function ESP.new(config)
 
             if humanoid.MaxHealth
                 and humanoid.MaxHealth > 0 then
-
                 healthRatio =
                     math.clamp(
                         humanoid.Health /
@@ -943,6 +799,115 @@ function ESP.new(config)
                     )
                 )
 
+            local tracerSettings = Settings.Tracers or {}
+
+            local tracerEnabled =
+                tracerSettings.Enabled == true
+
+            library.Tracer.Visible = tracerEnabled
+
+            if tracerEnabled then
+                local tracerOrigin = GetTracerOrigin()
+
+                library.Tracer.From =
+                    tracerOrigin
+
+                library.Tracer.To =
+                    Vector2.new(
+                        rootPosition.X,
+                        rootPosition.Y
+                    )
+
+                library.Tracer.Color =
+                    Settings.Rainbow
+                    and Color3.fromHSV(
+                        (tick() % 5) / 5,
+                        0.6,
+                        1
+                    )
+                    or ValidColor(
+                        tracerSettings.Color,
+                        DefaultBoxColor
+                    )
+
+                library.Tracer.Thickness =
+                    math.max(
+                        tonumber(
+                            tracerSettings.Thickness
+                        ) or 1,
+                        1
+                    )
+
+                library.Tracer.Transparency =
+                    math.clamp(
+                        tonumber(
+                            tracerSettings.Transparency
+                        ) or 1,
+                        0,
+                        1
+                    )
+            end
+
+            local chamsSettings = Settings.Chams or {}
+
+            if chamsSettings.Enabled then
+                chams.Adornee = character
+                chams.FillColor =
+                    Settings.Rainbow
+                    and Color3.fromHSV(
+                        (tick() % 5) / 5,
+                        0.6,
+                        1
+                    )
+                    or ValidColor(
+                        chamsSettings.FillColor,
+                        boxColor
+                    )
+
+                chams.FillTransparency =
+                    math.clamp(
+                        tonumber(
+                            chamsSettings.FillTransparency
+                        ) or 0.5,
+                        0,
+                        1
+                    )
+
+                chams.OutlineColor =
+                    Settings.Rainbow
+                    and Color3.fromHSV(
+                        (tick() % 5) / 5,
+                        0.6,
+                        1
+                    )
+                    or ValidColor(
+                        chamsSettings.OutlineColor,
+                        boxColor
+                    )
+
+                chams.OutlineTransparency =
+                    math.clamp(
+                        tonumber(
+                            chamsSettings.OutlineTransparency
+                        ) or 0,
+                        0,
+                        1
+                    )
+
+                chams.DepthMode =
+                    chamsSettings.AlwaysOnTop
+                    and Enum.HighlightDepthMode.AlwaysOnTop
+                    or Enum.HighlightDepthMode.Occluded
+
+                if chams.Parent ~= Workspace then
+                    chams.Parent = Workspace
+                end
+
+                chams.Enabled = true
+            else
+                chams.Enabled = false
+            end
+
             local thickness
 
             if Settings.Autothickness then
@@ -977,8 +942,7 @@ function ESP.new(config)
                 BoxBottom = library.BoxBottom,
                 BoxLeft = library.BoxLeft,
                 BoxRight = library.BoxRight,
-                HealthOutline =
-                    library.HealthOutline
+                HealthOutline = library.HealthOutline
             }, thickness)
         end)
     end

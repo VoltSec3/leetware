@@ -1,36 +1,37 @@
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
 
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
 
 local Players = game:GetService("Players")
+
 local RunService = game:GetService("RunService")
+
 local Workspace = game:GetService("Workspace")
+
+local Stats = game:GetService("Stats")
+
+local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
 
 local ESPSettings = {
     Enabled = true,
+    BoxStyle = "Corner",
     Box_Color = Color3.fromRGB(255, 0, 0),
     Box_Thickness = 2,
     Team_Check = false,
     Team_Color = false,
-    Autothickness = false,
     Rainbow = false,
-
-    BoxStyle = "Corner",
-
+    Autothickness = false,
     FillBox = false,
-    FillBoxGradient = false,
     Fill_Box_Color = Color3.fromRGB(255, 0, 0),
-    Gradient_Color_1 = Color3.fromRGB(255, 0, 0),
-    Gradient_Color_2 = Color3.fromRGB(0, 0, 255),
-    Gradient_Rotation = 0,
     Fill_Opacity = 0.15,
-
     ShowName = false,
     ShowTeam = false,
     ShowHealth = false,
@@ -39,9 +40,23 @@ local ESPSettings = {
     Team_Text_Color = Color3.fromRGB(255, 255, 255),
     Name_Scale = 14,
     Font = "UI",
-
     HealthBorder_Color = Color3.fromRGB(0, 0, 0),
-    HealthFill_Color = Color3.fromRGB(255, 255, 255)
+    HealthFill_Color = Color3.fromRGB(255, 255, 255),
+    Chams = {
+        Enabled = false,
+        FillColor = Color3.fromRGB(255, 0, 0),
+        FillTransparency = 0.5,
+        OutlineColor = Color3.fromRGB(255, 255, 255),
+        OutlineTransparency = 0,
+        AlwaysOnTop = true
+    },
+    Tracers = {
+        Enabled = false,
+        Color = Color3.fromRGB(255, 0, 0),
+        Thickness = 1,
+        Transparency = 1,
+        Origin = "Bottom"
+    }
 }
 
 local ESPModule = loadstring(game:HttpGet(espRepo))()
@@ -207,7 +222,7 @@ Toggles.ESPEnabled:OnChanged(function()
     ESPSettings.Enabled = Toggles.ESPEnabled.Value
 end)
 
-local BoxStyleDropdown = BoxGroupBox:AddDropdown('ESPBoxStyle', {
+local BoxStyle = BoxGroupBox:AddDropdown('ESPBoxStyle', {
     Values = {
         'Corner',
         'Normal'
@@ -217,14 +232,14 @@ local BoxStyleDropdown = BoxGroupBox:AddDropdown('ESPBoxStyle', {
     Text = 'Box Style'
 })
 
-Options.ESPBoxStyle:OnChanged(function()
-    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
-end)
-
-BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
+BoxStyle:AddColorPicker('ESPBoxColor', {
     Default = ESPSettings.Box_Color,
     Title = 'Box Color'
 })
+
+Options.ESPBoxStyle:OnChanged(function()
+    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
+end)
 
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box_Color = Options.ESPBoxColor.Value
@@ -299,49 +314,9 @@ Options.ESPFillBoxColor:OnChanged(function()
     ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
 end)
 
-local GradientToggle = FillGroupBox:AddToggle('ESPFillBoxGradient', {
-    Text = 'Gradient',
-    Default = ESPSettings.FillBoxGradient
-})
-
-GradientToggle:AddColorPicker('ESPGradientColor1', {
-    Default = ESPSettings.Gradient_Color_1,
-    Title = 'Gradient Start'
-})
-
-GradientToggle:AddColorPicker('ESPGradientColor2', {
-    Default = ESPSettings.Gradient_Color_2,
-    Title = 'Gradient End'
-})
-
-Toggles.ESPFillBoxGradient:OnChanged(function()
-    ESPSettings.FillBoxGradient = Toggles.ESPFillBoxGradient.Value
-end)
-
-Options.ESPGradientColor1:OnChanged(function()
-    ESPSettings.Gradient_Color_1 = Options.ESPGradientColor1.Value
-end)
-
-Options.ESPGradientColor2:OnChanged(function()
-    ESPSettings.Gradient_Color_2 = Options.ESPGradientColor2.Value
-end)
-
-FillGroupBox:AddSlider('ESPGradientRotation', {
-    Text = 'Gradient Rotation',
-    Default = ESPSettings.Gradient_Rotation,
-    Min = 0,
-    Max = 360,
-    Rounding = 0,
-    Compact = false
-})
-
-Options.ESPGradientRotation:OnChanged(function()
-    ESPSettings.Gradient_Rotation = Options.ESPGradientRotation.Value
-end)
-
 FillGroupBox:AddSlider('ESPFillOpacity', {
     Text = 'Fill Opacity',
-    Default = math.floor(ESPSettings.Fill_Opacity * 100),
+    Default = math.floor((1 - ESPSettings.Fill_Opacity) * 100),
     Min = 0,
     Max = 100,
     Rounding = 0,
@@ -349,7 +324,132 @@ FillGroupBox:AddSlider('ESPFillOpacity', {
 })
 
 Options.ESPFillOpacity:OnChanged(function()
-    ESPSettings.Fill_Opacity = Options.ESPFillOpacity.Value / 100
+    ESPSettings.Fill_Opacity = 1 - (Options.ESPFillOpacity.Value / 100)
+end)
+
+local ChamsGroupBox = Tabs.Visuals:AddRightGroupbox('Chams')
+
+ChamsGroupBox:AddToggle('ESPChams', {
+    Text = 'Enabled',
+    Default = ESPSettings.Chams.Enabled
+})
+
+Toggles.ESPChams:OnChanged(function()
+    ESPSettings.Chams.Enabled = Toggles.ESPChams.Value
+end)
+
+local ChamsFill = ChamsGroupBox:AddLabel('Fill Color'):AddColorPicker('ESPChamsFillColor', {
+    Default = ESPSettings.Chams.FillColor,
+    Title = 'Chams Fill Color'
+})
+
+Options.ESPChamsFillColor:OnChanged(function()
+    ESPSettings.Chams.FillColor = Options.ESPChamsFillColor.Value
+end)
+
+ChamsGroupBox:AddSlider('ESPChamsFillTransparency', {
+    Text = 'Fill Transparency',
+    Default = math.floor(ESPSettings.Chams.FillTransparency * 100),
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPChamsFillTransparency:OnChanged(function()
+    ESPSettings.Chams.FillTransparency = Options.ESPChamsFillTransparency.Value / 100
+end)
+
+ChamsGroupBox:AddLabel('Outline Color'):AddColorPicker('ESPChamsOutlineColor', {
+    Default = ESPSettings.Chams.OutlineColor,
+    Title = 'Chams Outline Color'
+})
+
+Options.ESPChamsOutlineColor:OnChanged(function()
+    ESPSettings.Chams.OutlineColor = Options.ESPChamsOutlineColor.Value
+end)
+
+ChamsGroupBox:AddSlider('ESPChamsOutlineTransparency', {
+    Text = 'Outline Transparency',
+    Default = math.floor(ESPSettings.Chams.OutlineTransparency * 100),
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPChamsOutlineTransparency:OnChanged(function()
+    ESPSettings.Chams.OutlineTransparency = Options.ESPChamsOutlineTransparency.Value / 100
+end)
+
+ChamsGroupBox:AddToggle('ESPChamsAlwaysOnTop', {
+    Text = 'Always On Top',
+    Default = ESPSettings.Chams.AlwaysOnTop
+})
+
+Toggles.ESPChamsAlwaysOnTop:OnChanged(function()
+    ESPSettings.Chams.AlwaysOnTop = Toggles.ESPChamsAlwaysOnTop.Value
+end)
+
+local TracerGroupBox = Tabs.Visuals:AddLeftGroupbox('Tracers')
+
+TracerGroupBox:AddToggle('ESPTracers', {
+    Text = 'Enabled',
+    Default = ESPSettings.Tracers.Enabled
+})
+
+Toggles.ESPTracers:OnChanged(function()
+    ESPSettings.Tracers.Enabled = Toggles.ESPTracers.Value
+end)
+
+TracerGroupBox:AddLabel('Tracer Color'):AddColorPicker('ESPTracerColor', {
+    Default = ESPSettings.Tracers.Color,
+    Title = 'Tracer Color'
+})
+
+Options.ESPTracerColor:OnChanged(function()
+    ESPSettings.Tracers.Color = Options.ESPTracerColor.Value
+end)
+
+TracerGroupBox:AddSlider('ESPTracerThickness', {
+    Text = 'Thickness',
+    Default = ESPSettings.Tracers.Thickness,
+    Min = 1,
+    Max = 5,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPTracerThickness:OnChanged(function()
+    ESPSettings.Tracers.Thickness = Options.ESPTracerThickness.Value
+end)
+
+TracerGroupBox:AddSlider('ESPTracerTransparency', {
+    Text = 'Transparency',
+    Default = math.floor(ESPSettings.Tracers.Transparency * 100),
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPTracerTransparency:OnChanged(function()
+    ESPSettings.Tracers.Transparency = Options.ESPTracerTransparency.Value / 100
+end)
+
+TracerGroupBox:AddDropdown('ESPTracerOrigin', {
+    Values = {
+        'Bottom',
+        'Center',
+        'Mouse'
+    },
+    Default = 1,
+    Multi = false,
+    Text = 'Origin'
+})
+
+Options.ESPTracerOrigin:OnChanged(function()
+    ESPSettings.Tracers.Origin = Options.ESPTracerOrigin.Value
 end)
 
 local InfoGroupBox = Tabs.Visuals:AddLeftGroupbox('Information')
@@ -390,33 +490,6 @@ Options.ESPTeamTextColor:OnChanged(function()
     ESPSettings.Team_Text_Color = Options.ESPTeamTextColor.Value
 end)
 
-local ShowHealthToggle = InfoGroupBox:AddToggle('ESPShowHealth', {
-    Text = 'Show Health',
-    Default = ESPSettings.ShowHealth
-})
-
-ShowHealthToggle:AddColorPicker('ESPHealthBorderColor', {
-    Default = ESPSettings.HealthBorder_Color,
-    Title = 'Health Border'
-})
-
-ShowHealthToggle:AddColorPicker('ESPHealthFillColor', {
-    Default = ESPSettings.HealthFill_Color,
-    Title = 'Health Fill'
-})
-
-Toggles.ESPShowHealth:OnChanged(function()
-    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
-end)
-
-Options.ESPHealthBorderColor:OnChanged(function()
-    ESPSettings.HealthBorder_Color = Options.ESPHealthBorderColor.Value
-end)
-
-Options.ESPHealthFillColor:OnChanged(function()
-    ESPSettings.HealthFill_Color = Options.ESPHealthFillColor.Value
-end)
-
 InfoGroupBox:AddToggle('ESPCustomTextColor', {
     Text = 'Custom Text Colors',
     Default = ESPSettings.CustomTextColor
@@ -455,6 +528,33 @@ Options.ESPFont:OnChanged(function()
     ESPSettings.Font = Options.ESPFont.Value
 end)
 
+local ShowHealthToggle = InfoGroupBox:AddToggle('ESPShowHealth', {
+    Text = 'Show Health',
+    Default = ESPSettings.ShowHealth
+})
+
+ShowHealthToggle:AddColorPicker('ESPHealthBorderColor', {
+    Default = ESPSettings.HealthBorder_Color,
+    Title = 'Health Border Color'
+})
+
+ShowHealthToggle:AddColorPicker('ESPHealthFillColor', {
+    Default = ESPSettings.HealthFill_Color,
+    Title = 'Health Fill Color'
+})
+
+Toggles.ESPShowHealth:OnChanged(function()
+    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
+end)
+
+Options.ESPHealthBorderColor:OnChanged(function()
+    ESPSettings.HealthBorder_Color = Options.ESPHealthBorderColor.Value
+end)
+
+Options.ESPHealthFillColor:OnChanged(function()
+    ESPSettings.HealthFill_Color = Options.ESPHealthFillColor.Value
+end)
+
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
 
 MenuGroup:AddButton('Unload', function()
@@ -488,21 +588,30 @@ MenuGroup:AddLabel('Config Bind'):AddKeyPicker('ConfigBind', {
 local ConfigGroup = Tabs['UI Settings']:AddRightGroupbox('Configs')
 
 ThemeManager:SetLibrary(Library)
+
 SaveManager:SetLibrary(Library)
 
 SaveManager:IgnoreThemeSettings()
+
 SaveManager:SetIgnoreIndexes({
     'MenuKeybind'
 })
 
 ThemeManager:SetFolder('leetware')
+
 SaveManager:SetFolder('leetware/configs')
 
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
+
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
-local RunService, Stats = game:GetService("RunService"), game:GetService("Stats")
-local fps, frames, last = 0, 0, os.clock()
+Library:SetWatermarkVisibility(true)
+
+local fps = 0
+
+local frames = 0
+
+local last = os.clock()
 
 Library:SetWatermark("leetware | 0 FPS | 0 ms")
 
@@ -512,19 +621,23 @@ RunService.Heartbeat:Connect(function()
     local now = os.clock()
 
     if now - last >= 0.25 then
-        fps, frames, last = math.round(frames / (now - last)), 0, now
+        fps = math.round(frames / (now - last))
+
+        frames = 0
+
+        last = now
 
         local ping = math.round(Stats.PerformanceStats.Ping:GetValue())
 
-        Library:SetWatermark(string.format(
-            "leetware | %d FPS | %d ms",
-            fps,
-            ping
-        ))
+        Library:SetWatermark(
+            string.format(
+                "leetware | %d FPS | %d ms",
+                fps,
+                ping
+            )
+        )
     end
 end)
-
-Library:SetWatermarkVisibility(true)
 
 Library:OnUnload(function()
     if ESPController then
