@@ -21,8 +21,7 @@ local ESPSettings = {
     Autothickness = false,
     Rainbow = false,
 
-    CornerBox = true,
-    NormalBox = false,
+    BoxStyle = "Corner",
 
     FillBox = false,
     FillBoxGradient = false,
@@ -208,31 +207,27 @@ Toggles.ESPEnabled:OnChanged(function()
     ESPSettings.Enabled = Toggles.ESPEnabled.Value
 end)
 
-local CornerBoxToggle = BoxGroupBox:AddToggle('ESPCornerBox', {
-    Text = 'Corner Box',
-    Default = ESPSettings.CornerBox
+local BoxStyleDropdown = BoxGroupBox:AddDropdown('ESPBoxStyle', {
+    Values = {
+        'Corner',
+        'Normal'
+    },
+    Default = 1,
+    Multi = false,
+    Text = 'Box Style'
 })
 
-CornerBoxToggle:AddColorPicker('ESPBoxColor', {
+Options.ESPBoxStyle:OnChanged(function()
+    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
+end)
+
+BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
     Default = ESPSettings.Box_Color,
     Title = 'Box Color'
 })
 
-Toggles.ESPCornerBox:OnChanged(function()
-    ESPSettings.CornerBox = Toggles.ESPCornerBox.Value
-end)
-
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box_Color = Options.ESPBoxColor.Value
-end)
-
-BoxGroupBox:AddToggle('ESPNormalBox', {
-    Text = 'Normal Box',
-    Default = ESPSettings.NormalBox
-})
-
-Toggles.ESPNormalBox:OnChanged(function()
-    ESPSettings.NormalBox = Toggles.ESPNormalBox.Value
 end)
 
 BoxGroupBox:AddToggle('ESPRainbow', {

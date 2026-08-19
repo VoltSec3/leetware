@@ -21,6 +21,8 @@ function ESP.new(config)
     local DefaultTextColor = Color3.fromRGB(255, 255, 255)
     local DefaultHealthColor = Color3.fromRGB(255, 255, 255)
 
+    local GradientSegments = 32
+
     local function ValidColor(value, fallback)
         if typeof(value) == "Color3" then
             return value
@@ -52,6 +54,19 @@ function ESP.new(config)
         return square
     end
 
+    local function NewTriangle()
+        local triangle = Drawing.new("Triangle")
+        triangle.Visible = false
+        triangle.PointA = Vector2.new(0, 0)
+        triangle.PointB = Vector2.new(0, 0)
+        triangle.PointC = Vector2.new(0, 0)
+        triangle.Thickness = 0
+        triangle.Filled = true
+        triangle.Transparency = 1
+        triangle.Color = DefaultBoxColor
+        return triangle
+    end
+
     local function NewText()
         local text = Drawing.new("Text")
         text.Visible = false
@@ -65,93 +80,6 @@ function ESP.new(config)
         text.Transparency = 1
         text.Color = DefaultTextColor
         return text
-    end
-
-    local function NewGradientShader()
-        local shader = Drawing.new("Shader")
-        shader.Visible = false
-        shader.Position = Vector2.new(0, 0)
-        shader.Size = Vector2.new(0, 0)
-        shader.Transparency = 1
-        shader.ZIndex = 0
-
-        shader.Vertex = [[
-struct VSOut
-{
-    float4 pos : SV_POSITION;
-    float2 uv  : TEXCOORD0;
-};
-
-VSOut main(uint id : SV_VertexID)
-{
-    VSOut o;
-
-    float2 pos[3] = {
-        float2(-1.0, -1.0),
-        float2(-1.0,  3.0),
-        float2( 3.0, -1.0)
-    };
-
-    float2 uv[3] = {
-        float2(0.0, 1.0),
-        float2(0.0, -1.0),
-        float2(2.0, 1.0)
-    };
-
-    o.pos = float4(pos[id], 0.0, 1.0);
-    o.uv = uv[id];
-
-    return o;
-}
-]]
-
-        return shader
-    end
-
-    local function ColorToHLSL(color)
-        color = ValidColor(color, DefaultBoxColor)
-
-        return string.format(
-            "float3(%.6f, %.6f, %.6f)",
-            color.R,
-            color.G,
-            color.B
-        )
-    end
-
-    local function UpdateGradientShader(shader)
-        local color1 = ColorToHLSL(Settings.Gradient_Color_1)
-        local color2 = ColorToHLSL(Settings.Gradient_Color_2)
-        local rotation = tonumber(Settings.Gradient_Rotation) or 0
-
-        local radians = math.rad(rotation)
-
-        local pixelShader = string.format([[
-float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
-{
-    float2 p = uv - 0.5;
-
-    float c = cos(%.8f);
-    float s = sin(%.8f);
-
-    float2 rotated = float2(
-        p.x * c - p.y * s,
-        p.x * s + p.y * c
-    );
-
-    float t = saturate(rotated.y + 0.5);
-
-    float3 color1 = %s;
-    float3 color2 = %s;
-
-    float3 finalColor = lerp(color1, color2, t);
-
-    return float4(finalColor, 1.0);
-}
-]], radians, radians, color1, color2)
-
-        shader.Pixel = pixelShader
-        shader:Create()
     end
 
     local function HideLibrary(library)
@@ -216,6 +144,258 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
         return ValidColor(Settings.Team_Text_Color, DefaultTextColor)
     end
 
+    local function RotatePoint(x, y, centerX, centerY, cosAngle, sinAngle)
+        local dx = x - centerX
+        local dy = y - centerY
+
+        return Vector2.new(
+            centerX + dx * cosAngle - dy * sinAngle,
+            centerY + dx * sinAngle + dy * cosAngle
+        )
+    end
+
+    local function InsideLeft(point, x)
+        return point.X >= x
+    end
+
+    local function InsideRight(point, x)
+        return point.X <= x
+    end
+
+    local function InsideTop(point, y)
+        return point.Y >= y
+    end
+
+    local function InsideBottom(point, y)
+        return point.Y <= y
+    end
+
+    local function IntersectVertical(a, b, x)
+        local dx = b.X - a.X
+
+        if math.abs(dx) < 0.00001 then
+            return Vector2.new(x, a.Y)
+        end
+
+        local t = (x - a.X) / dx
+
+        return Vector2.new(
+            x,
+            a.Y + (b.Y - a.Y) * t
+        )
+    end
+
+    local function IntersectHorizontal(a, b, y)
+        local dy = b.Y - a.Y
+
+        if math.abs(dy) < 0.00001 then
+            return Vector2.new(a.X, y)
+        end
+
+        local t = (y - a.Y) / dy
+
+        return Vector2.new(
+            a.X + (b.X - a.X) * t,
+            y
+        )
+    end
+
+    local function ClipPolygon(points, insideFunction, intersectFunction)
+        local output = {}
+
+        if #points == 0 then
+            return output
+        end
+
+        local previous = points[#points]
+        local previousInside = insideFunction(previous)
+
+        for _, current in ipairs(points) do
+            local currentInside = insideFunction(current)
+
+            if currentInside then
+                if not previousInside then
+                    output[#output + 1] = intersectFunction(previous, current)
+                end
+
+                output[#output + 1] = current
+            elseif previousInside then
+                output[#output + 1] = intersectFunction(previous, current)
+            end
+
+            previous = current
+            previousInside = currentInside
+        end
+
+        return output
+    end
+
+    local function ClipToBox(points, width, height)
+        points = ClipPolygon(
+            points,
+            function(point)
+                return InsideLeft(point, 0)
+            end,
+            function(a, b)
+                return IntersectVertical(a, b, 0)
+            end
+        )
+
+        points = ClipPolygon(
+            points,
+            function(point)
+                return InsideRight(point, width)
+            end,
+            function(a, b)
+                return IntersectVertical(a, b, width)
+            end
+        )
+
+        points = ClipPolygon(
+            points,
+            function(point)
+                return InsideTop(point, 0)
+            end,
+            function(a, b)
+                return IntersectHorizontal(a, b, 0)
+            end
+        )
+
+        points = ClipPolygon(
+            points,
+            function(point)
+                return InsideBottom(point, height)
+            end,
+            function(a, b)
+                return IntersectHorizontal(a, b, height)
+            end
+        )
+
+        return points
+    end
+
+    local function BuildGradient(library, left, top, width, height)
+        local gradient = library.Gradient
+
+        local color1 = ValidColor(
+            Settings.Gradient_Color_1,
+            DefaultBoxColor
+        )
+
+        local color2 = ValidColor(
+            Settings.Gradient_Color_2,
+            DefaultBoxColor
+        )
+
+        local rotation = math.rad(
+            tonumber(Settings.Gradient_Rotation) or 0
+        )
+
+        local cosAngle = math.cos(rotation)
+        local sinAngle = math.sin(rotation)
+
+        local centerX = width / 2
+        local centerY = height / 2
+
+        local diagonal = math.sqrt(
+            width * width +
+            height * height
+        )
+
+        local needed = GradientSegments * 4
+
+        while #gradient < needed do
+            gradient[#gradient + 1] = NewTriangle()
+        end
+
+        for _, triangle in ipairs(gradient) do
+            triangle.Visible = false
+        end
+
+        local triangleIndex = 1
+
+        for segment = 0, GradientSegments - 1 do
+            local low = -diagonal + (diagonal * 2) * (segment / GradientSegments)
+            local high = -diagonal + (diagonal * 2) * ((segment + 1) / GradientSegments)
+
+            local points = {
+                RotatePoint(
+                    -diagonal,
+                    low,
+                    centerX,
+                    centerY,
+                    cosAngle,
+                    sinAngle
+                ),
+
+                RotatePoint(
+                    diagonal,
+                    low,
+                    centerX,
+                    centerY,
+                    cosAngle,
+                    sinAngle
+                ),
+
+                RotatePoint(
+                    diagonal,
+                    high,
+                    centerX,
+                    centerY,
+                    cosAngle,
+                    sinAngle
+                ),
+
+                RotatePoint(
+                    -diagonal,
+                    high,
+                    centerX,
+                    centerY,
+                    cosAngle,
+                    sinAngle
+                )
+            }
+
+            local clipped = ClipToBox(
+                points,
+                width,
+                height
+            )
+
+            if #clipped >= 3 then
+                local t = (segment + 0.5) / GradientSegments
+                local color = color1:Lerp(color2, t)
+
+                for i = 2, #clipped - 1 do
+                    local triangle = gradient[triangleIndex]
+
+                    if triangle then
+                        triangle.PointA = Vector2.new(
+                            left + clipped[1].X,
+                            top + clipped[1].Y
+                        )
+
+                        triangle.PointB = Vector2.new(
+                            left + clipped[i].X,
+                            top + clipped[i].Y
+                        )
+
+                        triangle.PointC = Vector2.new(
+                            left + clipped[i + 1].X,
+                            top + clipped[i + 1].Y
+                        )
+
+                        triangle.Color = color
+                        triangle.Transparency = tonumber(Settings.Fill_Opacity) or 0.15
+                        triangle.Visible = true
+
+                        triangleIndex += 1
+                    end
+                end
+            end
+        end
+    end
+
     local function DestroyObject(plr)
         local data = Objects[plr]
 
@@ -249,6 +429,12 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             return
         end
 
+        local gradientObjects = {}
+
+        for i = 1, GradientSegments * 4 do
+            gradientObjects[i] = NewTriangle()
+        end
+
         local library = {
             TL1 = NewLine(DefaultBoxColor, 2),
             TL2 = NewLine(DefaultBoxColor, 2),
@@ -265,7 +451,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             BoxRight = NewLine(DefaultBoxColor, 2),
 
             Fill = NewSquare(),
-            Gradient = NewGradientShader(),
+            Gradient = gradientObjects,
 
             Name = NewText(),
             Team = NewText(),
@@ -285,8 +471,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
         library.HealthBar.Transparency = 1
         library.HealthBar.Color = DefaultHealthColor
 
-        UpdateGradientShader(library.Gradient)
-
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
         originPart.Transparency = 1
@@ -300,9 +484,9 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             Library = library,
             OriginPart = originPart,
             Connection = nil,
-            GradientColor1 = Settings.Gradient_Color_1,
-            GradientColor2 = Settings.Gradient_Color_2,
-            GradientRotation = Settings.Gradient_Rotation
+            LastRotation = nil,
+            LastColor1 = nil,
+            LastColor2 = nil
         }
 
         Objects[plr] = data
@@ -315,17 +499,6 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             if not Camera or not Settings.Enabled then
                 HideLibrary(library)
                 return
-            end
-
-            if data.GradientColor1 ~= Settings.Gradient_Color_1
-                or data.GradientColor2 ~= Settings.Gradient_Color_2
-                or data.GradientRotation ~= Settings.Gradient_Rotation then
-
-                data.GradientColor1 = Settings.Gradient_Color_1
-                data.GradientColor2 = Settings.Gradient_Color_2
-                data.GradientRotation = Settings.Gradient_Rotation
-
-                UpdateGradientShader(library.Gradient)
             end
 
             local character = plr.Character
@@ -407,6 +580,7 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             local height = math.max(bottom - top, 1)
 
             local distance = (Camera.CFrame.Position - root.Position).Magnitude
+
             local offset = math.clamp(
                 1 / math.max(distance, 0.01) * 750,
                 2,
@@ -430,6 +604,11 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             library.BoxBottom.Color = color
             library.BoxLeft.Color = color
             library.BoxRight.Color = color
+
+            local boxStyle = Settings.BoxStyle or "Corner"
+
+            local cornerEnabled = boxStyle == "Corner"
+            local normalEnabled = boxStyle == "Normal"
 
             library.TL1.From = Vector2.new(topLeft.X, topLeft.Y)
             library.TL1.To = Vector2.new(topLeft.X + offset, topLeft.Y)
@@ -467,44 +646,80 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
             library.BoxRight.From = Vector2.new(right, top)
             library.BoxRight.To = Vector2.new(right, bottom)
 
-            library.TL1.Visible = Settings.CornerBox
-            library.TL2.Visible = Settings.CornerBox
-            library.TR1.Visible = Settings.CornerBox
-            library.TR2.Visible = Settings.CornerBox
-            library.BL1.Visible = Settings.CornerBox
-            library.BL2.Visible = Settings.CornerBox
-            library.BR1.Visible = Settings.CornerBox
-            library.BR2.Visible = Settings.CornerBox
+            library.TL1.Visible = cornerEnabled
+            library.TL2.Visible = cornerEnabled
+            library.TR1.Visible = cornerEnabled
+            library.TR2.Visible = cornerEnabled
+            library.BL1.Visible = cornerEnabled
+            library.BL2.Visible = cornerEnabled
+            library.BR1.Visible = cornerEnabled
+            library.BR2.Visible = cornerEnabled
 
-            library.BoxTop.Visible = Settings.NormalBox
-            library.BoxBottom.Visible = Settings.NormalBox
-            library.BoxLeft.Visible = Settings.NormalBox
-            library.BoxRight.Visible = Settings.NormalBox
+            library.BoxTop.Visible = normalEnabled
+            library.BoxBottom.Visible = normalEnabled
+            library.BoxLeft.Visible = normalEnabled
+            library.BoxRight.Visible = normalEnabled
 
             local fillOpacity = tonumber(Settings.Fill_Opacity) or 0.15
             fillOpacity = math.clamp(fillOpacity, 0, 1)
 
-            library.Fill.Transparency = fillOpacity
-            library.Gradient.Transparency = fillOpacity
-
             if Settings.FillBoxGradient then
                 library.Fill.Visible = false
-                library.Gradient.Visible = true
 
-                library.Gradient.Position = Vector2.new(left, top)
-                library.Gradient.Size = Vector2.new(width, height)
-            elseif Settings.FillBox then
-                library.Gradient.Visible = false
-                library.Fill.Visible = true
-                library.Fill.Color = ValidColor(
-                    Settings.Fill_Box_Color,
+                local rotation = tonumber(Settings.Gradient_Rotation) or 0
+                local color1 = ValidColor(
+                    Settings.Gradient_Color_1,
                     DefaultBoxColor
                 )
-                library.Fill.Position = Vector2.new(left, top)
-                library.Fill.Size = Vector2.new(width, height)
+
+                local color2 = ValidColor(
+                    Settings.Gradient_Color_2,
+                    DefaultBoxColor
+                )
+
+                if rotation ~= data.LastRotation
+                    or color1 ~= data.LastColor1
+                    or color2 ~= data.LastColor2 then
+
+                    data.LastRotation = rotation
+                    data.LastColor1 = color1
+                    data.LastColor2 = color2
+
+                    BuildGradient(
+                        library,
+                        left,
+                        top,
+                        width,
+                        height
+                    )
+                else
+                    for _, triangle in ipairs(library.Gradient) do
+                        triangle.Transparency = fillOpacity
+                    end
+                end
             else
-                library.Fill.Visible = false
-                library.Gradient.Visible = false
+                for _, triangle in ipairs(library.Gradient) do
+                    triangle.Visible = false
+                end
+
+                if Settings.FillBox then
+                    library.Fill.Visible = true
+                    library.Fill.Color = ValidColor(
+                        Settings.Fill_Box_Color,
+                        DefaultBoxColor
+                    )
+                    library.Fill.Transparency = fillOpacity
+                    library.Fill.Position = Vector2.new(left, top)
+                    library.Fill.Size = Vector2.new(width, height)
+                else
+                    library.Fill.Visible = false
+                end
+            end
+
+            if Settings.FillBoxGradient then
+                for _, triangle in ipairs(library.Gradient) do
+                    triangle.Transparency = fillOpacity
+                end
             end
 
             local nameColor = ValidColor(
