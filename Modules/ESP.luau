@@ -10,6 +10,13 @@ function ESP.new(config)
     local Camera = Workspace.CurrentCamera
     local Objects = {}
 
+    local Fonts = {
+        UI = 0,
+        System = 1,
+        Plex = 2,
+        Monospace = 3
+    }
+
     local function NewLine(color, thickness)
         local line = Drawing.new("Line")
         line.Visible = false
@@ -41,14 +48,9 @@ function ESP.new(config)
         text.Outline = true
         text.OutlineColor = Color3.fromRGB(0, 0, 0)
         text.Position = Vector2.new(0, 0)
+        text.Font = Fonts.UI
         text.Transparency = 1
         return text
-    end
-
-    local function SetVisible(object, state)
-        if object then
-            object.Visible = state
-        end
     end
 
     local function SetLibraryVisible(library, state)
@@ -112,6 +114,18 @@ function ESP.new(config)
         return Settings.Box_Color
     end
 
+    local function GetTextColor(plr, type)
+        if not Settings.CustomTextColor then
+            return GetESPColor(plr)
+        end
+
+        if type == "Name" then
+            return Settings.Name_Color
+        end
+
+        return Settings.Team_Text_Color
+    end
+
     local function DestroyObject(plr)
         local data = Objects[plr]
 
@@ -154,7 +168,7 @@ function ESP.new(config)
         for i = 1, 24 do
             local square = NewSquare()
             square.Filled = true
-            square.Transparency = 0.15
+            square.Transparency = Settings.Fill_Opacity
             gradientObjects[i] = square
         end
 
@@ -184,14 +198,14 @@ function ESP.new(config)
         }
 
         library.Fill.Filled = true
-        library.Fill.Transparency = 0.15
+        library.Fill.Transparency = Settings.Fill_Opacity
 
         library.HealthOutline.Filled = false
         library.HealthOutline.Transparency = 1
 
         library.HealthBar.Filled = true
         library.HealthBar.Transparency = 1
-        library.HealthBar.Color = Color3.fromRGB(255, 255, 255)
+        library.HealthBar.Color = Settings.HealthBar_Color
 
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
@@ -337,22 +351,25 @@ function ESP.new(config)
             library.BoxRight.From = Vector2.new(right, top)
             library.BoxRight.To = Vector2.new(right, bottom)
 
-            local cornerVisible = Settings.CornerBox
-            local normalVisible = Settings.NormalBox
+            library.TL1.Visible = Settings.CornerBox
+            library.TL2.Visible = Settings.CornerBox
+            library.TR1.Visible = Settings.CornerBox
+            library.TR2.Visible = Settings.CornerBox
+            library.BL1.Visible = Settings.CornerBox
+            library.BL2.Visible = Settings.CornerBox
+            library.BR1.Visible = Settings.CornerBox
+            library.BR2.Visible = Settings.CornerBox
 
-            library.TL1.Visible = cornerVisible
-            library.TL2.Visible = cornerVisible
-            library.TR1.Visible = cornerVisible
-            library.TR2.Visible = cornerVisible
-            library.BL1.Visible = cornerVisible
-            library.BL2.Visible = cornerVisible
-            library.BR1.Visible = cornerVisible
-            library.BR2.Visible = cornerVisible
+            library.BoxTop.Visible = Settings.NormalBox
+            library.BoxBottom.Visible = Settings.NormalBox
+            library.BoxLeft.Visible = Settings.NormalBox
+            library.BoxRight.Visible = Settings.NormalBox
 
-            library.BoxTop.Visible = normalVisible
-            library.BoxBottom.Visible = normalVisible
-            library.BoxLeft.Visible = normalVisible
-            library.BoxRight.Visible = normalVisible
+            library.Fill.Transparency = Settings.Fill_Opacity
+
+            for _, object in ipairs(library.Gradient) do
+                object.Transparency = Settings.Fill_Opacity
+            end
 
             if Settings.FillBoxGradient then
                 library.Fill.Visible = false
@@ -384,25 +401,28 @@ function ESP.new(config)
                 end
             end
 
-            local textColor = color
+            local nameColor = GetTextColor(plr, "Name")
+            local teamColor = GetTextColor(plr, "Team")
 
             library.Name.Visible = Settings.ShowName
             library.Team.Visible = Settings.ShowTeam
 
             library.Name.Text = plr.Name
-            library.Name.Color = textColor
-            library.Name.Size = 14
+            library.Name.Color = nameColor
+            library.Name.Size = Settings.Name_Scale
+            library.Name.Font = Fonts[Settings.Font] or Fonts.UI
             library.Name.Position = Vector2.new(
                 (left + right) / 2,
-                top - 18
+                top - (Settings.Name_Scale + 5)
             )
 
             library.Team.Text = plr.Team and plr.Team.Name or "Neutral"
-            library.Team.Color = textColor
-            library.Team.Size = 13
+            library.Team.Color = teamColor
+            library.Team.Size = math.max(Settings.Name_Scale - 1, 10)
+            library.Team.Font = Fonts[Settings.Font] or Fonts.UI
             library.Team.Position = Vector2.new(
                 (left + right) / 2,
-                top - (Settings.ShowName and 32 or 18)
+                top - (Settings.ShowName and (Settings.Name_Scale + 19) or 18)
             )
 
             local healthRatio = 0
@@ -437,10 +457,11 @@ function ESP.new(config)
                 math.max((height - 2) * healthRatio, 0)
             )
 
-            library.HealthBar.Color = Color3.fromRGB(255, 255, 255)
+            library.HealthBar.Color = Settings.HealthBar_Color
 
             if Settings.Autothickness then
                 local value = math.clamp(1 / distance * 100, 1, 4)
+
                 SetThickness({
                     TL1 = library.TL1,
                     TL2 = library.TL2,

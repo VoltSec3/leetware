@@ -1,17 +1,13 @@
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
-
+local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-
-local espRepo = 'Modules/ESP.lua'
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Player = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
 local ESPSettings = {
     Enabled = true,
@@ -21,16 +17,27 @@ local ESPSettings = {
     Team_Color = false,
     Autothickness = false,
     Rainbow = false,
+
     CornerBox = true,
     NormalBox = false,
+
     FillBox = false,
     FillBoxGradient = false,
     Fill_Box_Color = Color3.fromRGB(255, 0, 0),
     Gradient_Color_1 = Color3.fromRGB(255, 0, 0),
     Gradient_Color_2 = Color3.fromRGB(0, 0, 255),
+    Fill_Opacity = 0.15,
+
     ShowName = false,
+    ShowTeam = false,
+    CustomTextColor = false,
+    Name_Color = Color3.fromRGB(255, 255, 255),
+    Team_Text_Color = Color3.fromRGB(255, 255, 255),
+    Name_Scale = 14,
+    Font = "UI",
+
     ShowHealth = false,
-    ShowTeam = false
+    HealthBar_Color = Color3.fromRGB(255, 255, 255)
 }
 
 local ESPModule = loadstring(game:HttpGet(espRepo))()
@@ -185,9 +192,9 @@ RightMainGroupBox:AddLabel('Test Keybind'):AddKeyPicker('TestKeybind', {
     Mode = 'Toggle'
 })
 
-local ESPGroupBox = Tabs.Visuals:AddLeftGroupbox('ESP')
+local BoxGroupBox = Tabs.Visuals:AddLeftGroupbox('Box')
 
-ESPGroupBox:AddToggle('ESPEnabled', {
+BoxGroupBox:AddToggle('ESPEnabled', {
     Text = 'Enabled',
     Default = ESPSettings.Enabled
 })
@@ -196,97 +203,44 @@ Toggles.ESPEnabled:OnChanged(function()
     ESPSettings.Enabled = Toggles.ESPEnabled.Value
 end)
 
-ESPGroupBox:AddToggle('ESPCornerBox', {
+local CornerBoxToggle = BoxGroupBox:AddToggle('ESPCornerBox', {
     Text = 'Corner Box',
     Default = ESPSettings.CornerBox
+})
+
+CornerBoxToggle:AddColorPicker('ESPBoxColor', {
+    Default = ESPSettings.Box_Color,
+    Title = 'Box Color'
 })
 
 Toggles.ESPCornerBox:OnChanged(function()
     ESPSettings.CornerBox = Toggles.ESPCornerBox.Value
 end)
 
-ESPGroupBox:AddToggle('ESPNormalBox', {
+Options.ESPBoxColor:OnChanged(function()
+    ESPSettings.Box_Color = Options.ESPBoxColor.Value
+end)
+
+local NormalBoxToggle = BoxGroupBox:AddToggle('ESPNormalBox', {
     Text = 'Normal Box',
     Default = ESPSettings.NormalBox
+})
+
+NormalBoxToggle:AddColorPicker('ESPBoxColorNormal', {
+    Default = ESPSettings.Box_Color,
+    Title = 'Box Color'
 })
 
 Toggles.ESPNormalBox:OnChanged(function()
     ESPSettings.NormalBox = Toggles.ESPNormalBox.Value
 end)
 
-ESPGroupBox:AddToggle('ESPFillBox', {
-    Text = 'Fill Box',
-    Default = ESPSettings.FillBox
-})
-
-Toggles.ESPFillBox:OnChanged(function()
-    ESPSettings.FillBox = Toggles.ESPFillBox.Value
+Options.ESPBoxColorNormal:OnChanged(function()
+    ESPSettings.Box_Color = Options.ESPBoxColorNormal.Value
+    Options.ESPBoxColor:SetValue(Options.ESPBoxColorNormal.Value)
 end)
 
-ESPGroupBox:AddLabel('Fill Color'):AddColorPicker('ESPFillBoxColor', {
-    Default = ESPSettings.Fill_Box_Color,
-    Title = 'Fill Box Color'
-})
-
-Options.ESPFillBoxColor:OnChanged(function()
-    ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
-end)
-
-ESPGroupBox:AddToggle('ESPFillBoxGradient', {
-    Text = 'Fill Box Gradient',
-    Default = ESPSettings.FillBoxGradient
-})
-
-Toggles.ESPFillBoxGradient:OnChanged(function()
-    ESPSettings.FillBoxGradient = Toggles.ESPFillBoxGradient.Value
-end)
-
-ESPGroupBox:AddLabel('Gradient Color 1'):AddColorPicker('ESPGradientColor1', {
-    Default = ESPSettings.Gradient_Color_1,
-    Title = 'Gradient Color 1'
-})
-
-Options.ESPGradientColor1:OnChanged(function()
-    ESPSettings.Gradient_Color_1 = Options.ESPGradientColor1.Value
-end)
-
-ESPGroupBox:AddLabel('Gradient Color 2'):AddColorPicker('ESPGradientColor2', {
-    Default = ESPSettings.Gradient_Color_2,
-    Title = 'Gradient Color 2'
-})
-
-Options.ESPGradientColor2:OnChanged(function()
-    ESPSettings.Gradient_Color_2 = Options.ESPGradientColor2.Value
-end)
-
-ESPGroupBox:AddToggle('ESPShowName', {
-    Text = 'Show Name',
-    Default = ESPSettings.ShowName
-})
-
-Toggles.ESPShowName:OnChanged(function()
-    ESPSettings.ShowName = Toggles.ESPShowName.Value
-end)
-
-ESPGroupBox:AddToggle('ESPShowHealth', {
-    Text = 'Show Health',
-    Default = ESPSettings.ShowHealth
-})
-
-Toggles.ESPShowHealth:OnChanged(function()
-    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
-end)
-
-ESPGroupBox:AddToggle('ESPShowTeam', {
-    Text = 'Show Team',
-    Default = ESPSettings.ShowTeam
-})
-
-Toggles.ESPShowTeam:OnChanged(function()
-    ESPSettings.ShowTeam = Toggles.ESPShowTeam.Value
-end)
-
-ESPGroupBox:AddToggle('ESPRainbow', {
+BoxGroupBox:AddToggle('ESPRainbow', {
     Text = 'Rainbow',
     Default = ESPSettings.Rainbow
 })
@@ -295,7 +249,7 @@ Toggles.ESPRainbow:OnChanged(function()
     ESPSettings.Rainbow = Toggles.ESPRainbow.Value
 end)
 
-ESPGroupBox:AddToggle('ESPTeamCheck', {
+BoxGroupBox:AddToggle('ESPTeamCheck', {
     Text = 'Team Check',
     Default = ESPSettings.Team_Check
 })
@@ -304,7 +258,7 @@ Toggles.ESPTeamCheck:OnChanged(function()
     ESPSettings.Team_Check = Toggles.ESPTeamCheck.Value
 end)
 
-ESPGroupBox:AddToggle('ESPTeamColor', {
+BoxGroupBox:AddToggle('ESPTeamColor', {
     Text = 'Team Color',
     Default = ESPSettings.Team_Color
 })
@@ -313,7 +267,7 @@ Toggles.ESPTeamColor:OnChanged(function()
     ESPSettings.Team_Color = Toggles.ESPTeamColor.Value
 end)
 
-ESPGroupBox:AddToggle('ESPAutothickness', {
+BoxGroupBox:AddToggle('ESPAutothickness', {
     Text = 'Auto Thickness',
     Default = ESPSettings.Autothickness
 })
@@ -322,7 +276,7 @@ Toggles.ESPAutothickness:OnChanged(function()
     ESPSettings.Autothickness = Toggles.ESPAutothickness.Value
 end)
 
-ESPGroupBox:AddSlider('ESPThickness', {
+BoxGroupBox:AddSlider('ESPThickness', {
     Text = 'Box Thickness',
     Default = ESPSettings.Box_Thickness,
     Min = 1,
@@ -335,13 +289,160 @@ Options.ESPThickness:OnChanged(function()
     ESPSettings.Box_Thickness = Options.ESPThickness.Value
 end)
 
-ESPGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
-    Default = ESPSettings.Box_Color,
-    Title = 'ESP Box Color'
+local FillGroupBox = Tabs.Visuals:AddRightGroupbox('Fill')
+
+local FillToggle = FillGroupBox:AddToggle('ESPFillBox', {
+    Text = 'Fill Box',
+    Default = ESPSettings.FillBox
 })
 
-Options.ESPBoxColor:OnChanged(function()
-    ESPSettings.Box_Color = Options.ESPBoxColor.Value
+FillToggle:AddColorPicker('ESPFillBoxColor', {
+    Default = ESPSettings.Fill_Box_Color,
+    Title = 'Fill Color'
+})
+
+Toggles.ESPFillBox:OnChanged(function()
+    ESPSettings.FillBox = Toggles.ESPFillBox.Value
+end)
+
+Options.ESPFillBoxColor:OnChanged(function()
+    ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
+end)
+
+FillGroupBox:AddToggle('ESPFillBoxGradient', {
+    Text = 'Gradient',
+    Default = ESPSettings.FillBoxGradient
+})
+
+Toggles.ESPFillBoxGradient:OnChanged(function()
+    ESPSettings.FillBoxGradient = Toggles.ESPFillBoxGradient.Value
+end)
+
+FillGroupBox:AddLabel('Gradient Start'):AddColorPicker('ESPGradientColor1', {
+    Default = ESPSettings.Gradient_Color_1,
+    Title = 'Gradient Start'
+})
+
+Options.ESPGradientColor1:OnChanged(function()
+    ESPSettings.Gradient_Color_1 = Options.ESPGradientColor1.Value
+end)
+
+FillGroupBox:AddLabel('Gradient End'):AddColorPicker('ESPGradientColor2', {
+    Default = ESPSettings.Gradient_Color_2,
+    Title = 'Gradient End'
+})
+
+Options.ESPGradientColor2:OnChanged(function()
+    ESPSettings.Gradient_Color_2 = Options.ESPGradientColor2.Value
+end)
+
+FillGroupBox:AddSlider('ESPFillOpacity', {
+    Text = 'Fill Opacity',
+    Default = math.floor((1 - ESPSettings.Fill_Opacity) * 100),
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPFillOpacity:OnChanged(function()
+    ESPSettings.Fill_Opacity = 1 - (Options.ESPFillOpacity.Value / 100)
+end)
+
+local InfoGroupBox = Tabs.Visuals:AddLeftGroupbox('Information')
+
+local ShowNameToggle = InfoGroupBox:AddToggle('ESPShowName', {
+    Text = 'Show Name',
+    Default = ESPSettings.ShowName
+})
+
+ShowNameToggle:AddColorPicker('ESPNameColor', {
+    Default = ESPSettings.Name_Color,
+    Title = 'Name Color'
+})
+
+Toggles.ESPShowName:OnChanged(function()
+    ESPSettings.ShowName = Toggles.ESPShowName.Value
+end)
+
+Options.ESPNameColor:OnChanged(function()
+    ESPSettings.Name_Color = Options.ESPNameColor.Value
+end)
+
+local ShowTeamToggle = InfoGroupBox:AddToggle('ESPShowTeam', {
+    Text = 'Show Team',
+    Default = ESPSettings.ShowTeam
+})
+
+ShowTeamToggle:AddColorPicker('ESPTeamTextColor', {
+    Default = ESPSettings.Team_Text_Color,
+    Title = 'Team Color'
+})
+
+Toggles.ESPShowTeam:OnChanged(function()
+    ESPSettings.ShowTeam = Toggles.ESPShowTeam.Value
+end)
+
+Options.ESPTeamTextColor:OnChanged(function()
+    ESPSettings.Team_Text_Color = Options.ESPTeamTextColor.Value
+end)
+
+InfoGroupBox:AddToggle('ESPCustomTextColor', {
+    Text = 'Custom Text Colors',
+    Default = ESPSettings.CustomTextColor
+})
+
+Toggles.ESPCustomTextColor:OnChanged(function()
+    ESPSettings.CustomTextColor = Toggles.ESPCustomTextColor.Value
+end)
+
+InfoGroupBox:AddSlider('ESPNameScale', {
+    Text = 'Name Scale',
+    Default = ESPSettings.Name_Scale,
+    Min = 10,
+    Max = 24,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPNameScale:OnChanged(function()
+    ESPSettings.Name_Scale = Options.ESPNameScale.Value
+end)
+
+InfoGroupBox:AddDropdown('ESPFont', {
+    Values = {
+        'UI',
+        'System',
+        'Plex',
+        'Monospace'
+    },
+    Default = ESPSettings.Font,
+    Multi = false,
+    Text = 'Font'
+})
+
+Options.ESPFont:OnChanged(function()
+    ESPSettings.Font = Options.ESPFont.Value
+end)
+
+local HealthGroupBox = Tabs.Visuals:AddRightGroupbox('Health')
+
+local HealthToggle = HealthGroupBox:AddToggle('ESPShowHealth', {
+    Text = 'Show Health',
+    Default = ESPSettings.ShowHealth
+})
+
+HealthToggle:AddColorPicker('ESPHealthBarColor', {
+    Default = ESPSettings.HealthBar_Color,
+    Title = 'Health Bar Color'
+})
+
+Toggles.ESPShowHealth:OnChanged(function()
+    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
+end)
+
+Options.ESPHealthBarColor:OnChanged(function()
+    ESPSettings.HealthBar_Color = Options.ESPHealthBarColor.Value
 end)
 
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
