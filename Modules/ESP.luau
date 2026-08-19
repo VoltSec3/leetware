@@ -22,8 +22,8 @@ function ESP.new(config)
     local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
     local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
 
-    local GradientColumns = 32
-    local GradientRows = 32
+    local GradientColumns = 128
+    local GradientRows = 128
     local GradientCount = GradientColumns * GradientRows
 
     local function ValidColor(value, fallback)
@@ -81,6 +81,16 @@ function ESP.new(config)
             else
                 object.Visible = false
             end
+        end
+    end
+
+    local function HideGradient(library)
+        if not library.Gradient then
+            return
+        end
+
+        for _, object in ipairs(library.Gradient) do
+            object.Visible = false
         end
     end
 
@@ -145,6 +155,24 @@ function ESP.new(config)
         )
     end
 
+    local function CreateGradientObjects()
+        local gradient = table.create(GradientCount)
+
+        for index = 1, GradientCount do
+            gradient[index] = NewSquare()
+        end
+
+        return gradient
+    end
+
+    local function CreateGradient(library)
+        if library.Gradient then
+            return
+        end
+
+        library.Gradient = CreateGradientObjects()
+    end
+
     local function DestroyObject(plr)
         local data = Objects[plr]
 
@@ -177,58 +205,47 @@ function ESP.new(config)
         Objects[plr] = nil
     end
 
-    local function CreateGradientObjects()
-        local objects = table.create(GradientCount)
-
-        for index = 1, GradientCount do
-            objects[index] = NewSquare()
-        end
-
-        return objects
-    end
-
-    local function GetGradientColor(
+    local function GradientValue(
         x,
         y,
         width,
         height,
-        rotation,
-        color1,
-        color2
+        rotation
     )
         local nx = (x / width) * 2 - 1
         local ny = (y / height) * 2 - 1
 
         local radians = math.rad(rotation)
 
-        local cosValue = math.cos(radians)
         local sinValue = math.sin(radians)
+        local cosValue = math.cos(radians)
 
         local rotatedY =
             nx * sinValue +
             ny * cosValue
 
-        local diagonal =
+        local maximum =
             math.sqrt(2)
 
-        local t =
-            (rotatedY + diagonal) /
-            (diagonal * 2)
-
-        t = math.clamp(t, 0, 1)
-
-        return color1:Lerp(color2, t)
+        return math.clamp(
+            (rotatedY + maximum) /
+                (maximum * 2),
+            0,
+            1
+        )
     end
 
     local function UpdateGradient(
-        gradient,
+        library,
         left,
         top,
         width,
-        height,
-        rotation,
-        opacity
+        height
     )
+        CreateGradient(library)
+
+        local gradient = library.Gradient
+
         local color1 = ValidColor(
             Settings.Gradient_Color_1,
             DefaultBoxColor
@@ -239,109 +256,179 @@ function ESP.new(config)
             DefaultBoxColor
         )
 
+        local rotation =
+            tonumber(
+                Settings.Gradient_Rotation
+            ) or 0
+
+        local opacity =
+            tonumber(
+                Settings.Fill_Opacity
+            ) or 0.15
+
+        opacity = math.clamp(
+            opacity,
+            0,
+            1
+        )
+
         local cellWidth =
             width / GradientColumns
 
         local cellHeight =
             height / GradientRows
 
-        local overlapX =
-            math.min(
-                1,
-                cellWidth * 0.08
-            )
-
-        local overlapY =
-            math.min(
-                1,
-                cellHeight * 0.08
-            )
-
         local index = 1
 
         for row = 0, GradientRows - 1 do
-            local y =
+            local rawY =
                 top +
                 row * cellHeight
 
+            local nextRawY =
+                top +
+                (row + 1) * cellHeight
+
+            local y0 =
+                math.floor(
+                    rawY + 0.5
+                )
+
+            local y1 =
+                math.floor(
+                    nextRawY + 0.5
+                )
+
+            if row == GradientRows - 1 then
+                y1 =
+                    math.floor(
+                        top +
+                        height +
+                        0.5
+                    )
+            end
+
             local sampleY =
-                row * cellHeight +
-                cellHeight * 0.5
+                (
+                    rawY +
+                    nextRawY
+                ) * 0.5 -
+                top
 
             for column = 0, GradientColumns - 1 do
-                local x =
+                local rawX =
                     left +
                     column * cellWidth
 
+                local nextRawX =
+                    left +
+                    (column + 1) *
+                    cellWidth
+
+                local x0 =
+                    math.floor(
+                        rawX + 0.5
+                    )
+
+                local x1 =
+                    math.floor(
+                        nextRawX + 0.5
+                    )
+
+                if column == GradientColumns - 1 then
+                    x1 =
+                        math.floor(
+                            left +
+                            width +
+                            0.5
+                        )
+                end
+
                 local sampleX =
-                    column * cellWidth +
-                    cellWidth * 0.5
+                    (
+                        rawX +
+                        nextRawX
+                    ) * 0.5 -
+                    left
+
+                local positionX =
+                    math.max(
+                        left,
+                        x0
+                    )
+
+                local positionY =
+                    math.max(
+                        top,
+                        y0
+                    )
+
+                local endX =
+                    math.min(
+                        left + width,
+                        x1
+                    )
+
+                local endY =
+                    math.min(
+                        top + height,
+                        y1
+                    )
+
+                local sizeX =
+                    math.max(
+                        endX - positionX,
+                        0
+                    )
+
+                local sizeY =
+                    math.max(
+                        endY - positionY,
+                        0
+                    )
 
                 local object =
                     gradient[index]
 
-                local positionX =
-                    x - overlapX * 0.5
+                if sizeX > 0
+                    and sizeY > 0 then
 
-                local positionY =
-                    y - overlapY * 0.5
+                    local t =
+                        GradientValue(
+                            sampleX,
+                            sampleY,
+                            width,
+                            height,
+                            rotation
+                        )
 
-                local sizeX =
-                    cellWidth + overlapX
+                    object.Color =
+                        color1:Lerp(
+                            color2,
+                            t
+                        )
 
-                local sizeY =
-                    cellHeight + overlapY
+                    object.Transparency =
+                        opacity
 
-                local minimumX = left
-                local minimumY = top
-                local maximumX = left + width
-                local maximumY = top + height
+                    object.Position =
+                        Vector2.new(
+                            positionX,
+                            positionY
+                        )
 
-                if positionX < minimumX then
-                    sizeX -= minimumX - positionX
-                    positionX = minimumX
+                    object.Size =
+                        Vector2.new(
+                            sizeX,
+                            sizeY
+                        )
+
+                    object.Visible =
+                        true
+                else
+                    object.Visible =
+                        false
                 end
-
-                if positionY < minimumY then
-                    sizeY -= minimumY - positionY
-                    positionY = minimumY
-                end
-
-                if positionX + sizeX > maximumX then
-                    sizeX =
-                        maximumX - positionX
-                end
-
-                if positionY + sizeY > maximumY then
-                    sizeY =
-                        maximumY - positionY
-                end
-
-                object.Position =
-                    Vector2.new(
-                        positionX,
-                        positionY
-                    )
-
-                object.Size =
-                    Vector2.new(
-                        math.max(sizeX, 0),
-                        math.max(sizeY, 0)
-                    )
-
-                object.Color =
-                    GetGradientColor(
-                        sampleX,
-                        sampleY,
-                        width,
-                        height,
-                        rotation,
-                        color1,
-                        color2
-                    )
-
-                object.Transparency = opacity
-                object.Visible = true
 
                 index += 1
             end
@@ -349,7 +436,8 @@ function ESP.new(config)
     end
 
     local function CreateObject(plr)
-        if plr == Player or Objects[plr] then
+        if plr == Player
+            or Objects[plr] then
             return
         end
 
@@ -369,7 +457,6 @@ function ESP.new(config)
             BoxRight = NewLine(),
 
             Fill = NewSquare(),
-            Gradient = CreateGradientObjects(),
 
             Name = NewText(),
             Team = NewText(),
@@ -385,21 +472,39 @@ function ESP.new(config)
                 )
         }
 
-        library.HealthOutline.Filled = false
+        library.HealthOutline.Filled =
+            false
+
         library.HealthOutline.Color =
             DefaultHealthBorder
 
-        library.HealthBar.Filled = true
+        library.HealthBar.Filled =
+            true
+
         library.HealthBar.Color =
             DefaultHealthFill
 
-        local originPart = Instance.new("Part")
-        originPart.Parent = Workspace
-        originPart.Transparency = 1
-        originPart.CanCollide = false
-        originPart.CanQuery = false
-        originPart.CanTouch = false
-        originPart.Anchored = true
+        local originPart =
+            Instance.new("Part")
+
+        originPart.Parent =
+            Workspace
+
+        originPart.Transparency =
+            1
+
+        originPart.CanCollide =
+            false
+
+        originPart.CanQuery =
+            false
+
+        originPart.CanTouch =
+            false
+
+        originPart.Anchored =
+            true
+
         originPart.Size =
             Vector3.new(
                 1,
@@ -609,19 +714,41 @@ function ESP.new(config)
                     local boxColor =
                         GetESPColor(plr)
 
-                    library.TL1.Color = boxColor
-                    library.TL2.Color = boxColor
-                    library.TR1.Color = boxColor
-                    library.TR2.Color = boxColor
-                    library.BL1.Color = boxColor
-                    library.BL2.Color = boxColor
-                    library.BR1.Color = boxColor
-                    library.BR2.Color = boxColor
+                    library.TL1.Color =
+                        boxColor
 
-                    library.BoxTop.Color = boxColor
-                    library.BoxBottom.Color = boxColor
-                    library.BoxLeft.Color = boxColor
-                    library.BoxRight.Color = boxColor
+                    library.TL2.Color =
+                        boxColor
+
+                    library.TR1.Color =
+                        boxColor
+
+                    library.TR2.Color =
+                        boxColor
+
+                    library.BL1.Color =
+                        boxColor
+
+                    library.BL2.Color =
+                        boxColor
+
+                    library.BR1.Color =
+                        boxColor
+
+                    library.BR2.Color =
+                        boxColor
+
+                    library.BoxTop.Color =
+                        boxColor
+
+                    library.BoxBottom.Color =
+                        boxColor
+
+                    library.BoxLeft.Color =
+                        boxColor
+
+                    library.BoxRight.Color =
+                        boxColor
 
                     library.TL1.From =
                         Vector2.new(
@@ -631,7 +758,8 @@ function ESP.new(config)
 
                     library.TL1.To =
                         Vector2.new(
-                            topLeft.X + offset,
+                            topLeft.X +
+                            offset,
                             topLeft.Y
                         )
 
@@ -644,7 +772,8 @@ function ESP.new(config)
                     library.TL2.To =
                         Vector2.new(
                             topLeft.X,
-                            topLeft.Y + offset
+                            topLeft.Y +
+                            offset
                         )
 
                     library.TR1.From =
@@ -655,7 +784,8 @@ function ESP.new(config)
 
                     library.TR1.To =
                         Vector2.new(
-                            topRight.X - offset,
+                            topRight.X -
+                            offset,
                             topRight.Y
                         )
 
@@ -668,7 +798,8 @@ function ESP.new(config)
                     library.TR2.To =
                         Vector2.new(
                             topRight.X,
-                            topRight.Y + offset
+                            topRight.Y +
+                            offset
                         )
 
                     library.BL1.From =
@@ -679,7 +810,8 @@ function ESP.new(config)
 
                     library.BL1.To =
                         Vector2.new(
-                            bottomLeft.X + offset,
+                            bottomLeft.X +
+                            offset,
                             bottomLeft.Y
                         )
 
@@ -692,7 +824,8 @@ function ESP.new(config)
                     library.BL2.To =
                         Vector2.new(
                             bottomLeft.X,
-                            bottomLeft.Y - offset
+                            bottomLeft.Y -
+                            offset
                         )
 
                     library.BR1.From =
@@ -703,7 +836,8 @@ function ESP.new(config)
 
                     library.BR1.To =
                         Vector2.new(
-                            bottomRight.X - offset,
+                            bottomRight.X -
+                            offset,
                             bottomRight.Y
                         )
 
@@ -716,7 +850,8 @@ function ESP.new(config)
                     library.BR2.To =
                         Vector2.new(
                             bottomRight.X,
-                            bottomRight.Y - offset
+                            bottomRight.Y -
+                            offset
                         )
 
                     library.BoxTop.From =
@@ -772,10 +907,12 @@ function ESP.new(config)
                         or "Corner"
 
                     local corner =
-                        boxStyle == "Corner"
+                        boxStyle ==
+                        "Corner"
 
                     local normal =
-                        boxStyle == "Normal"
+                        boxStyle ==
+                        "Normal"
 
                     library.TL1.Visible =
                         corner
@@ -830,54 +967,47 @@ function ESP.new(config)
                             false
 
                         UpdateGradient(
-                            library.Gradient,
+                            library,
                             left,
                             top,
                             width,
-                            height,
-                            tonumber(
-                                Settings.Gradient_Rotation
-                            ) or 0,
-                            opacity
+                            height
                         )
+                    elseif Settings.FillBox then
+                        HideGradient(
+                            library
+                        )
+
+                        library.Fill.Visible =
+                            true
+
+                        library.Fill.Color =
+                            ValidColor(
+                                Settings.Fill_Box_Color,
+                                DefaultBoxColor
+                            )
+
+                        library.Fill.Transparency =
+                            opacity
+
+                        library.Fill.Position =
+                            Vector2.new(
+                                left,
+                                top
+                            )
+
+                        library.Fill.Size =
+                            Vector2.new(
+                                width,
+                                height
+                            )
                     else
-                        for _, object
-                            in ipairs(
-                                library.Gradient
-                            ) do
+                        library.Fill.Visible =
+                            false
 
-                            object.Visible =
-                                false
-                        end
-
-                        if Settings.FillBox then
-                            library.Fill.Visible =
-                                true
-
-                            library.Fill.Color =
-                                ValidColor(
-                                    Settings.Fill_Box_Color,
-                                    DefaultBoxColor
-                                )
-
-                            library.Fill.Transparency =
-                                opacity
-
-                            library.Fill.Position =
-                                Vector2.new(
-                                    left,
-                                    top
-                                )
-
-                            library.Fill.Size =
-                                Vector2.new(
-                                    width,
-                                    height
-                                )
-                        else
-                            library.Fill.Visible =
-                                false
-                        end
+                        HideGradient(
+                            library
+                        )
                     end
 
                     local nameScale =
@@ -918,8 +1048,8 @@ function ESP.new(config)
                         Vector2.new(
                             (left + right) / 2,
                             top -
-                                nameScale -
-                                5
+                            nameScale -
+                            5
                         )
 
                     library.Team.Visible =
@@ -927,10 +1057,10 @@ function ESP.new(config)
 
                     library.Team.Text =
                         plr.Team
-                            and tostring(
-                                plr.Team.Name
-                            )
-                            or "Neutral"
+                        and tostring(
+                            plr.Team.Name
+                        )
+                        or "Neutral"
 
                     library.Team.Color =
                         GetTextColor(
@@ -953,11 +1083,11 @@ function ESP.new(config)
                         Vector2.new(
                             (left + right) / 2,
                             top -
-                                (
-                                    Settings.ShowName
-                                    and nameScale + 19
-                                    or 18
-                                )
+                            (
+                                Settings.ShowName
+                                and nameScale + 19
+                                or 18
+                            )
                         )
 
                     local healthRatio =
@@ -969,7 +1099,7 @@ function ESP.new(config)
                         healthRatio =
                             math.clamp(
                                 humanoid.Health /
-                                    humanoid.MaxHealth,
+                                humanoid.MaxHealth,
                                 0,
                                 1
                             )
@@ -993,7 +1123,7 @@ function ESP.new(config)
                     library.HealthOutline.Position =
                         Vector2.new(
                             right +
-                                healthGap,
+                            healthGap,
                             top
                         )
 
@@ -1015,14 +1145,14 @@ function ESP.new(config)
                     library.HealthBar.Position =
                         Vector2.new(
                             right +
-                                healthGap +
-                                1,
+                            healthGap +
+                            1,
                             bottom -
-                                (
-                                    (height - 2) *
-                                    healthRatio
-                                ) -
-                                1
+                            (
+                                (height - 2) *
+                                healthRatio
+                            ) -
+                            1
                         )
 
                     library.HealthBar.Size =
@@ -1030,7 +1160,7 @@ function ESP.new(config)
                             healthWidth - 2,
                             math.max(
                                 (height - 2) *
-                                    healthRatio,
+                                healthRatio,
                                 0
                             )
                         )
@@ -1041,11 +1171,11 @@ function ESP.new(config)
                         thickness =
                             math.clamp(
                                 1 /
-                                    math.max(
-                                        distance,
-                                        0.01
-                                    ) *
-                                    100,
+                                math.max(
+                                    distance,
+                                    0.01
+                                ) *
+                                100,
                                 1,
                                 4
                             )
