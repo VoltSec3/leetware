@@ -6,6 +6,9 @@ function Tracers.new(config)
     local Workspace = config.Workspace
     local Player = config.Player
     local Settings = config.Settings
+    local UserInputService =
+        config.UserInputService
+        or game:GetService("UserInputService")
 
     local Camera = Workspace.CurrentCamera
     local Objects = {}
@@ -21,15 +24,25 @@ function Tracers.new(config)
     end
 
     local function GetColor(plr)
-        if Settings.Rainbow then
-            return Color3.fromHSV((tick() % 5) / 5, 0.6, 1)
+        local boxSettings = Settings.Box
+        local tracerSettings = Settings.Tracers
+
+        if boxSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
         end
 
-        if Settings.Team_Color and plr.TeamColor then
-            return ValidColor(plr.TeamColor.Color, DefaultColor)
+        if boxSettings.TeamColor and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultColor
+            )
         end
 
-        if Settings.Team_Check then
+        if boxSettings.TeamCheck then
             if plr.TeamColor
                 and Player.TeamColor
                 and plr.TeamColor == Player.TeamColor then
@@ -39,7 +52,10 @@ function Tracers.new(config)
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return ValidColor(Settings.Tracer_Color, DefaultColor)
+        return ValidColor(
+            tracerSettings.Color,
+            DefaultColor
+        )
     end
 
     local function Hide(line)
@@ -58,7 +74,9 @@ function Tracers.new(config)
         end
 
         if data.Line then
-            data.Line:Remove()
+            pcall(function()
+                data.Line:Remove()
+            end)
         end
 
         Objects[plr] = nil
@@ -85,78 +103,108 @@ function Tracers.new(config)
 
         Objects[plr] = data
 
-        data.Connection = RunService.RenderStepped:Connect(function()
-            Camera = Workspace.CurrentCamera
+        data.Connection =
+            RunService.RenderStepped:Connect(function()
+                local settings = Settings.Tracers
 
-            if not Camera then
-                Hide(line)
-                return
-            end
+                if not settings.Enabled then
+                    Hide(line)
+                    return
+                end
 
-            if not Settings.Enabled or not Settings.Tracers then
-                Hide(line)
-                return
-            end
+                Camera = Workspace.CurrentCamera
 
-            local character = plr.Character
+                if not Camera then
+                    Hide(line)
+                    return
+                end
 
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local character = plr.Character
 
-            local root = character and character:FindFirstChild("HumanoidRootPart")
+                local humanoid =
+                    character
+                    and character:FindFirstChildOfClass("Humanoid")
 
-            local head = character and character:FindFirstChild("Head")
+                local root =
+                    character
+                    and character:FindFirstChild("HumanoidRootPart")
 
-            if not character
-                or not humanoid
-                or not root
-                or not head
-                or humanoid.Health <= 0 then
-                Hide(line)
-                return
-            end
+                if not character
+                    or not humanoid
+                    or not root
+                    or humanoid.Health <= 0 then
+                    Hide(line)
+                    return
+                end
 
-            local position, visible = Camera:WorldToViewportPoint(root.Position)
+                if Settings.Box.TeamCheck
+                    and Player.TeamColor
+                    and plr.TeamColor
+                    and Player.TeamColor == plr.TeamColor then
+                    Hide(line)
+                    return
+                end
 
-            if not visible or position.Z <= 0 then
-                Hide(line)
-                return
-            end
+                local position =
+                    Camera:WorldToViewportPoint(
+                        root.Position
+                    )
 
-            local viewport = Camera.ViewportSize
+                if position.Z <= 0 then
+                    Hide(line)
+                    return
+                end
 
-            local origin
+                local viewport =
+                    Camera.ViewportSize
 
-            if Settings.Tracer_Origin == "Top" then
-                origin = Vector2.new(
-                    viewport.X / 2,
-                    0
+                local origin
+
+                if settings.Origin == "Top" then
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        0
+                    )
+                elseif settings.Origin == "Center" then
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        viewport.Y / 2
+                    )
+                elseif settings.Origin == "Mouse" then
+                    origin =
+                        UserInputService:GetMouseLocation()
+                else
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        viewport.Y
+                    )
+                end
+
+                line.From = origin
+
+                line.To = Vector2.new(
+                    position.X,
+                    position.Y
                 )
-            elseif Settings.Tracer_Origin == "Center" then
-                origin = Vector2.new(
-                    viewport.X / 2,
-                    viewport.Y / 2
-                )
-            else
-                origin = Vector2.new(
-                    viewport.X / 2,
-                    viewport.Y
-                )
-            end
 
-            line.From = origin
-            line.To = Vector2.new(
-                position.X,
-                position.Y
-            )
-            line.Color = GetColor(plr)
-            line.Thickness = math.clamp(
-                tonumber(Settings.Tracer_Thickness) or 1,
-                1,
-                10
-            )
-            line.Transparency = 1
-            line.Visible = true
-        end)
+                line.Color = GetColor(plr)
+
+                line.Thickness =
+                    math.clamp(
+                        tonumber(settings.Thickness) or 1,
+                        1,
+                        10
+                    )
+
+                line.Transparency =
+                    math.clamp(
+                        tonumber(settings.Transparency) or 1,
+                        0,
+                        1
+                    )
+
+                line.Visible = true
+            end)
     end
 
     local controller = {}
@@ -165,13 +213,15 @@ function Tracers.new(config)
         CreateObject(plr)
     end
 
-    controller.PlayerAdded = Players.PlayerAdded:Connect(function(plr)
-        CreateObject(plr)
-    end)
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
 
-    controller.PlayerRemoving = Players.PlayerRemoving:Connect(function(plr)
-        DestroyObject(plr)
-    end)
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
 
     function controller:Destroy()
         if controller.PlayerAdded then

@@ -3,6 +3,7 @@ local Chams = {}
 function Chams.new(config)
     local Players = config.Players
     local RunService = config.RunService
+    local Workspace = config.Workspace
     local Player = config.Player
     local Settings = config.Settings
 
@@ -20,15 +21,25 @@ function Chams.new(config)
     end
 
     local function GetColor(plr)
-        if Settings.Rainbow then
-            return Color3.fromHSV((tick() % 5) / 5, 0.6, 1)
+        local boxSettings = Settings.Box
+        local chamsSettings = Settings.Chams
+
+        if boxSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
         end
 
-        if Settings.Team_Color and plr.TeamColor then
-            return ValidColor(plr.TeamColor.Color, DefaultColor)
+        if boxSettings.TeamColor and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultColor
+            )
         end
 
-        if Settings.Team_Check then
+        if boxSettings.TeamCheck then
             if plr.TeamColor
                 and Player.TeamColor
                 and plr.TeamColor == Player.TeamColor then
@@ -38,13 +49,10 @@ function Chams.new(config)
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return ValidColor(Settings.Chams_Color, DefaultColor)
-    end
-
-    local function Hide(highlight)
-        if highlight then
-            highlight.Enabled = false
-        end
+        return ValidColor(
+            chamsSettings.Color,
+            DefaultColor
+        )
     end
 
     local function DestroyObject(plr)
@@ -71,14 +79,17 @@ function Chams.new(config)
         end
 
         local highlight = Instance.new("Highlight")
+
         highlight.Name = "leetware_Chams"
         highlight.Enabled = false
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.DepthMode =
+            Enum.HighlightDepthMode.AlwaysOnTop
         highlight.FillColor = DefaultColor
-        highlight.OutlineColor = DefaultOutline
         highlight.FillTransparency = 0.5
+        highlight.OutlineColor = DefaultOutline
         highlight.OutlineTransparency = 0
-        highlight.Parent = game:GetService("CoreGui")
+
+        highlight.Parent = Workspace
 
         local data = {
             Highlight = highlight,
@@ -87,60 +98,99 @@ function Chams.new(config)
 
         Objects[plr] = data
 
-        data.Connection = RunService.RenderStepped:Connect(function()
-            if not Settings.Enabled or not Settings.Chams then
-                Hide(highlight)
-                highlight.Adornee = nil
-                return
-            end
+        data.Connection =
+            RunService.RenderStepped:Connect(function()
+                local settings = Settings.Chams
 
-            local character = plr.Character
+                if not settings.Enabled then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
 
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local character = plr.Character
 
-            local root = character and character:FindFirstChild("HumanoidRootPart")
+                local humanoid =
+                    character
+                    and character:FindFirstChildOfClass("Humanoid")
 
-            if not character
-                or not humanoid
-                or not root
-                or humanoid.Health <= 0 then
-                Hide(highlight)
-                highlight.Adornee = nil
-                return
-            end
+                local root =
+                    character
+                    and character:FindFirstChild("HumanoidRootPart")
 
-            local camera = workspace.CurrentCamera
+                if not character
+                    or not humanoid
+                    or not root
+                    or humanoid.Health <= 0 then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
 
-            if not camera then
-                Hide(highlight)
-                highlight.Adornee = nil
-                return
-            end
+                local camera = Workspace.CurrentCamera
 
-            local position, visible = camera:WorldToViewportPoint(root.Position)
+                if not camera then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
 
-            if not visible or position.Z <= 0 then
-                Hide(highlight)
-                highlight.Adornee = nil
-                return
-            end
+                local position =
+                    camera:WorldToViewportPoint(
+                        root.Position
+                    )
 
-            local color = GetColor(plr)
+                if position.Z <= 0 then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
 
-            highlight.Adornee = character
-            highlight.Enabled = true
-            highlight.FillColor = color
-            highlight.FillTransparency = math.clamp(
-                tonumber(Settings.Chams_Transparency) or 0.5,
-                0,
-                1
-            )
-            highlight.OutlineColor = ValidColor(
-                Settings.Chams_Outline_Color,
-                DefaultOutline
-            )
-            highlight.OutlineTransparency = Settings.Chams_Outline and 0 or 1
-        end)
+                if Settings.Box.TeamCheck
+                    and Player.TeamColor
+                    and plr.TeamColor
+                    and Player.TeamColor == plr.TeamColor then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                local color = GetColor(plr)
+
+                highlight.Adornee = character
+                highlight.Enabled = true
+                highlight.FillColor = color
+                highlight.FillTransparency =
+                    math.clamp(
+                        tonumber(
+                            settings.Transparency
+                        ) or 0.5,
+                        0,
+                        1
+                    )
+
+                highlight.OutlineColor =
+                    ValidColor(
+                        settings.OutlineColor,
+                        DefaultOutline
+                    )
+
+                highlight.OutlineTransparency =
+                    settings.Outline
+                    and math.clamp(
+                        tonumber(
+                            settings.OutlineTransparency
+                        ) or 0,
+                        0,
+                        1
+                    )
+                    or 1
+
+                highlight.DepthMode =
+                    settings.AlwaysOnTop
+                    and Enum.HighlightDepthMode.AlwaysOnTop
+                    or Enum.HighlightDepthMode.Occluded
+            end)
     end
 
     local controller = {}
@@ -149,13 +199,15 @@ function Chams.new(config)
         CreateObject(plr)
     end
 
-    controller.PlayerAdded = Players.PlayerAdded:Connect(function(plr)
-        CreateObject(plr)
-    end)
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
 
-    controller.PlayerRemoving = Players.PlayerRemoving:Connect(function(plr)
-        DestroyObject(plr)
-    end)
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
 
     function controller:Destroy()
         if controller.PlayerAdded then

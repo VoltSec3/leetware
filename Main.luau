@@ -17,33 +17,44 @@ local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 
 local ESPSettings = {
-    Enabled = true,
-    BoxStyle = "Corner",
-    Box_Color = Color3.fromRGB(255, 0, 0),
-    Box_Thickness = 2,
-    Team_Check = false,
-    Team_Color = false,
-    Rainbow = false,
-    Autothickness = false,
-    Corner_Length = nil,
-    FillBox = false,
-    Fill_Box_Color = Color3.fromRGB(255, 0, 0),
-    Fill_Opacity = 0.15,
-    ShowName = false,
-    ShowTeam = false,
-    ShowHealth = false,
-    CustomTextColor = false,
-    Name_Color = Color3.fromRGB(255, 255, 255),
-    Team_Text_Color = Color3.fromRGB(255, 255, 255),
-    Name_Scale = 14,
-    Font = "UI",
-    HealthBorder_Color = Color3.fromRGB(0, 0, 0),
-    HealthFill_Color = Color3.fromRGB(255, 255, 255),
+    Box = {
+        Enabled = true,
+        Style = "Corner",
+        Color = Color3.fromRGB(255, 0, 0),
+        Thickness = 2,
+        TeamCheck = false,
+        TeamColor = false,
+        Rainbow = false,
+        AutoThickness = false
+    },
+
+    Fill = {
+        Enabled = false,
+        Color = Color3.fromRGB(255, 0, 0),
+        Opacity = 0.15
+    },
+
+    Information = {
+        ShowName = false,
+        ShowTeam = false,
+        CustomTextColor = false,
+        NameColor = Color3.fromRGB(255, 255, 255),
+        TeamTextColor = Color3.fromRGB(255, 255, 255),
+        NameScale = 14,
+        Font = "UI"
+    },
+
+    Health = {
+        Enabled = false,
+        BorderColor = Color3.fromRGB(0, 0, 0),
+        FillColor = Color3.fromRGB(255, 255, 255)
+    },
 
     Chams = {
         Enabled = false,
-        FillColor = Color3.fromRGB(255, 0, 0),
-        FillTransparency = 0.5,
+        Color = Color3.fromRGB(255, 0, 0),
+        Transparency = 0.5,
+        Outline = true,
         OutlineColor = Color3.fromRGB(255, 255, 255),
         OutlineTransparency = 0,
         AlwaysOnTop = true
@@ -233,11 +244,11 @@ local BoxGroupBox = Tabs.Visuals:AddLeftGroupbox('Box')
 
 BoxGroupBox:AddToggle('ESPEnabled', {
     Text = 'Enabled',
-    Default = ESPSettings.Enabled
+    Default = ESPSettings.Box.Enabled
 })
 
 Toggles.ESPEnabled:OnChanged(function()
-    ESPSettings.Enabled = Toggles.ESPEnabled.Value
+    ESPSettings.Box.Enabled = Toggles.ESPEnabled.Value
 end)
 
 BoxGroupBox:AddDropdown('ESPBoxStyle', {
@@ -251,57 +262,57 @@ BoxGroupBox:AddDropdown('ESPBoxStyle', {
 })
 
 Options.ESPBoxStyle:OnChanged(function()
-    ESPSettings.BoxStyle = Options.ESPBoxStyle.Value
+    ESPSettings.Box.Style = Options.ESPBoxStyle.Value
 end)
 
 BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
-    Default = ESPSettings.Box_Color,
+    Default = ESPSettings.Box.Color,
     Title = 'Box Color'
 })
 
 Options.ESPBoxColor:OnChanged(function()
-    ESPSettings.Box_Color = Options.ESPBoxColor.Value
+    ESPSettings.Box.Color = Options.ESPBoxColor.Value
 end)
 
 BoxGroupBox:AddToggle('ESPRainbow', {
     Text = 'Rainbow',
-    Default = ESPSettings.Rainbow
+    Default = ESPSettings.Box.Rainbow
 })
 
 Toggles.ESPRainbow:OnChanged(function()
-    ESPSettings.Rainbow = Toggles.ESPRainbow.Value
+    ESPSettings.Box.Rainbow = Toggles.ESPRainbow.Value
 end)
 
 BoxGroupBox:AddToggle('ESPTeamCheck', {
     Text = 'Team Check',
-    Default = ESPSettings.Team_Check
+    Default = ESPSettings.Box.TeamCheck
 })
 
 Toggles.ESPTeamCheck:OnChanged(function()
-    ESPSettings.Team_Check = Toggles.ESPTeamCheck.Value
+    ESPSettings.Box.TeamCheck = Toggles.ESPTeamCheck.Value
 end)
 
 BoxGroupBox:AddToggle('ESPTeamColor', {
     Text = 'Team Color',
-    Default = ESPSettings.Team_Color
+    Default = ESPSettings.Box.TeamColor
 })
 
 Toggles.ESPTeamColor:OnChanged(function()
-    ESPSettings.Team_Color = Toggles.ESPTeamColor.Value
+    ESPSettings.Box.TeamColor = Toggles.ESPTeamColor.Value
 end)
 
 BoxGroupBox:AddToggle('ESPAutothickness', {
     Text = 'Auto Thickness',
-    Default = ESPSettings.Autothickness
+    Default = ESPSettings.Box.AutoThickness
 })
 
 Toggles.ESPAutothickness:OnChanged(function()
-    ESPSettings.Autothickness = Toggles.ESPAutothickness.Value
+    ESPSettings.Box.AutoThickness = Toggles.ESPAutothickness.Value
 end)
 
 BoxGroupBox:AddSlider('ESPThickness', {
     Text = 'Box Thickness',
-    Default = ESPSettings.Box_Thickness,
+    Default = ESPSettings.Box.Thickness,
     Min = 1,
     Max = 6,
     Rounding = 1,
@@ -309,32 +320,32 @@ BoxGroupBox:AddSlider('ESPThickness', {
 })
 
 Options.ESPThickness:OnChanged(function()
-    ESPSettings.Box_Thickness = Options.ESPThickness.Value
+    ESPSettings.Box.Thickness = Options.ESPThickness.Value
 end)
 
 local FillGroupBox = Tabs.Visuals:AddRightGroupbox('Fill')
 
 local FillToggle = FillGroupBox:AddToggle('ESPFillBox', {
     Text = 'Fill Box',
-    Default = ESPSettings.FillBox
+    Default = ESPSettings.Fill.Enabled
 })
 
 FillToggle:AddColorPicker('ESPFillBoxColor', {
-    Default = ESPSettings.Fill_Box_Color,
+    Default = ESPSettings.Fill.Color,
     Title = 'Fill Color'
 })
 
 Toggles.ESPFillBox:OnChanged(function()
-    ESPSettings.FillBox = Toggles.ESPFillBox.Value
+    ESPSettings.Fill.Enabled = Toggles.ESPFillBox.Value
 end)
 
 Options.ESPFillBoxColor:OnChanged(function()
-    ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
+    ESPSettings.Fill.Color = Options.ESPFillBoxColor.Value
 end)
 
 FillGroupBox:AddSlider('ESPFillOpacity', {
     Text = 'Fill Opacity',
-    Default = math.floor((1 - ESPSettings.Fill_Opacity) * 100),
+    Default = math.floor((1 - ESPSettings.Fill.Opacity) * 100),
     Min = 0,
     Max = 100,
     Rounding = 0,
@@ -342,7 +353,7 @@ FillGroupBox:AddSlider('ESPFillOpacity', {
 })
 
 Options.ESPFillOpacity:OnChanged(function()
-    ESPSettings.Fill_Opacity = 1 - (Options.ESPFillOpacity.Value / 100)
+    ESPSettings.Fill.Opacity = 1 - (Options.ESPFillOpacity.Value / 100)
 end)
 
 local ChamsGroupBox = Tabs.Visuals:AddRightGroupbox('Chams')
@@ -352,35 +363,35 @@ local ChamsToggle = ChamsGroupBox:AddToggle('ESPChams', {
     Default = ESPSettings.Chams.Enabled
 })
 
-ChamsToggle:AddColorPicker('ESPChamsFillColor', {
-    Default = ESPSettings.Chams.FillColor,
-    Title = 'Fill Color'
+ChamsToggle:AddColorPicker('ESPChamsColor', {
+    Default = ESPSettings.Chams.Color,
+    Title = 'Chams Color'
 })
 
 Toggles.ESPChams:OnChanged(function()
     ESPSettings.Chams.Enabled = Toggles.ESPChams.Value
 end)
 
-Options.ESPChamsFillColor:OnChanged(function()
-    ESPSettings.Chams.FillColor = Options.ESPChamsFillColor.Value
+Options.ESPChamsColor:OnChanged(function()
+    ESPSettings.Chams.Color = Options.ESPChamsColor.Value
 end)
 
-ChamsGroupBox:AddSlider('ESPChamsFillTransparency', {
-    Text = 'Fill Transparency',
-    Default = math.floor(ESPSettings.Chams.FillTransparency * 100),
+ChamsGroupBox:AddSlider('ESPChamsTransparency', {
+    Text = 'Transparency',
+    Default = math.floor(ESPSettings.Chams.Transparency * 100),
     Min = 0,
     Max = 100,
     Rounding = 0,
     Compact = false
 })
 
-Options.ESPChamsFillTransparency:OnChanged(function()
-    ESPSettings.Chams.FillTransparency = Options.ESPChamsFillTransparency.Value / 100
+Options.ESPChamsTransparency:OnChanged(function()
+    ESPSettings.Chams.Transparency = Options.ESPChamsTransparency.Value / 100
 end)
 
 local ChamsOutlineToggle = ChamsGroupBox:AddToggle('ESPChamsOutline', {
     Text = 'Outline',
-    Default = ESPSettings.Chams.OutlineTransparency < 1
+    Default = ESPSettings.Chams.Outline
 })
 
 ChamsOutlineToggle:AddColorPicker('ESPChamsOutlineColor', {
@@ -389,6 +400,8 @@ ChamsOutlineToggle:AddColorPicker('ESPChamsOutlineColor', {
 })
 
 Toggles.ESPChamsOutline:OnChanged(function()
+    ESPSettings.Chams.Outline = Toggles.ESPChamsOutline.Value
+
     if Toggles.ESPChamsOutline.Value then
         ESPSettings.Chams.OutlineTransparency = 0
     else
@@ -411,6 +424,10 @@ ChamsGroupBox:AddSlider('ESPChamsOutlineTransparency', {
 
 Options.ESPChamsOutlineTransparency:OnChanged(function()
     ESPSettings.Chams.OutlineTransparency = Options.ESPChamsOutlineTransparency.Value / 100
+
+    if Options.ESPChamsOutlineTransparency.Value >= 100 then
+        ESPSettings.Chams.Outline = false
+    end
 end)
 
 ChamsGroupBox:AddToggle('ESPChamsAlwaysOnTop', {
@@ -487,52 +504,52 @@ local InfoGroupBox = Tabs.Visuals:AddLeftGroupbox('Information')
 
 local ShowNameToggle = InfoGroupBox:AddToggle('ESPShowName', {
     Text = 'Show Name',
-    Default = ESPSettings.ShowName
+    Default = ESPSettings.Information.ShowName
 })
 
 ShowNameToggle:AddColorPicker('ESPNameColor', {
-    Default = ESPSettings.Name_Color,
+    Default = ESPSettings.Information.NameColor,
     Title = 'Name Color'
 })
 
 Toggles.ESPShowName:OnChanged(function()
-    ESPSettings.ShowName = Toggles.ESPShowName.Value
+    ESPSettings.Information.ShowName = Toggles.ESPShowName.Value
 end)
 
 Options.ESPNameColor:OnChanged(function()
-    ESPSettings.Name_Color = Options.ESPNameColor.Value
+    ESPSettings.Information.NameColor = Options.ESPNameColor.Value
 end)
 
 local ShowTeamToggle = InfoGroupBox:AddToggle('ESPShowTeam', {
     Text = 'Show Team',
-    Default = ESPSettings.ShowTeam
+    Default = ESPSettings.Information.ShowTeam
 })
 
 ShowTeamToggle:AddColorPicker('ESPTeamTextColor', {
-    Default = ESPSettings.Team_Text_Color,
+    Default = ESPSettings.Information.TeamTextColor,
     Title = 'Team Color'
 })
 
 Toggles.ESPShowTeam:OnChanged(function()
-    ESPSettings.ShowTeam = Toggles.ESPShowTeam.Value
+    ESPSettings.Information.ShowTeam = Toggles.ESPShowTeam.Value
 end)
 
 Options.ESPTeamTextColor:OnChanged(function()
-    ESPSettings.Team_Text_Color = Options.ESPTeamTextColor.Value
+    ESPSettings.Information.TeamTextColor = Options.ESPTeamTextColor.Value
 end)
 
 InfoGroupBox:AddToggle('ESPCustomTextColor', {
     Text = 'Custom Text Colors',
-    Default = ESPSettings.CustomTextColor
+    Default = ESPSettings.Information.CustomTextColor
 })
 
 Toggles.ESPCustomTextColor:OnChanged(function()
-    ESPSettings.CustomTextColor = Toggles.ESPCustomTextColor.Value
+    ESPSettings.Information.CustomTextColor = Toggles.ESPCustomTextColor.Value
 end)
 
 InfoGroupBox:AddSlider('ESPNameScale', {
     Text = 'Name Scale',
-    Default = ESPSettings.Name_Scale,
+    Default = ESPSettings.Information.NameScale,
     Min = 10,
     Max = 24,
     Rounding = 0,
@@ -540,7 +557,7 @@ InfoGroupBox:AddSlider('ESPNameScale', {
 })
 
 Options.ESPNameScale:OnChanged(function()
-    ESPSettings.Name_Scale = Options.ESPNameScale.Value
+    ESPSettings.Information.NameScale = Options.ESPNameScale.Value
 end)
 
 InfoGroupBox:AddDropdown('ESPFont', {
@@ -556,34 +573,34 @@ InfoGroupBox:AddDropdown('ESPFont', {
 })
 
 Options.ESPFont:OnChanged(function()
-    ESPSettings.Font = Options.ESPFont.Value
+    ESPSettings.Information.Font = Options.ESPFont.Value
 end)
 
 local ShowHealthToggle = InfoGroupBox:AddToggle('ESPShowHealth', {
     Text = 'Show Health',
-    Default = ESPSettings.ShowHealth
+    Default = ESPSettings.Health.Enabled
 })
 
 ShowHealthToggle:AddColorPicker('ESPHealthBorderColor', {
-    Default = ESPSettings.HealthBorder_Color,
+    Default = ESPSettings.Health.BorderColor,
     Title = 'Health Border Color'
 })
 
 ShowHealthToggle:AddColorPicker('ESPHealthFillColor', {
-    Default = ESPSettings.HealthFill_Color,
+    Default = ESPSettings.Health.FillColor,
     Title = 'Health Fill Color'
 })
 
 Toggles.ESPShowHealth:OnChanged(function()
-    ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
+    ESPSettings.Health.Enabled = Toggles.ESPShowHealth.Value
 end)
 
 Options.ESPHealthBorderColor:OnChanged(function()
-    ESPSettings.HealthBorder_Color = Options.ESPHealthBorderColor.Value
+    ESPSettings.Health.BorderColor = Options.ESPHealthBorderColor.Value
 end)
 
 Options.ESPHealthFillColor:OnChanged(function()
-    ESPSettings.HealthFill_Color = Options.ESPHealthFillColor.Value
+    ESPSettings.Health.FillColor = Options.ESPHealthFillColor.Value
 end)
 
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
@@ -628,6 +645,7 @@ SaveManager:SetIgnoreIndexes({
 
 ThemeManager:SetFolder('leetware')
 SaveManager:SetFolder('leetware/configs')
+
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
@@ -646,6 +664,7 @@ RunService.Heartbeat:Connect(function()
 
     if now - last >= 0.25 then
         fps = math.round(frames / (now - last))
+
         frames = 0
         last = now
 

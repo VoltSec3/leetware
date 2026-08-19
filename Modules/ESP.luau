@@ -5,9 +5,8 @@ function ESP.new(config)
     local RunService = config.RunService
     local Workspace = config.Workspace
     local Player = config.Player
-    local Settings = config.Settings
-    local UserInputService = config.UserInputService or game:GetService("UserInputService")
 
+    local Settings = config.Settings
     local Camera = Workspace.CurrentCamera
     local Objects = {}
 
@@ -27,22 +26,26 @@ function ESP.new(config)
         if typeof(value) == "Color3" then
             return value
         end
+
         return fallback
     end
 
-    local function NewLine(color, thickness)
+    local function NewLine()
         local line = Drawing.new("Line")
+
         line.Visible = false
         line.From = Vector2.new(0, 0)
         line.To = Vector2.new(0, 0)
-        line.Color = ValidColor(color, DefaultBoxColor)
-        line.Thickness = thickness or 2
+        line.Color = DefaultBoxColor
+        line.Thickness = 2
         line.Transparency = 1
+
         return line
     end
 
     local function NewSquare(color)
         local square = Drawing.new("Square")
+
         square.Visible = false
         square.Position = Vector2.new(0, 0)
         square.Size = Vector2.new(0, 0)
@@ -50,11 +53,13 @@ function ESP.new(config)
         square.Filled = true
         square.Transparency = 1
         square.Color = ValidColor(color, DefaultBoxColor)
+
         return square
     end
 
     local function NewText()
         local text = Drawing.new("Text")
+
         text.Visible = false
         text.Text = ""
         text.Size = 14
@@ -65,72 +70,57 @@ function ESP.new(config)
         text.Font = Fonts.UI
         text.Transparency = 1
         text.Color = DefaultTextColor
+
         return text
     end
 
-    local function NewHighlight()
-        local highlight = Instance.new("Highlight")
-        highlight.Enabled = false
-        highlight.FillColor = DefaultBoxColor
-        highlight.FillTransparency = 0.5
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Adornee = nil
-        highlight.Parent = nil
-        return highlight
-    end
-
-    local function HideObject(object)
-        if not object then
-            return
-        end
-
-        if typeof(object) == "Instance" then
-            if object:IsA("Highlight") then
-                object.Enabled = false
-            end
-        else
+    local function Hide(object)
+        if object then
             object.Visible = false
         end
     end
 
     local function HideLibrary(library)
         for _, object in pairs(library) do
-            if typeof(object) == "table" then
-                for _, nested in pairs(object) do
-                    HideObject(nested)
-                end
-            else
-                HideObject(object)
-            end
+            Hide(object)
+        end
+    end
+
+    local function DestroyDrawing(object)
+        if object then
+            pcall(function()
+                object:Remove()
+            end)
         end
     end
 
     local function SetThickness(library, thickness)
         for _, object in pairs(library) do
-            if typeof(object) == "table" then
-                for _, nested in pairs(object) do
-                    if nested and nested.Thickness ~= nil then
-                        nested.Thickness = thickness
-                    end
-                end
-            elseif object and object.Thickness ~= nil then
+            if object and object.Thickness ~= nil then
                 object.Thickness = thickness
             end
         end
     end
 
-    local function GetESPColor(plr)
-        if Settings.Rainbow then
-            return Color3.fromHSV((tick() % 5) / 5, 0.6, 1)
+    local function GetColor(plr)
+        local boxSettings = Settings.Box
+
+        if boxSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
         end
 
-        if Settings.Team_Color and plr.TeamColor then
-            return ValidColor(plr.TeamColor.Color, DefaultBoxColor)
+        if boxSettings.TeamColor and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultBoxColor
+            )
         end
 
-        if Settings.Team_Check then
+        if boxSettings.TeamCheck then
             if plr.TeamColor
                 and Player.TeamColor
                 and plr.TeamColor == Player.TeamColor then
@@ -140,29 +130,16 @@ function ESP.new(config)
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return ValidColor(Settings.Box_Color, DefaultBoxColor)
-    end
-
-    local function GetTextColor(plr, textType)
-        if not Settings.CustomTextColor then
-            return GetESPColor(plr)
-        end
-
-        if textType == "Name" then
-            return ValidColor(
-                Settings.Name_Color,
-                DefaultTextColor
-            )
-        end
-
         return ValidColor(
-            Settings.Team_Text_Color,
-            DefaultTextColor
+            boxSettings.Color,
+            DefaultBoxColor
         )
     end
 
     local function IsTeamBlocked(plr)
-        if not Settings.Team_Check then
+        local boxSettings = Settings.Box
+
+        if not boxSettings.TeamCheck then
             return false
         end
 
@@ -173,12 +150,69 @@ function ESP.new(config)
         return plr.TeamColor == Player.TeamColor
     end
 
-    local function DestroyDrawing(object)
-        if object then
-            pcall(function()
-                object:Remove()
-            end)
+    local function GetTextColor(plr, textType)
+        local infoSettings = Settings.Information
+
+        if not infoSettings.CustomTextColor then
+            return GetColor(plr)
         end
+
+        if textType == "Name" then
+            return ValidColor(
+                infoSettings.NameColor,
+                DefaultTextColor
+            )
+        end
+
+        return ValidColor(
+            infoSettings.TeamTextColor,
+            DefaultTextColor
+        )
+    end
+
+    local function GetBounds(character)
+        local minX = math.huge
+        local minY = math.huge
+        local maxX = -math.huge
+        local maxY = -math.huge
+        local found = false
+
+        for _, object in ipairs(character:GetChildren()) do
+            if object:IsA("BasePart") then
+                local half = object.Size / 2
+                local cf = object.CFrame
+
+                local corners = {
+                    cf * Vector3.new(-half.X, -half.Y, -half.Z),
+                    cf * Vector3.new(-half.X, -half.Y, half.Z),
+                    cf * Vector3.new(-half.X, half.Y, -half.Z),
+                    cf * Vector3.new(-half.X, half.Y, half.Z),
+                    cf * Vector3.new(half.X, -half.Y, -half.Z),
+                    cf * Vector3.new(half.X, -half.Y, half.Z),
+                    cf * Vector3.new(half.X, half.Y, -half.Z),
+                    cf * Vector3.new(half.X, half.Y, half.Z)
+                }
+
+                for _, corner in ipairs(corners) do
+                    local position = Camera:WorldToViewportPoint(corner)
+
+                    if position.Z > 0 then
+                        found = true
+
+                        minX = math.min(minX, position.X)
+                        minY = math.min(minY, position.Y)
+                        maxX = math.max(maxX, position.X)
+                        maxY = math.max(maxY, position.Y)
+                    end
+                end
+            end
+        end
+
+        if not found then
+            return nil
+        end
+
+        return minX, minY, maxX, maxY
     end
 
     local function DestroyObject(plr)
@@ -190,108 +224,13 @@ function ESP.new(config)
 
         if data.Connection then
             data.Connection:Disconnect()
-            data.Connection = nil
         end
 
-        if data.OriginPart then
-            data.OriginPart:Destroy()
-            data.OriginPart = nil
-        end
-
-        if data.Chams then
-            data.Chams:Destroy()
-            data.Chams = nil
-        end
-
-        if data.Library then
-            for _, object in pairs(data.Library) do
-                if typeof(object) == "table" then
-                    for _, nested in pairs(object) do
-                        DestroyDrawing(nested)
-                    end
-                else
-                    DestroyDrawing(object)
-                end
-            end
+        for _, object in pairs(data.Library) do
+            DestroyDrawing(object)
         end
 
         Objects[plr] = nil
-    end
-
-    local function GetTracerOrigin()
-        local viewport = Camera.ViewportSize
-        local tracerSettings = Settings.Tracers or {}
-        local origin = tracerSettings.Origin or "Bottom"
-
-        if origin == "Center" then
-            return Vector2.new(
-                viewport.X / 2,
-                viewport.Y / 2
-            )
-        end
-
-        if origin == "Mouse" then
-            return UserInputService:GetMouseLocation()
-        end
-
-        return Vector2.new(
-            viewport.X / 2,
-            viewport.Y
-        )
-    end
-
-    local function GetCharacterBounds(character)
-        local parts = {}
-
-        for _, object in ipairs(character:GetChildren()) do
-            if object:IsA("BasePart") then
-                table.insert(parts, object)
-            end
-        end
-
-        if #parts == 0 then
-            return nil
-        end
-
-        local minX = math.huge
-        local minY = math.huge
-        local maxX = -math.huge
-        local maxY = -math.huge
-        local anyVisible = false
-
-        for _, part in ipairs(parts) do
-            local cf = part.CFrame
-            local half = part.Size / 2
-
-            local corners = {
-                cf * Vector3.new(-half.X, -half.Y, -half.Z),
-                cf * Vector3.new(-half.X, -half.Y, half.Z),
-                cf * Vector3.new(-half.X, half.Y, -half.Z),
-                cf * Vector3.new(-half.X, half.Y, half.Z),
-                cf * Vector3.new(half.X, -half.Y, -half.Z),
-                cf * Vector3.new(half.X, -half.Y, half.Z),
-                cf * Vector3.new(half.X, half.Y, -half.Z),
-                cf * Vector3.new(half.X, half.Y, half.Z)
-            }
-
-            for _, corner in ipairs(corners) do
-                local position, visible = Camera:WorldToViewportPoint(corner)
-
-                if position.Z > 0 then
-                    anyVisible = anyVisible or visible
-                    minX = math.min(minX, position.X)
-                    minY = math.min(minY, position.Y)
-                    maxX = math.max(maxX, position.X)
-                    maxY = math.max(maxY, position.Y)
-                end
-            end
-        end
-
-        if not anyVisible or minX == math.huge then
-            return nil
-        end
-
-        return minX, minY, maxX, maxY
     end
 
     local function CreateObject(plr)
@@ -316,39 +255,28 @@ function ESP.new(config)
             Name = NewText(),
             Team = NewText(),
             HealthOutline = NewSquare(DefaultHealthBorder),
-            HealthBar = NewSquare(DefaultHealthFill),
-            Tracer = NewLine()
+            HealthBar = NewSquare(DefaultHealthFill)
         }
 
         library.HealthOutline.Filled = false
-        library.HealthOutline.Color = DefaultHealthBorder
-        library.HealthBar.Filled = true
-        library.HealthBar.Color = DefaultHealthFill
-
-        local chams = NewHighlight()
 
         local data = {
             Library = library,
-            Chams = chams,
             Connection = nil
         }
 
         Objects[plr] = data
 
-        HideLibrary(library)
-
         data.Connection = RunService.RenderStepped:Connect(function()
             Camera = Workspace.CurrentCamera
 
-            if not Camera then
-                HideLibrary(library)
-                chams.Enabled = false
-                return
-            end
+            local boxSettings = Settings.Box
+            local fillSettings = Settings.Fill
+            local infoSettings = Settings.Information
+            local healthSettings = Settings.Health
 
-            if not Settings.Enabled then
+            if not Camera or not boxSettings.Enabled then
                 HideLibrary(library)
-                chams.Enabled = false
                 return
             end
 
@@ -360,79 +288,45 @@ function ESP.new(config)
             local root = character
                 and character:FindFirstChild("HumanoidRootPart")
 
-            local head = character
-                and character:FindFirstChild("Head")
-
             if not character
                 or not humanoid
                 or not root
-                or not head
                 or humanoid.Health <= 0 then
                 HideLibrary(library)
-                chams.Enabled = false
                 return
             end
 
             if IsTeamBlocked(plr) then
                 HideLibrary(library)
-                chams.Enabled = false
                 return
             end
 
-            local rootPosition, rootVisible =
-                Camera:WorldToViewportPoint(root.Position)
+            local rootPosition = Camera:WorldToViewportPoint(
+                root.Position
+            )
 
             if rootPosition.Z <= 0 then
                 HideLibrary(library)
-                chams.Enabled = false
                 return
             end
 
-            local bounds = GetCharacterBounds(character)
+            local left, top, right, bottom = GetBounds(character)
 
-            if not bounds then
+            if not left then
                 HideLibrary(library)
-                chams.Enabled = false
                 return
             end
 
-            local left, top, right, bottom = bounds
+            local width = math.max(right - left, 1)
+            local height = math.max(bottom - top, 1)
+            local color = GetColor(plr)
 
-            local width = math.max(
-                right - left,
-                1
-            )
+            local cornerLength =
+                math.min(width, height) * 0.25
 
-            local height = math.max(
-                bottom - top,
-                1
-            )
-
-            local distance =
-                (
-                    Camera.CFrame.Position -
-                    root.Position
-                ).Magnitude
-
-            local boxColor = GetESPColor(plr)
-
-            library.TL1.Color = boxColor
-            library.TL2.Color = boxColor
-            library.TR1.Color = boxColor
-            library.TR2.Color = boxColor
-            library.BL1.Color = boxColor
-            library.BL2.Color = boxColor
-            library.BR1.Color = boxColor
-            library.BR2.Color = boxColor
-            library.BoxTop.Color = boxColor
-            library.BoxBottom.Color = boxColor
-            library.BoxLeft.Color = boxColor
-            library.BoxRight.Color = boxColor
-
-            local cornerLength = math.clamp(
-                tonumber(Settings.Corner_Length) or math.min(width, height) * 0.25,
-                1,
-                math.max(width, height)
+            cornerLength = math.max(
+                cornerLength,
+                2
             )
 
             cornerLength = math.min(
@@ -440,6 +334,19 @@ function ESP.new(config)
                 width / 2,
                 height / 2
             )
+
+            library.TL1.Color = color
+            library.TL2.Color = color
+            library.TR1.Color = color
+            library.TR2.Color = color
+            library.BL1.Color = color
+            library.BL2.Color = color
+            library.BR1.Color = color
+            library.BR2.Color = color
+            library.BoxTop.Color = color
+            library.BoxBottom.Color = color
+            library.BoxLeft.Color = color
+            library.BoxRight.Color = color
 
             library.TL1.From = Vector2.new(left, top)
             library.TL1.To = Vector2.new(
@@ -501,40 +408,34 @@ function ESP.new(config)
             library.BoxRight.From = Vector2.new(right, top)
             library.BoxRight.To = Vector2.new(right, bottom)
 
-            local boxStyle = Settings.BoxStyle or "Corner"
+            local isCorner = boxSettings.Style == "Corner"
 
-            local corner = boxStyle == "Corner"
-            local normal = boxStyle == "Normal"
+            library.TL1.Visible = isCorner
+            library.TL2.Visible = isCorner
+            library.TR1.Visible = isCorner
+            library.TR2.Visible = isCorner
+            library.BL1.Visible = isCorner
+            library.BL2.Visible = isCorner
+            library.BR1.Visible = isCorner
+            library.BR2.Visible = isCorner
 
-            library.TL1.Visible = corner
-            library.TL2.Visible = corner
-            library.TR1.Visible = corner
-            library.TR2.Visible = corner
-            library.BL1.Visible = corner
-            library.BL2.Visible = corner
-            library.BR1.Visible = corner
-            library.BR2.Visible = corner
+            library.BoxTop.Visible = not isCorner
+            library.BoxBottom.Visible = not isCorner
+            library.BoxLeft.Visible = not isCorner
+            library.BoxRight.Visible = not isCorner
 
-            library.BoxTop.Visible = normal
-            library.BoxBottom.Visible = normal
-            library.BoxLeft.Visible = normal
-            library.BoxRight.Visible = normal
-
-            local opacity = tonumber(Settings.Fill_Opacity) or 0.15
-
-            opacity = math.clamp(
-                opacity,
-                0,
-                1
-            )
-
-            if Settings.FillBox then
+            if fillSettings.Enabled then
                 library.Fill.Visible = true
                 library.Fill.Color = ValidColor(
-                    Settings.Fill_Box_Color,
+                    fillSettings.Color,
                     DefaultBoxColor
                 )
-                library.Fill.Transparency = opacity
+                library.Fill.Transparency =
+                    math.clamp(
+                        fillSettings.Opacity,
+                        0,
+                        1
+                    )
                 library.Fill.Position = Vector2.new(
                     left,
                     top
@@ -547,17 +448,14 @@ function ESP.new(config)
                 library.Fill.Visible = false
             end
 
-            local nameScale =
-                tonumber(Settings.Name_Scale) or 14
-
-            nameScale = math.clamp(
-                nameScale,
+            local nameScale = math.clamp(
+                tonumber(infoSettings.NameScale) or 14,
                 1,
                 100
             )
 
             library.Name.Visible =
-                Settings.ShowName == true
+                infoSettings.ShowName
 
             library.Name.Text =
                 tostring(plr.Name)
@@ -572,7 +470,7 @@ function ESP.new(config)
                 nameScale
 
             library.Name.Font =
-                Fonts[Settings.Font] or Fonts.UI
+                Fonts[infoSettings.Font] or Fonts.UI
 
             library.Name.Position =
                 Vector2.new(
@@ -581,7 +479,7 @@ function ESP.new(config)
                 )
 
             library.Team.Visible =
-                Settings.ShowTeam == true
+                infoSettings.ShowTeam
 
             library.Team.Text =
                 plr.Team
@@ -601,13 +499,13 @@ function ESP.new(config)
                 )
 
             library.Team.Font =
-                Fonts[Settings.Font] or Fonts.UI
+                Fonts[infoSettings.Font] or Fonts.UI
 
             library.Team.Position =
                 Vector2.new(
                     (left + right) / 2,
                     top - (
-                        Settings.ShowName
+                        infoSettings.ShowName
                         and nameScale + 19
                         or 18
                     )
@@ -615,53 +513,48 @@ function ESP.new(config)
 
             local healthRatio = 0
 
-            if humanoid.MaxHealth
-                and humanoid.MaxHealth > 0 then
-                healthRatio =
-                    math.clamp(
-                        humanoid.Health /
-                            humanoid.MaxHealth,
-                        0,
-                        1
-                    )
+            if humanoid.MaxHealth > 0 then
+                healthRatio = math.clamp(
+                    humanoid.Health /
+                        humanoid.MaxHealth,
+                    0,
+                    1
+                )
             end
 
-            local healthWidth = 5
-            local healthGap = 5
-
             library.HealthOutline.Visible =
-                Settings.ShowHealth == true
+                healthSettings.Enabled
 
             library.HealthOutline.Color =
                 ValidColor(
-                    Settings.HealthBorder_Color,
+                    healthSettings.BorderColor,
                     DefaultHealthBorder
                 )
 
             library.HealthOutline.Position =
                 Vector2.new(
-                    right + healthGap,
+                    right + 5,
                     top
                 )
 
             library.HealthOutline.Size =
                 Vector2.new(
-                    healthWidth,
+                    5,
                     height
                 )
 
             library.HealthBar.Visible =
-                Settings.ShowHealth == true
+                healthSettings.Enabled
 
             library.HealthBar.Color =
                 ValidColor(
-                    Settings.HealthFill_Color,
+                    healthSettings.FillColor,
                     DefaultHealthFill
                 )
 
             library.HealthBar.Position =
                 Vector2.new(
-                    right + healthGap + 1,
+                    right + 6,
                     bottom -
                         ((height - 2) * healthRatio) -
                         1
@@ -669,155 +562,32 @@ function ESP.new(config)
 
             library.HealthBar.Size =
                 Vector2.new(
-                    healthWidth - 2,
+                    3,
                     math.max(
                         (height - 2) * healthRatio,
                         0
                     )
                 )
 
-            local tracerSettings =
-                typeof(Settings.Tracers) == "table"
-                and Settings.Tracers
-                or {}
-
-            local tracerEnabled =
-                tracerSettings.Enabled == true
-
-            library.Tracer.Visible = tracerEnabled
-
-            if tracerEnabled then
-                local tracerOrigin =
-                    GetTracerOrigin()
-
-                library.Tracer.From =
-                    tracerOrigin
-
-                library.Tracer.To =
-                    Vector2.new(
-                        rootPosition.X,
-                        rootPosition.Y
-                    )
-
-                library.Tracer.Color =
-                    Settings.Rainbow
-                    and Color3.fromHSV(
-                        (tick() % 5) / 5,
-                        0.6,
-                        1
-                    )
-                    or ValidColor(
-                        tracerSettings.Color,
-                        DefaultBoxColor
-                    )
-
-                library.Tracer.Thickness =
-                    math.max(
-                        tonumber(
-                            tracerSettings.Thickness
-                        ) or 1,
-                        1
-                    )
-
-                library.Tracer.Transparency =
-                    math.clamp(
-                        tonumber(
-                            tracerSettings.Transparency
-                        ) or 1,
-                        0,
-                        1
-                    )
-            end
-
-            local chamsSettings =
-                typeof(Settings.Chams) == "table"
-                and Settings.Chams
-                or {}
-
-            if chamsSettings.Enabled == true then
-                if chams.Parent ~= Workspace then
-                    chams.Parent = Workspace
-                end
-
-                chams.Adornee = character
-
-                chams.FillColor =
-                    Settings.Rainbow
-                    and Color3.fromHSV(
-                        (tick() % 5) / 5,
-                        0.6,
-                        1
-                    )
-                    or ValidColor(
-                        chamsSettings.FillColor,
-                        boxColor
-                    )
-
-                chams.FillTransparency =
-                    math.clamp(
-                        tonumber(
-                            chamsSettings.FillTransparency
-                        ) or 0.5,
-                        0,
-                        1
-                    )
-
-                chams.OutlineColor =
-                    Settings.Rainbow
-                    and Color3.fromHSV(
-                        (tick() % 5) / 5,
-                        0.6,
-                        1
-                    )
-                    or ValidColor(
-                        chamsSettings.OutlineColor,
-                        boxColor
-                    )
-
-                chams.OutlineTransparency =
-                    math.clamp(
-                        tonumber(
-                            chamsSettings.OutlineTransparency
-                        ) or 0,
-                        0,
-                        1
-                    )
-
-                chams.DepthMode =
-                    chamsSettings.AlwaysOnTop == true
-                    and Enum.HighlightDepthMode.AlwaysOnTop
-                    or Enum.HighlightDepthMode.Occluded
-
-                chams.Enabled = true
-            else
-                chams.Enabled = false
-                chams.Adornee = nil
-            end
-
             local thickness
 
-            if Settings.Autothickness == true then
-                thickness =
-                    math.clamp(
-                        100 /
-                            math.max(
-                                distance,
-                                0.01
-                            ),
-                        1,
-                        4
-                    )
+            if boxSettings.AutoThickness then
+                thickness = math.clamp(
+                    100 /
+                        math.max(
+                            distance or 1,
+                            1
+                        ),
+                    1,
+                    4
+                )
             else
-                thickness =
-                    tonumber(
-                        Settings.Box_Thickness
-                    ) or 2
+                thickness = math.clamp(
+                    tonumber(boxSettings.Thickness) or 2,
+                    1,
+                    20
+                )
             end
-
-            thickness = math.max(
-                thickness,
-                1
-            )
 
             SetThickness(
                 {
@@ -836,13 +606,6 @@ function ESP.new(config)
                 },
                 thickness
             )
-
-            library.HealthOutline.Thickness = 1
-            library.Tracer.Thickness =
-                math.max(
-                    tonumber(tracerSettings.Thickness) or 1,
-                    1
-                )
         end)
     end
 
