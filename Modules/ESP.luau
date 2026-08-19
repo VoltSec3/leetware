@@ -67,6 +67,93 @@ function ESP.new(config)
         return text
     end
 
+    local function NewGradientShader()
+        local shader = Drawing.new("Shader")
+        shader.Visible = false
+        shader.Position = Vector2.new(0, 0)
+        shader.Size = Vector2.new(0, 0)
+        shader.Transparency = 1
+        shader.ZIndex = 0
+
+        shader.Vertex = [[
+struct VSOut
+{
+    float4 pos : SV_POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+VSOut main(uint id : SV_VertexID)
+{
+    VSOut o;
+
+    float2 pos[3] = {
+        float2(-1.0, -1.0),
+        float2(-1.0,  3.0),
+        float2( 3.0, -1.0)
+    };
+
+    float2 uv[3] = {
+        float2(0.0, 1.0),
+        float2(0.0, -1.0),
+        float2(2.0, 1.0)
+    };
+
+    o.pos = float4(pos[id], 0.0, 1.0);
+    o.uv = uv[id];
+
+    return o;
+}
+]]
+
+        return shader
+    end
+
+    local function ColorToHLSL(color)
+        color = ValidColor(color, DefaultBoxColor)
+
+        return string.format(
+            "float3(%.6f, %.6f, %.6f)",
+            color.R,
+            color.G,
+            color.B
+        )
+    end
+
+    local function UpdateGradientShader(shader)
+        local color1 = ColorToHLSL(Settings.Gradient_Color_1)
+        local color2 = ColorToHLSL(Settings.Gradient_Color_2)
+        local rotation = tonumber(Settings.Gradient_Rotation) or 0
+
+        local radians = math.rad(rotation)
+
+        local pixelShader = string.format([[
+float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target
+{
+    float2 p = uv - 0.5;
+
+    float c = cos(%.8f);
+    float s = sin(%.8f);
+
+    float2 rotated = float2(
+        p.x * c - p.y * s,
+        p.x * s + p.y * c
+    );
+
+    float t = saturate(rotated.y + 0.5);
+
+    float3 color1 = %s;
+    float3 color2 = %s;
+
+    float3 finalColor = lerp(color1, color2, t);
+
+    return float4(finalColor, 1.0);
+}
+]], radians, radians, color1, color2)
+
+        shader.Pixel = pixelShader
+        shader:Create()
+    end
+
     local function HideLibrary(library)
         for _, object in pairs(library) do
             if typeof(object) == "table" then
@@ -162,15 +249,6 @@ function ESP.new(config)
             return
         end
 
-        local gradientObjects = {}
-
-        for i = 1, 24 do
-            local square = NewSquare()
-            square.Filled = true
-            square.Transparency = 0.15
-            gradientObjects[i] = square
-        end
-
         local library = {
             TL1 = NewLine(DefaultBoxColor, 2),
             TL2 = NewLine(DefaultBoxColor, 2),
@@ -187,7 +265,7 @@ function ESP.new(config)
             BoxRight = NewLine(DefaultBoxColor, 2),
 
             Fill = NewSquare(),
-            Gradient = gradientObjects,
+            Gradient = NewGradientShader(),
 
             Name = NewText(),
             Team = NewText(),
@@ -207,6 +285,8 @@ function ESP.new(config)
         library.HealthBar.Transparency = 1
         library.HealthBar.Color = DefaultHealthColor
 
+        UpdateGradientShader(library.Gradient)
+
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
         originPart.Transparency = 1
@@ -219,7 +299,10 @@ function ESP.new(config)
         local data = {
             Library = library,
             OriginPart = originPart,
-            Connection = nil
+            Connection = nil,
+            GradientColor1 = Settings.Gradient_Color_1,
+            GradientColor2 = Settings.Gradient_Color_2,
+            GradientRotation = Settings.Gradient_Rotation
         }
 
         Objects[plr] = data
@@ -232,6 +315,17 @@ function ESP.new(config)
             if not Camera or not Settings.Enabled then
                 HideLibrary(library)
                 return
+            end
+
+            if data.GradientColor1 ~= Settings.Gradient_Color_1
+                or data.GradientColor2 ~= Settings.Gradient_Color_2
+                or data.GradientRotation ~= Settings.Gradient_Rotation then
+
+                data.GradientColor1 = Settings.Gradient_Color_1
+                data.GradientColor2 = Settings.Gradient_Color_2
+                data.GradientRotation = Settings.Gradient_Rotation
+
+                UpdateGradientShader(library.Gradient)
             end
 
             local character = plr.Character
@@ -281,10 +375,33 @@ function ESP.new(config)
                 (originPart.CFrame * CFrame.new(-sizeX, -sizeY, 0)).Position
             )
 
-            local left = math.min(topLeft.X, topRight.X, bottomLeft.X, bottomRight.X)
-            local right = math.max(topLeft.X, topRight.X, bottomLeft.X, bottomRight.X)
-            local top = math.min(topLeft.Y, topRight.Y, bottomLeft.Y, bottomRight.Y)
-            local bottom = math.max(topLeft.Y, topRight.Y, bottomLeft.Y, bottomRight.Y)
+            local left = math.min(
+                topLeft.X,
+                topRight.X,
+                bottomLeft.X,
+                bottomRight.X
+            )
+
+            local right = math.max(
+                topLeft.X,
+                topRight.X,
+                bottomLeft.X,
+                bottomRight.X
+            )
+
+            local top = math.min(
+                topLeft.Y,
+                topRight.Y,
+                bottomLeft.Y,
+                bottomRight.Y
+            )
+
+            local bottom = math.max(
+                topLeft.Y,
+                topRight.Y,
+                bottomLeft.Y,
+                bottomRight.Y
+            )
 
             local width = math.max(right - left, 1)
             local height = math.max(bottom - top, 1)
@@ -364,45 +481,20 @@ function ESP.new(config)
             library.BoxLeft.Visible = Settings.NormalBox
             library.BoxRight.Visible = Settings.NormalBox
 
-            local fillTransparency = tonumber(Settings.Fill_Opacity) or 0.15
-            fillTransparency = math.clamp(fillTransparency, 0, 1)
+            local fillOpacity = tonumber(Settings.Fill_Opacity) or 0.15
+            fillOpacity = math.clamp(fillOpacity, 0, 1)
 
-            library.Fill.Transparency = fillTransparency
-
-            for _, object in ipairs(library.Gradient) do
-                object.Transparency = fillTransparency
-            end
+            library.Fill.Transparency = fillOpacity
+            library.Gradient.Transparency = fillOpacity
 
             if Settings.FillBoxGradient then
                 library.Fill.Visible = false
+                library.Gradient.Visible = true
 
-                local color1 = ValidColor(
-                    Settings.Gradient_Color_1,
-                    DefaultBoxColor
-                )
-
-                local color2 = ValidColor(
-                    Settings.Gradient_Color_2,
-                    DefaultBoxColor
-                )
-
-                for i = 1, #library.Gradient do
-                    local alpha = (i - 1) / (#library.Gradient - 1)
-                    local gradientColor = color1:Lerp(color2, alpha)
-                    local stripHeight = height / #library.Gradient
-
-                    library.Gradient[i].Visible = true
-                    library.Gradient[i].Color = gradientColor
-                    library.Gradient[i].Position = Vector2.new(
-                        left,
-                        top + ((i - 1) * stripHeight)
-                    )
-                    library.Gradient[i].Size = Vector2.new(
-                        width,
-                        stripHeight + 1
-                    )
-                end
+                library.Gradient.Position = Vector2.new(left, top)
+                library.Gradient.Size = Vector2.new(width, height)
             elseif Settings.FillBox then
+                library.Gradient.Visible = false
                 library.Fill.Visible = true
                 library.Fill.Color = ValidColor(
                     Settings.Fill_Box_Color,
@@ -410,16 +502,9 @@ function ESP.new(config)
                 )
                 library.Fill.Position = Vector2.new(left, top)
                 library.Fill.Size = Vector2.new(width, height)
-
-                for _, object in ipairs(library.Gradient) do
-                    object.Visible = false
-                end
             else
                 library.Fill.Visible = false
-
-                for _, object in ipairs(library.Gradient) do
-                    object.Visible = false
-                end
+                library.Gradient.Visible = false
             end
 
             local nameColor = ValidColor(
@@ -444,7 +529,7 @@ function ESP.new(config)
             library.Name.Font = Fonts[Settings.Font] or Fonts.UI
             library.Name.Position = Vector2.new(
                 (left + right) / 2,
-                top - (nameScale + 5)
+                top - nameScale - 5
             )
 
             local teamName = "Neutral"
@@ -459,7 +544,7 @@ function ESP.new(config)
             library.Team.Font = Fonts[Settings.Font] or Fonts.UI
             library.Team.Position = Vector2.new(
                 (left + right) / 2,
-                top - (Settings.ShowName and (nameScale + 19) or 18)
+                top - (Settings.ShowName and nameScale + 19 or 18)
             )
 
             local healthRatio = 0
