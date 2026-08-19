@@ -1,734 +1,623 @@
 local ESP = {}
 ESP.__index = ESP
 
-local Drawing = Drawing
-local Vector2 = Vector2
-local Vector3 = Vector3
-local Color3 = Color3
-local CFrame = CFrame
-local math = math
+function ESP.new(config)
+    local self = setmetatable({}, ESP)
 
-local GRADIENT_STRIPS = 48
-local GRADIENT_OVERLAP = 2
+    self.Players = config.Players
+    self.RunService = config.RunService
+    self.Workspace = config.Workspace
+    self.Player = config.Player
+    self.Settings = config.Settings
+    self.Camera = self.Workspace.CurrentCamera
 
-local FONT_MAP = {
-    UI = 0,
-    System = 1,
-    Plex = 2,
-    Monospace = 3
-}
+    self.Objects = {}
 
-local function newLine()
+    self.Fonts = {
+        UI = 0,
+        System = 1,
+        Plex = 2,
+        Monospace = 3
+    }
+
+    self.Gui = Instance.new("ScreenGui")
+    self.Gui.Name = "LeetwareESP"
+    self.Gui.IgnoreGuiInset = true
+    self.Gui.ResetOnSpawn = false
+    self.Gui.DisplayOrder = 0
+    self.Gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    pcall(function()
+        self.Gui.Parent = game:GetService("CoreGui")
+    end)
+
+    if not self.Gui.Parent then
+        self.Gui.Parent = self.Player:WaitForChild("PlayerGui")
+    end
+
+    self.Connection = self.RunService.RenderStepped:Connect(function()
+        self:Update()
+    end)
+
+    for _, player in ipairs(self.Players:GetPlayers()) do
+        self:AddPlayer(player)
+    end
+
+    self.PlayerAddedConnection = self.Players.PlayerAdded:Connect(function(player)
+        self:AddPlayer(player)
+    end)
+
+    self.PlayerRemovingConnection = self.Players.PlayerRemoving:Connect(function(player)
+        self:RemovePlayer(player)
+    end)
+
+    return self
+end
+
+function ESP:NewLine()
     local object = Drawing.new("Line")
     object.Visible = false
     object.Transparency = 1
     object.Thickness = 2
+    object.Color = Color3.new(1, 1, 1)
+    object.From = Vector2.zero
+    object.To = Vector2.zero
     return object
 end
 
-local function newSquare()
-    local object = Drawing.new("Square")
-    object.Visible = false
-    object.Filled = true
-    object.Transparency = 1
-    object.Thickness = 0
-    return object
-end
-
-local function newText()
+function ESP:NewText()
     local object = Drawing.new("Text")
     object.Visible = false
-    object.Center = true
-    object.Outline = true
-    object.OutlineColor = Color3.fromRGB(0, 0, 0)
     object.Transparency = 1
-    object.Font = 0
+    object.Color = Color3.new(1, 1, 1)
+    object.Outline = true
+    object.OutlineColor = Color3.new(0, 0, 0)
+    object.Center = true
     object.Size = 14
+    object.Font = 0
+    object.Position = Vector2.zero
     return object
 end
 
-local function hide(object)
-    if object then
-        object.Visible = false
-    end
+function ESP:NewSquare()
+    local object = Drawing.new("Square")
+    object.Visible = false
+    object.Transparency = 1
+    object.Filled = false
+    object.Thickness = 1
+    object.Color = Color3.new(1, 1, 1)
+    object.Position = Vector2.zero
+    object.Size = Vector2.zero
+    return object
 end
 
-local function hideList(list)
-    for _, object in pairs(list) do
-        object.Visible = false
-    end
-end
-
-local function destroyList(list)
-    for _, object in pairs(list) do
+function ESP:SetVisible(objects, visible)
+    for _, object in pairs(objects) do
         if object then
-            pcall(function()
-                object:Remove()
-            end)
+            object.Visible = visible
         end
     end
 end
 
-local function lerpColor(a, b, alpha)
-    return a:Lerp(b, math.clamp(alpha, 0, 1))
+function ESP:SetColor(objects, color)
+    if not color then
+        return
+    end
+
+    for _, object in pairs(objects) do
+        if object then
+            object.Color = color
+        end
+    end
 end
 
-local function getGradientColor(settings, alpha)
-    local color1 = settings.Gradient_Color_1 or Color3.fromRGB(255, 0, 0)
-    local color2 = settings.Gradient_Color_2 or Color3.fromRGB(0, 0, 255)
-
-    return lerpColor(color1, color2, alpha)
+function ESP:SetThickness(objects, thickness)
+    for _, object in pairs(objects) do
+        if object then
+            object.Thickness = thickness
+        end
+    end
 end
 
-local function getBoxColor(settings, player, localPlayer)
+function ESP:DestroyDrawing(object)
+    if object then
+        pcall(function()
+            object:Remove()
+        end)
+    end
+end
+
+function ESP:CreateFill()
+    local frame = Instance.new("Frame")
+    frame.Name = "GradientFill"
+    frame.BackgroundColor3 = Color3.new(1, 1, 1)
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 0
+    frame.Visible = false
+    frame.Position = UDim2.fromOffset(0, 0)
+    frame.Size = UDim2.fromOffset(0, 0)
+    frame.ZIndex = 0
+    frame.ClipsDescendants = true
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Name = "Gradient"
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+        ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
+    })
+    gradient.Rotation = 0
+    gradient.Parent = frame
+
+    frame.Parent = self.Gui
+
+    return frame, gradient
+end
+
+function ESP:AddPlayer(player)
+    if player == self.Player or self.Objects[player] then
+        return
+    end
+
+    local corners = {
+        TL1 = self:NewLine(),
+        TL2 = self:NewLine(),
+        TR1 = self:NewLine(),
+        TR2 = self:NewLine(),
+        BL1 = self:NewLine(),
+        BL2 = self:NewLine(),
+        BR1 = self:NewLine(),
+        BR2 = self:NewLine()
+    }
+
+    local normalBox = self:NewSquare()
+
+    local name = self:NewText()
+    local team = self:NewText()
+
+    local healthBorder = self:NewSquare()
+    local healthFill = self:NewSquare()
+
+    local fillFrame, fillGradient = self:CreateFill()
+
+    local object = {
+        Player = player,
+        Corners = corners,
+        NormalBox = normalBox,
+        Name = name,
+        Team = team,
+        HealthBorder = healthBorder,
+        HealthFill = healthFill,
+        Fill = fillFrame,
+        Gradient = fillGradient
+    }
+
+    self.Objects[player] = object
+end
+
+function ESP:RemovePlayer(player)
+    local object = self.Objects[player]
+
+    if not object then
+        return
+    end
+
+    for _, drawing in pairs(object.Corners) do
+        self:DestroyDrawing(drawing)
+    end
+
+    self:DestroyDrawing(object.NormalBox)
+    self:DestroyDrawing(object.Name)
+    self:DestroyDrawing(object.Team)
+    self:DestroyDrawing(object.HealthBorder)
+    self:DestroyDrawing(object.HealthFill)
+
+    if object.Fill then
+        object.Fill:Destroy()
+    end
+
+    self.Objects[player] = nil
+end
+
+function ESP:GetColor(player)
+    local settings = self.Settings
+
     if settings.Rainbow then
-        local hue = (os.clock() % 5) / 5
+        local hue = (tick() % 5) / 5
         return Color3.fromHSV(hue, 0.6, 1)
     end
 
-    if settings.Team_Color and player.TeamColor then
+    if settings.Team_Color then
         return player.TeamColor.Color
     end
 
     if settings.Team_Check then
-        if player.TeamColor == localPlayer.TeamColor then
+        if player.TeamColor == self.Player.TeamColor then
             return Color3.fromRGB(0, 255, 0)
         end
 
         return Color3.fromRGB(255, 0, 0)
     end
 
-    return settings.Box_Color or Color3.fromRGB(255, 0, 0)
+    return settings.Box_Color
 end
 
-local function getCharacterBounds(character)
+function ESP:GetCharacterBounds(character)
     local root = character:FindFirstChild("HumanoidRootPart")
-    local head = character:FindFirstChild("Head")
     local humanoid = character:FindFirstChildOfClass("Humanoid")
 
-    if not root or not head or not humanoid or humanoid.Health <= 0 then
+    if not root or not humanoid then
         return nil
     end
 
     local rootPosition = root.Position
-    local rootSize = root.Size
 
-    local height = math.max(rootSize.Y * 1.5, 4)
-    local width = math.max(rootSize.X * 2.25, 2)
+    local height = humanoid.HipHeight + 3.2
 
-    local top = rootPosition + Vector3.new(0, height * 0.5, 0)
-    local bottom = rootPosition - Vector3.new(0, height * 0.5, 0)
+    local topPosition = rootPosition + Vector3.new(0, height, 0)
+    local bottomPosition = rootPosition - Vector3.new(0, 3, 0)
+
+    local top, topVisible = self.Camera:WorldToViewportPoint(topPosition)
+    local bottom, bottomVisible = self.Camera:WorldToViewportPoint(bottomPosition)
+
+    if not topVisible and not bottomVisible then
+        return nil
+    end
+
+    local center = rootPosition
+
+    local leftWorld = center - self.Camera.CFrame.RightVector * 2
+    local rightWorld = center + self.Camera.CFrame.RightVector * 2
+
+    local left = self.Camera:WorldToViewportPoint(leftWorld)
+    local right = self.Camera:WorldToViewportPoint(rightWorld)
+
+    local heightPixels = math.abs(bottom.Y - top.Y)
+    local widthPixels = math.abs(right.X - left.X)
+
+    local distance = (self.Camera.CFrame.Position - rootPosition).Magnitude
+
+    local scale = math.clamp(45 / math.max(distance, 1), 0.35, 3)
+
+    widthPixels = math.max(widthPixels * scale, heightPixels * 0.32)
+    heightPixels = math.max(heightPixels, 20)
+
+    local x = (left.X + right.X) * 0.5
+    local y = (top.Y + bottom.Y) * 0.5
 
     return {
-        Root = root,
-        Head = head,
-        Humanoid = humanoid,
-        Position = rootPosition,
-        Width = width,
-        Height = height,
-        Top = top,
-        Bottom = bottom
+        X = x - widthPixels * 0.5,
+        Y = y - heightPixels * 0.5,
+        Width = widthPixels,
+        Height = heightPixels,
+        Distance = distance
     }
 end
 
-function ESP.new(options)
-    local self = setmetatable({}, ESP)
-
-    self.Players = options.Players
-    self.RunService = options.RunService
-    self.Workspace = options.Workspace
-    self.Player = options.Player
-    self.Settings = options.Settings
-
-    self.Camera = self.Workspace.CurrentCamera
-    self.Objects = {}
-    self.Destroyed = false
-
-    self:_createPlayers()
-
-    self.PlayerAddedConnection = self.Players.PlayerAdded:Connect(function(player)
-        self:_createPlayer(player)
-    end)
-
-    self.PlayerRemovingConnection = self.Players.PlayerRemoving:Connect(function(player)
-        self:_removePlayer(player)
-    end)
-
-    self.RenderConnection = self.RunService.RenderStepped:Connect(function()
-        if self.Destroyed then
-            return
-        end
-
-        self.Camera = self.Workspace.CurrentCamera
-
-        if not self.Camera then
-            return
-        end
-
-        for player, data in pairs(self.Objects) do
-            self:_updatePlayer(player, data)
-        end
-    end)
-
-    return self
-end
-
-function ESP:_createPlayers()
-    for _, player in ipairs(self.Players:GetPlayers()) do
-        self:_createPlayer(player)
-    end
-end
-
-function ESP:_createPlayer(player)
-    if player == self.Player then
-        return
-    end
-
-    if self.Objects[player] then
-        return
-    end
-
-    local data = {
-        Lines = {},
-        Gradient = {},
-        Name = newText(),
-        Team = newText(),
-        HealthBorder = newSquare(),
-        HealthFill = newSquare(),
-        Origin = Instance.new("Part")
-    }
-
-    data.Lines.TL1 = newLine()
-    data.Lines.TL2 = newLine()
-    data.Lines.TR1 = newLine()
-    data.Lines.TR2 = newLine()
-    data.Lines.BL1 = newLine()
-    data.Lines.BL2 = newLine()
-    data.Lines.BR1 = newLine()
-    data.Lines.BR2 = newLine()
-
-    data.NormalBox = newSquare()
-
-    for i = 1, GRADIENT_STRIPS do
-        data.Gradient[i] = newSquare()
-    end
-
-    data.Origin.Name = "leetware_ESP"
-    data.Origin.Parent = self.Workspace
-    data.Origin.Anchored = true
-    data.Origin.CanCollide = false
-    data.Origin.CanTouch = false
-    data.Origin.CanQuery = false
-    data.Origin.Transparency = 1
-    data.Origin.Size = Vector3.new(1, 1, 1)
-
-    self.Objects[player] = data
-end
-
-function ESP:_hide(data)
-    hideList(data.Lines)
-    hide(data.NormalBox)
-
-    for _, square in ipairs(data.Gradient) do
-        hide(square)
-    end
-
-    hide(data.Name)
-    hide(data.Team)
-    hide(data.HealthBorder)
-    hide(data.HealthFill)
-end
-
-function ESP:_removePlayer(player)
-    local data = self.Objects[player]
-
-    if not data then
-        return
-    end
-
-    self:_hide(data)
-
-    destroyList(data.Lines)
-    destroyList(data.Gradient)
-
-    if data.NormalBox then
-        pcall(function()
-            data.NormalBox:Remove()
-        end)
-    end
-
-    if data.Name then
-        pcall(function()
-            data.Name:Remove()
-        end)
-    end
-
-    if data.Team then
-        pcall(function()
-            data.Team:Remove()
-        end)
-    end
-
-    if data.HealthBorder then
-        pcall(function()
-            data.HealthBorder:Remove()
-        end)
-    end
-
-    if data.HealthFill then
-        pcall(function()
-            data.HealthFill:Remove()
-        end)
-    end
-
-    if data.Origin then
-        data.Origin:Destroy()
-    end
-
-    self.Objects[player] = nil
-end
-
-function ESP:_updateBoxLines(data, left, top, right, bottom, color, thickness)
-    local width = right - left
-    local height = bottom - top
-
-    local cornerSize = math.clamp(math.min(width, height) * 0.25, 4, 20)
-
-    data.Lines.TL1.From = Vector2.new(left, top)
-    data.Lines.TL1.To = Vector2.new(left + cornerSize, top)
-
-    data.Lines.TL2.From = Vector2.new(left, top)
-    data.Lines.TL2.To = Vector2.new(left, top + cornerSize)
-
-    data.Lines.TR1.From = Vector2.new(right, top)
-    data.Lines.TR1.To = Vector2.new(right - cornerSize, top)
-
-    data.Lines.TR2.From = Vector2.new(right, top)
-    data.Lines.TR2.To = Vector2.new(right, top + cornerSize)
-
-    data.Lines.BL1.From = Vector2.new(left, bottom)
-    data.Lines.BL1.To = Vector2.new(left + cornerSize, bottom)
-
-    data.Lines.BL2.From = Vector2.new(left, bottom)
-    data.Lines.BL2.To = Vector2.new(left, bottom - cornerSize)
-
-    data.Lines.BR1.From = Vector2.new(right, bottom)
-    data.Lines.BR1.To = Vector2.new(right - cornerSize, bottom)
-
-    data.Lines.BR2.From = Vector2.new(right, bottom)
-    data.Lines.BR2.To = Vector2.new(right, bottom - cornerSize)
-
-    for _, line in pairs(data.Lines) do
-        line.Color = color
-        line.Thickness = thickness
-        line.Visible = true
-    end
-end
-
-function ESP:_updateNormalBox(data, left, top, right, bottom, color, thickness)
-    data.NormalBox.Position = Vector2.new(left, top)
-    data.NormalBox.Size = Vector2.new(right - left, bottom - top)
-    data.NormalBox.Color = color
-    data.NormalBox.Thickness = thickness
-    data.NormalBox.Filled = false
-    data.NormalBox.Visible = true
-end
-
-function ESP:_updateGradient(data, left, top, right, bottom)
+function ESP:UpdateFill(object, bounds, color)
     local settings = self.Settings
+    local fill = object.Fill
+    local gradient = object.Gradient
 
-    local width = right - left
-    local height = bottom - top
-
-    if width <= 1 or height <= 1 then
-        for _, square in ipairs(data.Gradient) do
-            square.Visible = false
-        end
-
+    if not settings.FillBox then
+        fill.Visible = false
         return
     end
 
-    local rotation = math.rad(settings.Gradient_Rotation or 0)
-    local cosine = math.cos(rotation)
-    local sine = math.sin(rotation)
+    fill.Visible = true
 
-    local centerX = 0.5
-    local centerY = 0.5
+    local x = math.floor(bounds.X)
+    local y = math.floor(bounds.Y)
+    local width = math.ceil(bounds.Width)
+    local height = math.ceil(bounds.Height)
 
-    local corners = {
-        { -0.5, -0.5 },
-        { 0.5, -0.5 },
-        { -0.5, 0.5 },
-        { 0.5, 0.5 }
-    }
+    fill.Position = UDim2.fromOffset(x, y)
+    fill.Size = UDim2.fromOffset(width, height)
 
-    local minProjection = math.huge
-    local maxProjection = -math.huge
+    fill.BackgroundTransparency = math.clamp(settings.Fill_Opacity, 0, 1)
 
-    for _, corner in ipairs(corners) do
-        local x = corner[1]
-        local y = corner[2]
+    if settings.FillBoxGradient then
+        fill.BackgroundColor3 = Color3.new(1, 1, 1)
 
-        local rotatedX = x * cosine - y * sine
-        local rotatedY = x * sine + y * cosine
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, settings.Gradient_Color_1),
+            ColorSequenceKeypoint.new(1, settings.Gradient_Color_2)
+        })
 
-        local projection = rotatedX + rotatedY
+        gradient.Rotation = settings.Gradient_Rotation or 0
 
-        if projection < minProjection then
-            minProjection = projection
-        end
-
-        if projection > maxProjection then
-            maxProjection = projection
-        end
-    end
-
-    local projectionRange = maxProjection - minProjection
-
-    if projectionRange <= 0 then
-        projectionRange = 1
-    end
-
-    local stripHeight = height / GRADIENT_STRIPS
-    local overlap = math.min(GRADIENT_OVERLAP, stripHeight * 0.5)
-
-    for i = 1, GRADIENT_STRIPS do
-        local y0 = top + (i - 1) * stripHeight
-        local y1 = top + i * stripHeight
-
-        local stripTop = math.max(top, y0 - overlap)
-        local stripBottom = math.min(bottom, y1 + overlap)
-
-        local centerScreenY = (stripTop + stripBottom) * 0.5
-        local normalizedY = ((centerScreenY - top) / height) - centerY
-
-        local normalizedX = 0
-
-        local rotatedX = normalizedX * cosine - normalizedY * sine
-        local rotatedY = normalizedX * sine + normalizedY * cosine
-
-        local projection = rotatedX + rotatedY
-        local alpha = (projection - minProjection) / projectionRange
-
-        alpha = math.clamp(alpha, 0, 1)
-
-        local square = data.Gradient[i]
-
-        square.Position = Vector2.new(left, stripTop)
-        square.Size = Vector2.new(width, math.max(1, stripBottom - stripTop))
-        square.Color = getGradientColor(settings, alpha)
-        square.Transparency = settings.Fill_Opacity or 0.15
-        square.Filled = true
-        square.Visible = true
-    end
-end
-
-function ESP:_updateSolidFill(data, left, top, right, bottom)
-    local settings = self.Settings
-
-    local width = right - left
-    local height = bottom - top
-
-    for _, square in ipairs(data.Gradient) do
-        square.Visible = false
-    end
-
-    if width <= 1 or height <= 1 then
-        data.NormalBox.Visible = false
-        return
-    end
-
-    data.NormalBox.Position = Vector2.new(left, top)
-    data.NormalBox.Size = Vector2.new(width, height)
-    data.NormalBox.Color = settings.Fill_Box_Color or Color3.fromRGB(255, 0, 0)
-    data.NormalBox.Transparency = settings.Fill_Opacity or 0.15
-    data.NormalBox.Thickness = 0
-    data.NormalBox.Filled = true
-    data.NormalBox.Visible = true
-end
-
-function ESP:_updateText(data, bounds, left, top, right)
-    local settings = self.Settings
-
-    local textColor = settings.CustomTextColor
-        and (settings.Name_Color or Color3.fromRGB(255, 255, 255))
-        or getBoxColor(settings, bounds.Player, self.Player)
-
-    local nameVisible = settings.ShowName == true
-    local teamVisible = settings.ShowTeam == true
-
-    if nameVisible then
-        local nameSize = settings.Name_Scale or 14
-
-        data.Name.Text = bounds.Player.DisplayName or bounds.Player.Name
-        data.Name.Size = nameSize
-        data.Name.Font = FONT_MAP[settings.Font] or 0
-        data.Name.Color = textColor
-        data.Name.Outline = true
-        data.Name.OutlineColor = getBoxColor(settings, bounds.Player, self.Player)
-        data.Name.Position = Vector2.new((left + right) * 0.5, top - nameSize - 2)
-        data.Name.Visible = true
+        gradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 0)
+        })
     else
-        data.Name.Visible = false
-    end
+        fill.BackgroundColor3 = settings.Fill_Box_Color
 
-    if teamVisible then
-        local teamName = "Neutral"
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
+        })
 
-        if bounds.Player.Team then
-            teamName = bounds.Player.Team.Name
-        end
-
-        local teamColor = settings.CustomTextColor
-            and (settings.Team_Text_Color or Color3.fromRGB(255, 255, 255))
-            or getBoxColor(settings, bounds.Player, self.Player)
-
-        local teamOffset = nameVisible and ((settings.Name_Scale or 14) + 2) or 0
-
-        data.Team.Text = teamName
-        data.Team.Size = math.max(10, (settings.Name_Scale or 14) - 2)
-        data.Team.Font = FONT_MAP[settings.Font] or 0
-        data.Team.Color = teamColor
-        data.Team.Outline = true
-        data.Team.OutlineColor = getBoxColor(settings, bounds.Player, self.Player)
-        data.Team.Position = Vector2.new((left + right) * 0.5, top - teamOffset - 2)
-        data.Team.Visible = true
-    else
-        data.Team.Visible = false
+        gradient.Rotation = 0
     end
 end
 
-function ESP:_updateHealth(data, bounds, right, top, bottom)
+function ESP:UpdateCorners(object, bounds, color)
+    local settings = self.Settings
+    local corners = object.Corners
+
+    if not settings.CornerBox then
+        self:SetVisible(corners, false)
+        return
+    end
+
+    local x1 = bounds.X
+    local y1 = bounds.Y
+    local x2 = bounds.X + bounds.Width
+    local y2 = bounds.Y + bounds.Height
+
+    local cornerLength = math.clamp(
+        math.min(bounds.Width, bounds.Height) * 0.25,
+        4,
+        18
+    )
+
+    corners.TL1.From = Vector2.new(x1, y1)
+    corners.TL1.To = Vector2.new(x1 + cornerLength, y1)
+
+    corners.TL2.From = Vector2.new(x1, y1)
+    corners.TL2.To = Vector2.new(x1, y1 + cornerLength)
+
+    corners.TR1.From = Vector2.new(x2, y1)
+    corners.TR1.To = Vector2.new(x2 - cornerLength, y1)
+
+    corners.TR2.From = Vector2.new(x2, y1)
+    corners.TR2.To = Vector2.new(x2, y1 + cornerLength)
+
+    corners.BL1.From = Vector2.new(x1, y2)
+    corners.BL1.To = Vector2.new(x1 + cornerLength, y2)
+
+    corners.BL2.From = Vector2.new(x1, y2)
+    corners.BL2.To = Vector2.new(x1, y2 - cornerLength)
+
+    corners.BR1.From = Vector2.new(x2, y2)
+    corners.BR1.To = Vector2.new(x2 - cornerLength, y2)
+
+    corners.BR2.From = Vector2.new(x2, y2)
+    corners.BR2.To = Vector2.new(x2, y2 - cornerLength)
+
+    self:SetColor(corners, color)
+    self:SetVisible(corners, true)
+end
+
+function ESP:UpdateNormalBox(object, bounds, color)
+    local settings = self.Settings
+
+    if not settings.NormalBox then
+        object.NormalBox.Visible = false
+        return
+    end
+
+    object.NormalBox.Position = Vector2.new(
+        math.floor(bounds.X),
+        math.floor(bounds.Y)
+    )
+
+    object.NormalBox.Size = Vector2.new(
+        math.ceil(bounds.Width),
+        math.ceil(bounds.Height)
+    )
+
+    object.NormalBox.Color = color
+    object.NormalBox.Thickness = settings.Box_Thickness
+    object.NormalBox.Visible = true
+end
+
+function ESP:UpdateText(object, bounds, character, color)
+    local settings = self.Settings
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    local textColor = color
+
+    if settings.CustomTextColor then
+        textColor = settings.Name_Color
+    end
+
+    if settings.ShowName then
+        object.Name.Text = object.Player.DisplayName ~= object.Player.Name
+            and object.Player.DisplayName .. " [" .. object.Player.Name .. "]"
+            or object.Player.Name
+
+        object.Name.Size = settings.Name_Scale
+        object.Name.Font = self.Fonts[settings.Font] or 0
+        object.Name.Color = textColor
+        object.Name.Outline = true
+        object.Name.OutlineColor = color
+        object.Name.Position = Vector2.new(
+            bounds.X + bounds.Width * 0.5,
+            bounds.Y - settings.Name_Scale - 2
+        )
+        object.Name.Visible = true
+    else
+        object.Name.Visible = false
+    end
+
+    if settings.ShowTeam then
+        local teamColor = color
+
+        if settings.CustomTextColor then
+            teamColor = settings.Team_Text_Color
+        end
+
+        local teamName = object.Player.Team and object.Player.Team.Name or "Neutral"
+
+        object.Team.Text = teamName
+        object.Team.Size = math.max(settings.Name_Scale - 2, 10)
+        object.Team.Font = self.Fonts[settings.Font] or 0
+        object.Team.Color = teamColor
+        object.Team.Outline = true
+        object.Team.OutlineColor = color
+        object.Team.Position = Vector2.new(
+            bounds.X + bounds.Width * 0.5,
+            bounds.Y + settings.Name_Scale
+        )
+        object.Team.Visible = true
+    else
+        object.Team.Visible = false
+    end
+end
+
+function ESP:UpdateHealth(object, bounds, humanoid, color)
     local settings = self.Settings
 
     if not settings.ShowHealth then
-        data.HealthBorder.Visible = false
-        data.HealthFill.Visible = false
+        object.HealthBorder.Visible = false
+        object.HealthFill.Visible = false
         return
     end
 
-    local health = math.clamp(bounds.Humanoid.Health / math.max(bounds.Humanoid.MaxHealth, 1), 0, 1)
+    local health = math.clamp(
+        humanoid.Health / math.max(humanoid.MaxHealth, 1),
+        0,
+        1
+    )
 
     local barWidth = 4
     local gap = 3
-    local borderThickness = 1
 
-    local borderX = right + gap
-    local borderY = top
-    local borderHeight = bottom - top
+    local x = bounds.X + bounds.Width + gap
+    local y = bounds.Y
+    local height = bounds.Height
 
-    data.HealthBorder.Position = Vector2.new(
-        borderX,
-        borderY
+    object.HealthBorder.Position = Vector2.new(
+        math.floor(x),
+        math.floor(y)
     )
 
-    data.HealthBorder.Size = Vector2.new(
-        barWidth + borderThickness * 2,
-        borderHeight
-    )
-
-    data.HealthBorder.Color = settings.HealthBorder_Color or Color3.fromRGB(0, 0, 0)
-    data.HealthBorder.Transparency = 0
-    data.HealthBorder.Filled = true
-    data.HealthBorder.Visible = true
-
-    local fillHeight = math.max(0, borderHeight * health)
-
-    data.HealthFill.Position = Vector2.new(
-        borderX + borderThickness,
-        borderY + borderHeight - fillHeight
-    )
-
-    data.HealthFill.Size = Vector2.new(
+    object.HealthBorder.Size = Vector2.new(
         barWidth,
-        fillHeight
+        math.ceil(height)
     )
 
-    data.HealthFill.Color = settings.HealthFill_Color or Color3.fromRGB(255, 255, 255)
-    data.HealthFill.Transparency = 0
-    data.HealthFill.Filled = true
-    data.HealthFill.Visible = fillHeight > 0
+    object.HealthBorder.Filled = true
+    object.HealthBorder.Color = settings.HealthBorder_Color
+    object.HealthBorder.Thickness = 1
+    object.HealthBorder.Visible = true
+
+    local padding = 1
+
+    local fillHeight = math.max(
+        0,
+        (height - padding * 2) * health
+    )
+
+    object.HealthFill.Position = Vector2.new(
+        math.floor(x + padding),
+        math.floor(y + height - padding - fillHeight)
+    )
+
+    object.HealthFill.Size = Vector2.new(
+        math.max(1, barWidth - padding * 2),
+        math.ceil(fillHeight)
+    )
+
+    object.HealthFill.Filled = true
+    object.HealthFill.Color = settings.HealthFill_Color
+    object.HealthFill.Thickness = 1
+    object.HealthFill.Visible = health > 0
 end
 
-function ESP:_updatePlayer(player, data)
+function ESP:UpdatePlayer(object)
     local settings = self.Settings
 
     if not settings.Enabled then
-        self:_hide(data)
+        self:SetVisible(object.Corners, false)
+        object.NormalBox.Visible = false
+        object.Name.Visible = false
+        object.Team.Visible = false
+        object.HealthBorder.Visible = false
+        object.HealthFill.Visible = false
+        object.Fill.Visible = false
         return
     end
 
-    if player == self.Player then
-        self:_hide(data)
-        return
-    end
-
+    local player = object.Player
     local character = player.Character
 
     if not character then
-        self:_hide(data)
+        self:SetVisible(object.Corners, false)
+        object.NormalBox.Visible = false
+        object.Name.Visible = false
+        object.Team.Visible = false
+        object.HealthBorder.Visible = false
+        object.HealthFill.Visible = false
+        object.Fill.Visible = false
         return
     end
 
-    local characterBounds = getCharacterBounds(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local root = character:FindFirstChild("HumanoidRootPart")
 
-    if not characterBounds then
-        self:_hide(data)
+    if not humanoid or not root or humanoid.Health <= 0 then
+        self:SetVisible(object.Corners, false)
+        object.NormalBox.Visible = false
+        object.Name.Visible = false
+        object.Team.Visible = false
+        object.HealthBorder.Visible = false
+        object.HealthFill.Visible = false
+        object.Fill.Visible = false
         return
     end
 
-    characterBounds.Player = player
+    local bounds = self:GetCharacterBounds(character)
 
-    local camera = self.Camera
-
-    if not camera then
-        self:_hide(data)
+    if not bounds then
+        self:SetVisible(object.Corners, false)
+        object.NormalBox.Visible = false
+        object.Name.Visible = false
+        object.Team.Visible = false
+        object.HealthBorder.Visible = false
+        object.HealthFill.Visible = false
+        object.Fill.Visible = false
         return
     end
 
-    local rootPosition = characterBounds.Position
+    local color = self:GetColor(player)
 
-    local rootScreen, rootVisible = camera:WorldToViewportPoint(rootPosition)
-
-    if not rootVisible or rootScreen.Z <= 0 then
-        self:_hide(data)
-        return
-    end
-
-    local topWorld = characterBounds.Top
-    local bottomWorld = characterBounds.Bottom
-
-    local topScreen, topVisible = camera:WorldToViewportPoint(topWorld)
-    local bottomScreen, bottomVisible = camera:WorldToViewportPoint(bottomWorld)
-
-    if not topVisible or not bottomVisible then
-        self:_hide(data)
-        return
-    end
-
-    local centerX = rootScreen.X
-
-    local screenHeight = math.abs(bottomScreen.Y - topScreen.Y)
-
-    if screenHeight <= 1 then
-        self:_hide(data)
-        return
-    end
-
-    local screenWidth = screenHeight * (characterBounds.Width / characterBounds.Height)
-
-    local left = centerX - screenWidth * 0.5
-    local right = centerX + screenWidth * 0.5
-    local top = math.min(topScreen.Y, bottomScreen.Y)
-    local bottom = math.max(topScreen.Y, bottomScreen.Y)
-
-    local viewport = camera.ViewportSize
-
-    if right < 0 or left > viewport.X or bottom < 0 or top > viewport.Y then
-        self:_hide(data)
-        return
-    end
-
-    local distance = (camera.CFrame.Position - rootPosition).Magnitude
-
-    local thickness
+    self:UpdateFill(object, bounds, color)
+    self:UpdateCorners(object, bounds, color)
+    self:UpdateNormalBox(object, bounds, color)
+    self:UpdateText(object, bounds, character, color)
+    self:UpdateHealth(object, bounds, humanoid, color)
 
     if settings.Autothickness then
-        thickness = math.clamp(100 / math.max(distance, 1), 1, 4)
+        local thickness = math.clamp(
+            100 / math.max(bounds.Distance, 1),
+            1,
+            4
+        )
+
+        self:SetThickness(object.Corners, thickness)
+        object.NormalBox.Thickness = thickness
     else
-        thickness = settings.Box_Thickness or 2
+        self:SetThickness(object.Corners, settings.Box_Thickness)
+        object.NormalBox.Thickness = settings.Box_Thickness
     end
+end
 
-    local boxColor = getBoxColor(settings, player, self.Player)
+function ESP:Update()
+    self.Camera = self.Workspace.CurrentCamera
 
-    data.Origin.Position = rootPosition
-
-    local normalBoxEnabled = settings.NormalBox == true
-    local cornerBoxEnabled = settings.CornerBox == true
-
-    if normalBoxEnabled then
-        for _, line in pairs(data.Lines) do
-            line.Visible = false
-        end
-
-        self:_updateNormalBox(
-            data,
-            left,
-            top,
-            right,
-            bottom,
-            boxColor,
-            thickness
-        )
-    elseif cornerBoxEnabled then
-        data.NormalBox.Visible = false
-
-        self:_updateBoxLines(
-            data,
-            left,
-            top,
-            right,
-            bottom,
-            boxColor,
-            thickness
-        )
-    else
-        data.NormalBox.Visible = false
-
-        for _, line in pairs(data.Lines) do
-            line.Visible = false
-        end
+    for _, object in pairs(self.Objects) do
+        self:UpdatePlayer(object)
     end
-
-    if settings.FillBoxGradient then
-        data.NormalBox.Visible = false
-
-        self:_updateGradient(
-            data,
-            left,
-            top,
-            right,
-            bottom
-        )
-    elseif settings.FillBox then
-        self:_updateSolidFill(
-            data,
-            left,
-            top,
-            right,
-            bottom
-        )
-    else
-        data.NormalBox.Visible = normalBoxEnabled
-
-        for _, square in ipairs(data.Gradient) do
-            square.Visible = false
-        end
-    end
-
-    self:_updateText(
-        data,
-        characterBounds,
-        left,
-        top,
-        right
-    )
-
-    self:_updateHealth(
-        data,
-        characterBounds,
-        right,
-        top,
-        bottom
-    )
 end
 
 function ESP:Destroy()
-    if self.Destroyed then
-        return
+    if self.Connection then
+        self.Connection:Disconnect()
+        self.Connection = nil
     end
-
-    self.Destroyed = true
 
     if self.PlayerAddedConnection then
         self.PlayerAddedConnection:Disconnect()
@@ -740,13 +629,13 @@ function ESP:Destroy()
         self.PlayerRemovingConnection = nil
     end
 
-    if self.RenderConnection then
-        self.RenderConnection:Disconnect()
-        self.RenderConnection = nil
+    for player in pairs(self.Objects) do
+        self:RemovePlayer(player)
     end
 
-    for player in pairs(self.Objects) do
-        self:_removePlayer(player)
+    if self.Gui then
+        self.Gui:Destroy()
+        self.Gui = nil
     end
 
     self.Objects = {}
