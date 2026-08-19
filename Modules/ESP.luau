@@ -19,11 +19,12 @@ function ESP.new(config)
 
     local DefaultBoxColor = Color3.fromRGB(255, 0, 0)
     local DefaultTextColor = Color3.fromRGB(255, 255, 255)
-    local DefaultHealthColor = Color3.fromRGB(255, 255, 255)
+    local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
+    local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
 
-    local GradientSegments = 48
+    local GradientLayers = 128
 
-    local function Color(value, fallback)
+    local function ValidColor(value, fallback)
         if typeof(value) == "Color3" then
             return value
         end
@@ -32,74 +33,46 @@ function ESP.new(config)
     end
 
     local function NewLine(color, thickness)
-        local object = Drawing.new("Line")
-        object.Visible = false
-        object.From = Vector2.new(0, 0)
-        object.To = Vector2.new(0, 0)
-        object.Color = Color(color, DefaultBoxColor)
-        object.Thickness = thickness or 2
-        object.Transparency = 1
-        return object
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.From = Vector2.new(0, 0)
+        line.To = Vector2.new(0, 0)
+        line.Color = ValidColor(color, DefaultBoxColor)
+        line.Thickness = thickness or 2
+        line.Transparency = 1
+        return line
     end
 
-    local function NewSquare(color)
-        local object = Drawing.new("Square")
-        object.Visible = false
-        object.Position = Vector2.new(0, 0)
-        object.Size = Vector2.new(0, 0)
-        object.Thickness = 1
-        object.Filled = false
-        object.Transparency = 1
-        object.Color = Color(color, DefaultBoxColor)
-        return object
+    local function NewSquare()
+        local square = Drawing.new("Square")
+        square.Visible = false
+        square.Position = Vector2.new(0, 0)
+        square.Size = Vector2.new(0, 0)
+        square.Thickness = 0
+        square.Filled = true
+        square.Transparency = 1
+        square.Color = DefaultBoxColor
+        return square
     end
 
     local function NewText()
-        local object = Drawing.new("Text")
-        object.Visible = false
-        object.Text = ""
-        object.Size = 14
-        object.Center = true
-        object.Outline = true
-        object.OutlineColor = Color3.fromRGB(0, 0, 0)
-        object.Position = Vector2.new(0, 0)
-        object.Font = Fonts.UI
-        object.Transparency = 1
-        object.Color = DefaultTextColor
-        return object
+        local text = Drawing.new("Text")
+        text.Visible = false
+        text.Text = ""
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.OutlineColor = Color3.fromRGB(0, 0, 0)
+        text.Position = Vector2.new(0, 0)
+        text.Font = Fonts.UI
+        text.Transparency = 1
+        text.Color = DefaultTextColor
+        return text
     end
 
-    local function NewGradientObjects()
-        local objects = {}
-
-        for i = 1, GradientSegments do
-            local success, object = pcall(function()
-                return Drawing.new("Quad")
-            end)
-
-            if not success or not object then
-                break
-            end
-
-            object.Visible = false
-            object.PointA = Vector2.new(0, 0)
-            object.PointB = Vector2.new(0, 0)
-            object.PointC = Vector2.new(0, 0)
-            object.PointD = Vector2.new(0, 0)
-            object.Thickness = 0
-            object.Filled = true
-            object.Transparency = 1
-            object.Color = DefaultBoxColor
-
-            objects[#objects + 1] = object
-        end
-
-        return objects
-    end
-
-    local function HideObject(object)
+    local function SetVisible(object, state)
         pcall(function()
-            object.Visible = false
+            object.Visible = state
         end)
     end
 
@@ -107,10 +80,10 @@ function ESP.new(config)
         for _, object in pairs(library) do
             if typeof(object) == "table" then
                 for _, nested in pairs(object) do
-                    HideObject(nested)
+                    SetVisible(nested, false)
                 end
             else
-                HideObject(object)
+                SetVisible(object, false)
             end
         end
     end
@@ -131,39 +104,51 @@ function ESP.new(config)
         end
     end
 
-    local function GetBoxColor(plr)
+    local function GetESPColor(plr)
         if Settings.Rainbow then
             return Color3.fromHSV((tick() % 5) / 5, 0.6, 1)
         end
 
         if Settings.Team_Color and plr.TeamColor then
-            return Color(
+            return ValidColor(
                 plr.TeamColor.Color,
                 DefaultBoxColor
             )
         end
 
         if Settings.Team_Check then
-            if plr.TeamColor and Player.TeamColor and plr.TeamColor == Player.TeamColor then
+            if plr.TeamColor
+                and Player.TeamColor
+                and plr.TeamColor == Player.TeamColor then
+
                 return Color3.fromRGB(0, 255, 0)
             end
 
             return Color3.fromRGB(255, 0, 0)
         end
 
-        return Color(Settings.Box_Color, DefaultBoxColor)
+        return ValidColor(
+            Settings.Box_Color,
+            DefaultBoxColor
+        )
     end
 
     local function GetTextColor(plr, textType)
         if not Settings.CustomTextColor then
-            return GetBoxColor(plr)
+            return GetESPColor(plr)
         end
 
         if textType == "Name" then
-            return Color(Settings.Name_Color, DefaultTextColor)
+            return ValidColor(
+                Settings.Name_Color,
+                DefaultTextColor
+            )
         end
 
-        return Color(Settings.Team_Text_Color, DefaultTextColor)
+        return ValidColor(
+            Settings.Team_Text_Color,
+            DefaultTextColor
+        )
     end
 
     local function DestroyObject(plr)
@@ -198,20 +183,21 @@ function ESP.new(config)
         Objects[plr] = nil
     end
 
-    local function UpdateGradient(library, left, top, width, height, opacity)
-        if #library.Gradient == 0 then
-            return
-        end
+    local function UpdateGradient(library, left, top, width, height)
+        local gradient = library.Gradient
 
-        local color1 = Color(
+        local color1 = ValidColor(
             Settings.Gradient_Color_1,
             DefaultBoxColor
         )
 
-        local color2 = Color(
+        local color2 = ValidColor(
             Settings.Gradient_Color_2,
             DefaultBoxColor
         )
+
+        local opacity = tonumber(Settings.Fill_Opacity) or 0.15
+        opacity = math.clamp(opacity, 0, 1)
 
         local rotation = math.rad(
             tonumber(Settings.Gradient_Rotation) or 0
@@ -220,112 +206,120 @@ function ESP.new(config)
         local cosAngle = math.cos(rotation)
         local sinAngle = math.sin(rotation)
 
-        local centerX = left + width * 0.5
-        local centerY = top + height * 0.5
+        local centerX = width / 2
+        local centerY = height / 2
 
         local diagonal = math.sqrt(
             width * width +
             height * height
         )
 
-        local segmentHeight = (diagonal * 2) / #library.Gradient
+        local step = (diagonal * 2) / GradientLayers
+        local overlap = math.max(step * 0.2, 0.75)
 
-        for index, quad in ipairs(library.Gradient) do
-            local y1 = -diagonal + segmentHeight * (index - 1)
-            local y2 = y1 + segmentHeight + 0.75
+        for i = 1, #gradient do
+            local layer = gradient[i]
+            local index = i - 1
 
-            local p1x = -diagonal
-            local p2x = diagonal
+            local y1 = -diagonal + index * step - overlap
+            local y2 = -diagonal + (index + 1) * step + overlap
 
-            local function RotatePoint(x, y)
+            local x1 = -diagonal
+            local x2 = diagonal
+
+            local function rotate(x, y)
                 return Vector2.new(
                     centerX + x * cosAngle - y * sinAngle,
                     centerY + x * sinAngle + y * cosAngle
                 )
             end
 
-            local pointA = RotatePoint(p1x, y1)
-            local pointB = RotatePoint(p2x, y1)
-            local pointC = RotatePoint(p2x, y2)
-            local pointD = RotatePoint(p1x, y2)
+            local topLeft = rotate(x1, y1)
+            local topRight = rotate(x2, y1)
+            local bottomLeft = rotate(x1, y2)
+            local bottomRight = rotate(x2, y2)
 
             local t = math.clamp(
-                (index - 0.5) / #library.Gradient,
+                (index + 0.5) / GradientLayers,
                 0,
                 1
             )
 
-            local gradientColor = color1:Lerp(color2, t)
+            layer.Color = color1:Lerp(color2, t)
+            layer.Transparency = opacity
 
-            quad.PointA = pointA
-            quad.PointB = pointB
-            quad.PointC = pointC
-            quad.PointD = pointD
-            quad.Color = gradientColor
-            quad.Transparency = opacity
-            quad.Visible = true
-        end
-
-        local clipLeft = left
-        local clipTop = top
-        local clipRight = left + width
-        local clipBottom = top + height
-
-        for _, quad in ipairs(library.Gradient) do
-            local minX = math.min(
-                quad.PointA.X,
-                quad.PointB.X,
-                quad.PointC.X,
-                quad.PointD.X
+            layer.Position = Vector2.new(
+                left,
+                top
             )
 
-            local maxX = math.max(
-                quad.PointA.X,
-                quad.PointB.X,
-                quad.PointC.X,
-                quad.PointD.X
+            local localMinX = math.min(
+                topLeft.X,
+                topRight.X,
+                bottomLeft.X,
+                bottomRight.X
             )
 
-            local minY = math.min(
-                quad.PointA.Y,
-                quad.PointB.Y,
-                quad.PointC.Y,
-                quad.PointD.Y
+            local localMaxX = math.max(
+                topLeft.X,
+                topRight.X,
+                bottomLeft.X,
+                bottomRight.X
             )
 
-            local maxY = math.max(
-                quad.PointA.Y,
-                quad.PointB.Y,
-                quad.PointC.Y,
-                quad.PointD.Y
+            local localMinY = math.min(
+                topLeft.Y,
+                topRight.Y,
+                bottomLeft.Y,
+                bottomRight.Y
             )
 
-            if maxX < clipLeft
-                or minX > clipRight
-                or maxY < clipTop
-                or minY > clipBottom then
+            local localMaxY = math.max(
+                topLeft.Y,
+                topRight.Y,
+                bottomLeft.Y,
+                bottomRight.Y
+            )
 
-                quad.Visible = false
-            elseif math.abs(rotation % math.pi) < 0.0001 then
-                quad.PointA = Vector2.new(
-                    math.clamp(quad.PointA.X, clipLeft, clipRight),
-                    math.clamp(quad.PointA.Y, clipTop, clipBottom)
+            local clippedMinX = math.max(
+                0,
+                localMinX
+            )
+
+            local clippedMinY = math.max(
+                0,
+                localMinY
+            )
+
+            local clippedMaxX = math.min(
+                width,
+                localMaxX
+            )
+
+            local clippedMaxY = math.min(
+                height,
+                localMaxY
+            )
+
+            if clippedMaxX > clippedMinX
+                and clippedMaxY > clippedMinY then
+
+                local boxWidth = clippedMaxX - clippedMinX
+                local boxHeight = clippedMaxY - clippedMinY
+
+                layer.Position = Vector2.new(
+                    left + clippedMinX,
+                    top + clippedMinY
                 )
 
-                quad.PointB = Vector2.new(
-                    math.clamp(quad.PointB.X, clipLeft, clipRight),
-                    math.clamp(quad.PointB.Y, clipTop, clipBottom)
+                layer.Size = Vector2.new(
+                    boxWidth + 1,
+                    boxHeight + 1
                 )
 
-                quad.PointC = Vector2.new(
-                    math.clamp(quad.PointC.X, clipLeft, clipRight),
-                    math.clamp(quad.PointC.Y, clipTop, clipBottom)
-                )
-
-                quad.PointD = Vector2.new(
-                    math.clamp(quad.PointD.X, clipLeft, clipRight),
-                    math.clamp(quad.PointD.Y, clipTop, clipBottom)
-                )
+                layer.Visible = true
+            else
+                layer.Visible = false
             end
         end
     end
@@ -333,6 +327,12 @@ function ESP.new(config)
     local function CreateObject(plr)
         if plr == Player or Objects[plr] then
             return
+        end
+
+        local gradient = {}
+
+        for _ = 1, GradientLayers do
+            gradient[#gradient + 1] = NewSquare()
         end
 
         local library = {
@@ -351,19 +351,20 @@ function ESP.new(config)
             BoxRight = NewLine(),
 
             Fill = NewSquare(),
-
-            Gradient = NewGradientObjects(),
+            Gradient = gradient,
 
             Name = NewText(),
             Team = NewText(),
 
-            HealthOutline = NewSquare(DefaultHealthColor),
-            HealthBar = NewSquare(DefaultHealthColor)
+            HealthOutline = NewSquare(),
+            HealthBar = NewSquare()
         }
 
-        library.Fill.Filled = true
         library.HealthOutline.Filled = false
+        library.HealthOutline.Color = DefaultHealthBorder
+
         library.HealthBar.Filled = true
+        library.HealthBar.Color = DefaultHealthFill
 
         local originPart = Instance.new("Part")
         originPart.Parent = Workspace
@@ -377,7 +378,10 @@ function ESP.new(config)
         local data = {
             Library = library,
             OriginPart = originPart,
-            Connection = nil
+            Connection = nil,
+            LastGradientRotation = nil,
+            LastGradientColor1 = nil,
+            LastGradientColor2 = nil
         }
 
         Objects[plr] = data
@@ -388,20 +392,20 @@ function ESP.new(config)
             local success = pcall(function()
                 Camera = Workspace.CurrentCamera
 
-                if not Camera then
-                    HideLibrary(library)
-                    return
-                end
-
-                if not Settings.Enabled then
+                if not Camera or not Settings.Enabled then
                     HideLibrary(library)
                     return
                 end
 
                 local character = plr.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                local head = character and character:FindFirstChild("Head")
+                local humanoid = character
+                    and character:FindFirstChildOfClass("Humanoid")
+
+                local root = character
+                    and character:FindFirstChild("HumanoidRootPart")
+
+                local head = character
+                    and character:FindFirstChild("Head")
 
                 if not character
                     or not humanoid
@@ -486,14 +490,21 @@ function ESP.new(config)
                 )
 
                 local bottom = math.max(
-                    topLeft.Y,
-                    topRight.Y,
                     bottomLeft.Y,
-                    bottomRight.Y
+                    bottomRight.Y,
+                    topLeft.Y,
+                    topRight.Y
                 )
 
-                local width = math.max(right - left, 1)
-                local height = math.max(bottom - top, 1)
+                local width = math.max(
+                    right - left,
+                    1
+                )
+
+                local height = math.max(
+                    bottom - top,
+                    1
+                )
 
                 local distance = (
                     Camera.CFrame.Position -
@@ -506,7 +517,7 @@ function ESP.new(config)
                     300
                 )
 
-                local boxColor = GetBoxColor(plr)
+                local boxColor = GetESPColor(plr)
 
                 library.TL1.Color = boxColor
                 library.TL2.Color = boxColor
@@ -644,50 +655,78 @@ function ESP.new(config)
 
                 local boxStyle = Settings.BoxStyle or "Corner"
 
-                local corner = boxStyle == "Corner"
-                local normal = boxStyle == "Normal"
+                local isCorner = boxStyle == "Corner"
 
-                library.TL1.Visible = corner
-                library.TL2.Visible = corner
-                library.TR1.Visible = corner
-                library.TR2.Visible = corner
-                library.BL1.Visible = corner
-                library.BL2.Visible = corner
-                library.BR1.Visible = corner
-                library.BR2.Visible = corner
+                library.TL1.Visible = isCorner
+                library.TL2.Visible = isCorner
+                library.TR1.Visible = isCorner
+                library.TR2.Visible = isCorner
+                library.BL1.Visible = isCorner
+                library.BL2.Visible = isCorner
+                library.BR1.Visible = isCorner
+                library.BR2.Visible = isCorner
 
-                library.BoxTop.Visible = normal
-                library.BoxBottom.Visible = normal
-                library.BoxLeft.Visible = normal
-                library.BoxRight.Visible = normal
+                local isNormal = boxStyle == "Normal"
+
+                library.BoxTop.Visible = isNormal
+                library.BoxBottom.Visible = isNormal
+                library.BoxLeft.Visible = isNormal
+                library.BoxRight.Visible = isNormal
 
                 local opacity = tonumber(
                     Settings.Fill_Opacity
                 ) or 0.15
 
-                opacity = math.clamp(opacity, 0, 1)
+                opacity = math.clamp(
+                    opacity,
+                    0,
+                    1
+                )
 
-                if Settings.FillBoxGradient
-                    and #library.Gradient > 0 then
-
+                if Settings.FillBoxGradient then
                     library.Fill.Visible = false
 
-                    UpdateGradient(
-                        library,
-                        left,
-                        top,
-                        width,
-                        height,
-                        opacity
+                    local rotation = tonumber(
+                        Settings.Gradient_Rotation
+                    ) or 0
+
+                    local color1 = ValidColor(
+                        Settings.Gradient_Color_1,
+                        DefaultBoxColor
                     )
 
-                elseif Settings.FillBox then
-                    for _, gradientObject in ipairs(library.Gradient) do
-                        gradientObject.Visible = false
-                    end
+                    local color2 = ValidColor(
+                        Settings.Gradient_Color_2,
+                        DefaultBoxColor
+                    )
 
+                    if rotation ~= data.LastGradientRotation
+                        or color1 ~= data.LastGradientColor1
+                        or color2 ~= data.LastGradientColor2
+                        or data.LastGradientWidth ~= width
+                        or data.LastGradientHeight ~= height then
+
+                        data.LastGradientRotation = rotation
+                        data.LastGradientColor1 = color1
+                        data.LastGradientColor2 = color2
+                        data.LastGradientWidth = width
+                        data.LastGradientHeight = height
+
+                        UpdateGradient(
+                            library,
+                            left,
+                            top,
+                            width,
+                            height
+                        )
+                    else
+                        for _, layer in ipairs(library.Gradient) do
+                            layer.Transparency = opacity
+                        end
+                    end
+                elseif Settings.FillBox then
                     library.Fill.Visible = true
-                    library.Fill.Color = Color(
+                    library.Fill.Color = ValidColor(
                         Settings.Fill_Box_Color,
                         DefaultBoxColor
                     )
@@ -701,11 +740,14 @@ function ESP.new(config)
                         height
                     )
 
+                    for _, layer in ipairs(library.Gradient) do
+                        layer.Visible = false
+                    end
                 else
                     library.Fill.Visible = false
 
-                    for _, gradientObject in ipairs(library.Gradient) do
-                        gradientObject.Visible = false
+                    for _, layer in ipairs(library.Gradient) do
+                        layer.Visible = false
                     end
                 end
 
@@ -721,26 +763,39 @@ function ESP.new(config)
 
                 library.Name.Visible = Settings.ShowName
                 library.Name.Text = tostring(plr.Name)
-                library.Name.Color = GetTextColor(plr, "Name")
+                library.Name.Color = GetTextColor(
+                    plr,
+                    "Name"
+                )
                 library.Name.Size = nameScale
-                library.Name.Font = Fonts[Settings.Font] or Fonts.UI
+                library.Name.Font = Fonts[
+                    Settings.Font
+                ] or Fonts.UI
+
                 library.Name.Position = Vector2.new(
                     (left + right) / 2,
                     top - nameScale - 5
                 )
 
                 library.Team.Visible = Settings.ShowTeam
+
                 library.Team.Text = plr.Team
                     and tostring(plr.Team.Name)
                     or "Neutral"
 
-                library.Team.Color = GetTextColor(plr, "Team")
+                library.Team.Color = GetTextColor(
+                    plr,
+                    "Team"
+                )
+
                 library.Team.Size = math.max(
                     nameScale - 1,
                     10
                 )
 
-                library.Team.Font = Fonts[Settings.Font] or Fonts.UI
+                library.Team.Font = Fonts[
+                    Settings.Font
+                ] or Fonts.UI
 
                 library.Team.Position = Vector2.new(
                     (left + right) / 2,
@@ -757,7 +812,8 @@ function ESP.new(config)
                     and humanoid.MaxHealth > 0 then
 
                     healthRatio = math.clamp(
-                        humanoid.Health / humanoid.MaxHealth,
+                        humanoid.Health /
+                            humanoid.MaxHealth,
                         0,
                         1
                     )
@@ -766,53 +822,73 @@ function ESP.new(config)
                 local healthWidth = 5
                 local healthGap = 5
 
-                library.HealthOutline.Visible = Settings.ShowHealth
-                library.HealthOutline.Color = Color(
-                    Settings.HealthBorder_Color,
-                    DefaultHealthColor
-                )
+                library.HealthOutline.Visible =
+                    Settings.ShowHealth
 
-                library.HealthOutline.Position = Vector2.new(
-                    right + healthGap,
-                    top
-                )
-
-                library.HealthOutline.Size = Vector2.new(
-                    healthWidth,
-                    height
-                )
-
-                library.HealthBar.Visible = Settings.ShowHealth
-                library.HealthBar.Color = Color(
-                    Settings.HealthFill_Color,
-                    DefaultHealthColor
-                )
-
-                library.HealthBar.Position = Vector2.new(
-                    right + healthGap + 1,
-                    bottom - ((height - 2) * healthRatio) - 1
-                )
-
-                library.HealthBar.Size = Vector2.new(
-                    healthWidth - 2,
-                    math.max(
-                        (height - 2) * healthRatio,
-                        0
+                library.HealthOutline.Color =
+                    ValidColor(
+                        Settings.HealthBorder_Color,
+                        DefaultHealthBorder
                     )
-                )
+
+                library.HealthOutline.Position =
+                    Vector2.new(
+                        right + healthGap,
+                        top
+                    )
+
+                library.HealthOutline.Size =
+                    Vector2.new(
+                        healthWidth,
+                        height
+                    )
+
+                library.HealthBar.Visible =
+                    Settings.ShowHealth
+
+                library.HealthBar.Color =
+                    ValidColor(
+                        Settings.HealthFill_Color,
+                        DefaultHealthFill
+                    )
+
+                library.HealthBar.Position =
+                    Vector2.new(
+                        right + healthGap + 1,
+                        bottom -
+                            ((height - 2) * healthRatio) -
+                            1
+                    )
+
+                library.HealthBar.Size =
+                    Vector2.new(
+                        healthWidth - 2,
+                        math.max(
+                            (height - 2) *
+                                healthRatio,
+                            0
+                        )
+                    )
 
                 local thickness
 
                 if Settings.Autothickness then
                     thickness = math.clamp(
-                        1 / math.max(distance, 0.01) * 100,
+                        1 /
+                            math.max(
+                                distance,
+                                0.01
+                            ) *
+                            100,
                         1,
                         4
                     )
                 else
-                    thickness = tonumber(
-                        Settings.Box_Thickness
-                    ) or 2
+                    thickness =
+                        tonumber(
+                            Settings.Box_Thickness
+                        )
+                        or 2
                 end
 
                 SetThickness({
@@ -828,7 +904,8 @@ function ESP.new(config)
                     BoxBottom = library.BoxBottom,
                     BoxLeft = library.BoxLeft,
                     BoxRight = library.BoxRight,
-                    HealthOutline = library.HealthOutline
+                    HealthOutline =
+                        library.HealthOutline
                 }, thickness)
             end)
 
@@ -844,13 +921,19 @@ function ESP.new(config)
         CreateObject(plr)
     end
 
-    controller.PlayerAdded = Players.PlayerAdded:Connect(function(plr)
-        CreateObject(plr)
-    end)
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(
+            function(plr)
+                CreateObject(plr)
+            end
+        )
 
-    controller.PlayerRemoving = Players.PlayerRemoving:Connect(function(plr)
-        DestroyObject(plr)
-    end)
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(
+            function(plr)
+                DestroyObject(plr)
+            end
+        )
 
     function controller:Destroy()
         if controller.PlayerAdded then
