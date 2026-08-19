@@ -67,14 +67,14 @@ function ESP.new(config)
         return text
     end
 
-    local function SetLibraryVisible(library, state)
+    local function HideLibrary(library)
         for _, object in pairs(library) do
             if typeof(object) == "table" then
                 for _, nested in pairs(object) do
-                    nested.Visible = state
+                    nested.Visible = false
                 end
             else
-                object.Visible = state
+                object.Visible = false
             end
         end
     end
@@ -95,17 +95,14 @@ function ESP.new(config)
 
     local function GetESPColor(plr)
         if Settings.Rainbow then
-            local hue = (tick() % 5) / 5
-            return Color3.fromHSV(hue, 0.6, 1)
+            return Color3.fromHSV((tick() % 5) / 5, 0.6, 1)
         end
 
-        if Settings.Team_Color then
-            if plr.TeamColor then
-                local teamColor = plr.TeamColor.Color
+        if Settings.Team_Color and plr.TeamColor then
+            local teamColor = plr.TeamColor.Color
 
-                if typeof(teamColor) == "Color3" then
-                    return teamColor
-                end
+            if typeof(teamColor) == "Color3" then
+                return teamColor
             end
         end
 
@@ -161,11 +158,7 @@ function ESP.new(config)
     end
 
     local function CreateObject(plr)
-        if plr == Player then
-            return
-        end
-
-        if Objects[plr] then
+        if plr == Player or Objects[plr] then
             return
         end
 
@@ -231,18 +224,13 @@ function ESP.new(config)
 
         Objects[plr] = data
 
-        SetLibraryVisible(library, false)
+        HideLibrary(library)
 
         data.Connection = RunService.RenderStepped:Connect(function()
             Camera = Workspace.CurrentCamera
 
-            if not Camera then
-                SetLibraryVisible(library, false)
-                return
-            end
-
-            if not Settings.Enabled then
-                SetLibraryVisible(library, false)
+            if not Camera or not Settings.Enabled then
+                HideLibrary(library)
                 return
             end
 
@@ -252,14 +240,14 @@ function ESP.new(config)
             local head = character and character:FindFirstChild("Head")
 
             if not character or not humanoid or not root or not head or humanoid.Health <= 0 then
-                SetLibraryVisible(library, false)
+                HideLibrary(library)
                 return
             end
 
             local rootPosition, visible = Camera:WorldToViewportPoint(root.Position)
 
             if not visible or rootPosition.Z <= 0 then
-                SetLibraryVisible(library, false)
+                HideLibrary(library)
                 return
             end
 
@@ -302,9 +290,16 @@ function ESP.new(config)
             local height = math.max(bottom - top, 1)
 
             local distance = (Camera.CFrame.Position - root.Position).Magnitude
-            local offset = math.clamp(1 / math.max(distance, 0.01) * 750, 2, 300)
+            local offset = math.clamp(
+                1 / math.max(distance, 0.01) * 750,
+                2,
+                300
+            )
 
-            local color = ValidColor(GetESPColor(plr), DefaultBoxColor)
+            local color = ValidColor(
+                GetESPColor(plr),
+                DefaultBoxColor
+            )
 
             library.TL1.Color = color
             library.TL2.Color = color
@@ -369,29 +364,31 @@ function ESP.new(config)
             library.BoxLeft.Visible = Settings.NormalBox
             library.BoxRight.Visible = Settings.NormalBox
 
-            local fillOpacity = tonumber(Settings.Fill_Opacity)
+            local fillTransparency = tonumber(Settings.Fill_Opacity) or 0.15
+            fillTransparency = math.clamp(fillTransparency, 0, 1)
 
-            if not fillOpacity then
-                fillOpacity = 0.15
-            end
-
-            fillOpacity = math.clamp(fillOpacity, 0, 1)
-
-            library.Fill.Transparency = fillOpacity
+            library.Fill.Transparency = fillTransparency
 
             for _, object in ipairs(library.Gradient) do
-                object.Transparency = fillOpacity
+                object.Transparency = fillTransparency
             end
 
             if Settings.FillBoxGradient then
                 library.Fill.Visible = false
 
-                local gradientColor1 = ValidColor(Settings.Gradient_Color_1, DefaultBoxColor)
-                local gradientColor2 = ValidColor(Settings.Gradient_Color_2, DefaultBoxColor)
+                local color1 = ValidColor(
+                    Settings.Gradient_Color_1,
+                    DefaultBoxColor
+                )
+
+                local color2 = ValidColor(
+                    Settings.Gradient_Color_2,
+                    DefaultBoxColor
+                )
 
                 for i = 1, #library.Gradient do
                     local alpha = (i - 1) / (#library.Gradient - 1)
-                    local gradientColor = gradientColor1:Lerp(gradientColor2, alpha)
+                    local gradientColor = color1:Lerp(color2, alpha)
                     local stripHeight = height / #library.Gradient
 
                     library.Gradient[i].Visible = true
@@ -407,7 +404,10 @@ function ESP.new(config)
                 end
             elseif Settings.FillBox then
                 library.Fill.Visible = true
-                library.Fill.Color = ValidColor(Settings.Fill_Box_Color, DefaultBoxColor)
+                library.Fill.Color = ValidColor(
+                    Settings.Fill_Box_Color,
+                    DefaultBoxColor
+                )
                 library.Fill.Position = Vector2.new(left, top)
                 library.Fill.Size = Vector2.new(width, height)
 
@@ -422,19 +422,21 @@ function ESP.new(config)
                 end
             end
 
-            local nameColor = ValidColor(GetTextColor(plr, "Name"), DefaultTextColor)
-            local teamColor = ValidColor(GetTextColor(plr, "Team"), DefaultTextColor)
+            local nameColor = ValidColor(
+                GetTextColor(plr, "Name"),
+                DefaultTextColor
+            )
+
+            local teamColor = ValidColor(
+                GetTextColor(plr, "Team"),
+                DefaultTextColor
+            )
+
+            local nameScale = tonumber(Settings.Name_Scale) or 14
+            nameScale = math.clamp(nameScale, 1, 100)
 
             library.Name.Visible = Settings.ShowName
             library.Team.Visible = Settings.ShowTeam
-
-            local nameScale = tonumber(Settings.Name_Scale)
-
-            if not nameScale then
-                nameScale = 14
-            end
-
-            nameScale = math.clamp(nameScale, 1, 100)
 
             library.Name.Text = tostring(plr.Name)
             library.Name.Color = nameColor
@@ -473,18 +475,15 @@ function ESP.new(config)
             local healthWidth = 5
             local healthGap = 5
 
-            local healthBorderColor = ValidColor(
+            library.HealthOutline.Color = ValidColor(
                 Settings.HealthBorder_Color,
                 DefaultHealthColor
             )
 
-            local healthFillColor = ValidColor(
+            library.HealthBar.Color = ValidColor(
                 Settings.HealthFill_Color,
                 DefaultHealthColor
             )
-
-            library.HealthOutline.Color = healthBorderColor
-            library.HealthBar.Color = healthFillColor
 
             library.HealthOutline.Visible = Settings.ShowHealth
             library.HealthBar.Visible = Settings.ShowHealth

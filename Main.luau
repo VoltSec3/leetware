@@ -207,22 +207,13 @@ Toggles.ESPEnabled:OnChanged(function()
     ESPSettings.Enabled = Toggles.ESPEnabled.Value
 end)
 
-local CornerBoxToggle = BoxGroupBox:AddToggle('ESPCornerBox', {
+BoxGroupBox:AddToggle('ESPCornerBox', {
     Text = 'Corner Box',
     Default = ESPSettings.CornerBox
 })
 
-CornerBoxToggle:AddColorPicker('ESPBoxColor', {
-    Default = ESPSettings.Box_Color,
-    Title = 'Box Color'
-})
-
 Toggles.ESPCornerBox:OnChanged(function()
     ESPSettings.CornerBox = Toggles.ESPCornerBox.Value
-end)
-
-Options.ESPBoxColor:OnChanged(function()
-    ESPSettings.Box_Color = Options.ESPBoxColor.Value
 end)
 
 BoxGroupBox:AddToggle('ESPNormalBox', {
@@ -232,6 +223,15 @@ BoxGroupBox:AddToggle('ESPNormalBox', {
 
 Toggles.ESPNormalBox:OnChanged(function()
     ESPSettings.NormalBox = Toggles.ESPNormalBox.Value
+end)
+
+BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor', {
+    Default = ESPSettings.Box_Color,
+    Title = 'Box Color'
+})
+
+Options.ESPBoxColor:OnChanged(function()
+    ESPSettings.Box_Color = Options.ESPBoxColor.Value
 end)
 
 BoxGroupBox:AddToggle('ESPRainbow', {
@@ -285,46 +285,46 @@ end)
 
 local FillGroupBox = Tabs.Visuals:AddRightGroupbox('Fill')
 
-local FillToggle = FillGroupBox:AddToggle('ESPFillBox', {
+FillGroupBox:AddToggle('ESPFillBox', {
     Text = 'Fill Box',
     Default = ESPSettings.FillBox
-})
-
-FillToggle:AddColorPicker('ESPFillBoxColor', {
-    Default = ESPSettings.Fill_Box_Color,
-    Title = 'Fill Color'
 })
 
 Toggles.ESPFillBox:OnChanged(function()
     ESPSettings.FillBox = Toggles.ESPFillBox.Value
 end)
 
+FillGroupBox:AddLabel('Fill Color'):AddColorPicker('ESPFillBoxColor', {
+    Default = ESPSettings.Fill_Box_Color,
+    Title = 'Fill Color'
+})
+
 Options.ESPFillBoxColor:OnChanged(function()
     ESPSettings.Fill_Box_Color = Options.ESPFillBoxColor.Value
 end)
 
-local GradientToggle = FillGroupBox:AddToggle('ESPFillBoxGradient', {
+FillGroupBox:AddToggle('ESPFillBoxGradient', {
     Text = 'Gradient',
     Default = ESPSettings.FillBoxGradient
-})
-
-GradientToggle:AddColorPicker('ESPGradientColor1', {
-    Default = ESPSettings.Gradient_Color_1,
-    Title = 'Gradient Start'
-})
-
-GradientToggle:AddColorPicker('ESPGradientColor2', {
-    Default = ESPSettings.Gradient_Color_2,
-    Title = 'Gradient End'
 })
 
 Toggles.ESPFillBoxGradient:OnChanged(function()
     ESPSettings.FillBoxGradient = Toggles.ESPFillBoxGradient.Value
 end)
 
+FillGroupBox:AddLabel('Gradient Start'):AddColorPicker('ESPGradientColor1', {
+    Default = ESPSettings.Gradient_Color_1,
+    Title = 'Gradient Start'
+})
+
 Options.ESPGradientColor1:OnChanged(function()
     ESPSettings.Gradient_Color_1 = Options.ESPGradientColor1.Value
 end)
+
+FillGroupBox:AddLabel('Gradient End'):AddColorPicker('ESPGradientColor2', {
+    Default = ESPSettings.Gradient_Color_2,
+    Title = 'Gradient End'
+})
 
 Options.ESPGradientColor2:OnChanged(function()
     ESPSettings.Gradient_Color_2 = Options.ESPGradientColor2.Value
@@ -345,64 +345,64 @@ end)
 
 local InfoGroupBox = Tabs.Visuals:AddLeftGroupbox('Information')
 
-local ShowNameToggle = InfoGroupBox:AddToggle('ESPShowName', {
+InfoGroupBox:AddToggle('ESPShowName', {
     Text = 'Show Name',
     Default = ESPSettings.ShowName
-})
-
-ShowNameToggle:AddColorPicker('ESPNameColor', {
-    Default = ESPSettings.Name_Color,
-    Title = 'Name Color'
 })
 
 Toggles.ESPShowName:OnChanged(function()
     ESPSettings.ShowName = Toggles.ESPShowName.Value
 end)
 
+InfoGroupBox:AddLabel('Name Color'):AddColorPicker('ESPNameColor', {
+    Default = ESPSettings.Name_Color,
+    Title = 'Name Color'
+})
+
 Options.ESPNameColor:OnChanged(function()
     ESPSettings.Name_Color = Options.ESPNameColor.Value
 end)
 
-local ShowTeamToggle = InfoGroupBox:AddToggle('ESPShowTeam', {
+InfoGroupBox:AddToggle('ESPShowTeam', {
     Text = 'Show Team',
     Default = ESPSettings.ShowTeam
-})
-
-ShowTeamToggle:AddColorPicker('ESPTeamTextColor', {
-    Default = ESPSettings.Team_Text_Color,
-    Title = 'Team Color'
 })
 
 Toggles.ESPShowTeam:OnChanged(function()
     ESPSettings.ShowTeam = Toggles.ESPShowTeam.Value
 end)
 
+InfoGroupBox:AddLabel('Team Color'):AddColorPicker('ESPTeamTextColor', {
+    Default = ESPSettings.Team_Text_Color,
+    Title = 'Team Color'
+})
+
 Options.ESPTeamTextColor:OnChanged(function()
     ESPSettings.Team_Text_Color = Options.ESPTeamTextColor.Value
 end)
 
-local ShowHealthToggle = InfoGroupBox:AddToggle('ESPShowHealth', {
+InfoGroupBox:AddToggle('ESPShowHealth', {
     Text = 'Show Health',
     Default = ESPSettings.ShowHealth
-})
-
-ShowHealthToggle:AddColorPicker('ESPHealthBorderColor', {
-    Default = ESPSettings.HealthBorder_Color,
-    Title = 'Health Border Color'
-})
-
-ShowHealthToggle:AddColorPicker('ESPHealthFillColor', {
-    Default = ESPSettings.HealthFill_Color,
-    Title = 'Health Fill Color'
 })
 
 Toggles.ESPShowHealth:OnChanged(function()
     ESPSettings.ShowHealth = Toggles.ESPShowHealth.Value
 end)
 
+InfoGroupBox:AddLabel('Health Border'):AddColorPicker('ESPHealthBorderColor', {
+    Default = ESPSettings.HealthBorder_Color,
+    Title = 'Health Border Color'
+})
+
 Options.ESPHealthBorderColor:OnChanged(function()
     ESPSettings.HealthBorder_Color = Options.ESPHealthBorderColor.Value
 end)
+
+InfoGroupBox:AddLabel('Health Fill'):AddColorPicker('ESPHealthFillColor', {
+    Default = ESPSettings.HealthFill_Color,
+    Title = 'Health Fill Color'
+})
 
 Options.ESPHealthFillColor:OnChanged(function()
     ESPSettings.HealthFill_Color = Options.ESPHealthFillColor.Value
@@ -493,7 +493,29 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 
 Library:SetWatermarkVisibility(true)
-Library:SetWatermark('leetware')
+
+local RunService, Stats = game:GetService("RunService"), game:GetService("Stats")
+local fps, frames, last = 0, 0, os.clock()
+
+Library:SetWatermark("leetware | 0 FPS | 0 ms")
+
+RunService.Heartbeat:Connect(function()
+    frames += 1
+
+    local now = os.clock()
+
+    if now - last >= 0.25 then
+        fps, frames, last = math.round(frames / (now - last)), 0, now
+
+        local ping = math.round(Stats.PerformanceStats.Ping:GetValue())
+
+        Library:SetWatermark(string.format(
+            "leetware | %d FPS | %d ms",
+            fps,
+            ping
+        ))
+    end
+end)
 
 Library:OnUnload(function()
     if ESPController then
