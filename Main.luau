@@ -368,8 +368,8 @@ ChamsToggle:AddColorPicker('ESPChamsColor', {
     Title = 'Chams Color'
 })
 
-Toggles.ESPChams:OnChanged(function()
-    ESPSettings.Chams.Enabled = Toggles.ESPChams.Value
+ChamsToggle:OnChanged(function()
+    ESPSettings.Chams.Enabled = ChamsToggle.Value
 end)
 
 Options.ESPChamsColor:OnChanged(function()
@@ -451,8 +451,8 @@ TracerToggle:AddColorPicker('ESPTracerColor', {
     Title = 'Tracer Color'
 })
 
-Toggles.ESPTracers:OnChanged(function()
-    ESPSettings.Tracers.Enabled = Toggles.ESPTracers.Value
+TracerToggle:OnChanged(function()
+    ESPSettings.Tracers.Enabled = TracerToggle.Value
 end)
 
 Options.ESPTracerColor:OnChanged(function()

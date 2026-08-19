@@ -89,7 +89,7 @@ function Chams.new(config)
         highlight.OutlineColor = DefaultOutline
         highlight.OutlineTransparency = 0
 
-        highlight.Parent = Workspace
+        highlight.Parent = game:GetService("CoreGui")
 
         local data = {
             Highlight = highlight,
