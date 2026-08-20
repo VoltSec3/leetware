@@ -11,6 +11,7 @@ function Aimbot.new(config)
     local CurrentTarget = nil
     local Aiming = false
     local Hue = 0
+    local AimStartMouseBehavior = nil
     local OriginalMouseBehavior = nil
     local MouseLockedByAimbot = false
     local LockStartedInFirstPerson = false
@@ -312,6 +313,7 @@ function Aimbot.new(config)
         CurrentTarget = nil
         MouseLockDisabled = false
         UnlockMouse()
+        AimStartMouseBehavior = nil
     end
 
     local function LockMouse()
@@ -319,7 +321,15 @@ function Aimbot.new(config)
             return
         end
 
-        OriginalMouseBehavior = UserInputService.MouseBehavior
+        OriginalMouseBehavior = AimStartMouseBehavior
+            or UserInputService.MouseBehavior
+
+        if IsFirstPerson()
+            and OriginalMouseBehavior
+                ~= Enum.MouseBehavior.LockCenter then
+            OriginalMouseBehavior = Enum.MouseBehavior.LockCenter
+        end
+
         LockStartedInFirstPerson = IsFirstPerson()
         MouseLockedByAimbot = true
         PendingFirstPersonUnlock = false
@@ -352,6 +362,13 @@ function Aimbot.new(config)
         end
 
         Aiming = true
+        AimStartMouseBehavior = UserInputService.MouseBehavior
+
+        if IsFirstPerson()
+            and AimStartMouseBehavior ~= Enum.MouseBehavior.LockCenter then
+            AimStartMouseBehavior = Enum.MouseBehavior.LockCenter
+        end
+
         MouseLockDisabled = false
     end)
 
