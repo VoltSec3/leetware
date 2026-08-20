@@ -361,6 +361,12 @@ function Aimbot.new(config)
             return
         end
 
+        if not IsFirstPerson()
+            and UserInputService.MouseBehavior
+                ~= Enum.MouseBehavior.LockCenter then
+            return
+        end
+
         Aiming = true
         AimStartMouseBehavior = UserInputService.MouseBehavior
 
