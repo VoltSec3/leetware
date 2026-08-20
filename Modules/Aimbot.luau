@@ -243,6 +243,15 @@ function Aimbot.new(config)
         end
     end
 
+    local function LockMouse()
+        if PreviousMouseBehavior then
+            return
+        end
+
+        PreviousMouseBehavior = UserInputService.MouseBehavior
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    end
+
     local function UpdateCircle()
         local settings = Settings
         local mousePosition = UserInputService:GetMouseLocation()
@@ -269,8 +278,6 @@ function Aimbot.new(config)
         end
 
         Aiming = true
-        PreviousMouseBehavior = UserInputService.MouseBehavior
-        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     end)
 
     local inputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -297,6 +304,8 @@ function Aimbot.new(config)
             local aimPosition = GetAimPosition(target)
 
             if aimPosition then
+                LockMouse()
+
                 local smoothing = math.clamp(
                     tonumber(Settings.Smoothing) or 5,
                     1,
@@ -313,6 +322,11 @@ function Aimbot.new(config)
                 )
             else
                 CurrentTarget = nil
+
+                if PreviousMouseBehavior then
+                    UserInputService.MouseBehavior = PreviousMouseBehavior
+                    PreviousMouseBehavior = nil
+                end
             end
         end
 
