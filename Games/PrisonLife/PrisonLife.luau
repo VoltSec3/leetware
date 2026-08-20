@@ -774,7 +774,9 @@ AimbotToggle:OnChanged(function()
     ESPSettings.Aimbot.Enabled=AimbotToggle.Value
 end)
 
-local GetTeamDropdownValues=Utils.GetTeamNames
+local GetTeamDropdownValues=function()
+    return Utils.GetTeamNames(Players)
+end
 
 AimbotGroupBox:AddDropdown('AimbotExcludeTeams',{
     Values=GetTeamDropdownValues(),

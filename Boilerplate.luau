@@ -660,7 +660,9 @@ AimbotToggle:OnChanged(function()
     ESPSettings.Aimbot.Enabled = AimbotToggle.Value
 end)
 
-local GetTeamDropdownValues = Utils.GetTeamNames
+local GetTeamDropdownValues = function()
+    return Utils.GetTeamNames(Players)
+end
 
 AimbotGroupBox:AddDropdown('AimbotExcludeTeams', {
     Values = GetTeamDropdownValues(),
@@ -682,6 +684,13 @@ AimbotGroupBox:AddDropdown('AimbotPrioritizeTeams', {
 
 Options.AimbotPrioritizeTeams:OnChanged(function()
     ESPSettings.Aimbot.PrioritizeTeams = Options.AimbotPrioritizeTeams.Value
+end)
+
+AimbotGroupBox:AddButton('Refresh Teams', function()
+    local teamNames = Utils.GetTeamNames(Players)
+
+    Options.AimbotExcludeTeams:SetValues(teamNames)
+    Options.AimbotPrioritizeTeams:SetValues(teamNames)
 end)
 
 AimbotGroupBox:AddLabel('Aim Bind'):AddKeyPicker('AimbotBind', {

@@ -36,9 +36,7 @@ function ESP.new(config)
             return false
         end
 
-
-            return Utils.IsFriend(Player, plr)
-        return success and isFriend
+        return Utils.IsFriend(Player, plr)
     end
 
     local function GetTeamColor(plr, fallback)
