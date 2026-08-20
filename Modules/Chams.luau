@@ -40,7 +40,9 @@ function Chams.new(config)
             )
         end
 
-        if boxSettings.TeamColor and plr.TeamColor then
+        if Settings.TeamColor
+            and Settings.TeamColor.BoxFill
+            and plr.TeamColor then
             return ValidColor(
                 plr.TeamColor.Color,
                 DefaultColor

@@ -43,7 +43,9 @@ function Tracers.new(config)
             )
         end
 
-        if boxSettings.TeamColor and plr.TeamColor then
+        if Settings.TeamColor
+            and Settings.TeamColor.BoxBorder
+            and plr.TeamColor then
             return ValidColor(
                 plr.TeamColor.Color,
                 DefaultColor

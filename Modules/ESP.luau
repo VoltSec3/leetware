@@ -206,6 +206,13 @@ function ESP.new(config)
             )
         end
 
+        if textType == "Weapon" then
+            return ValidColor(
+                infoSettings.WeaponColor,
+                DefaultTextColor
+            )
+        end
+
         return ValidColor(
             infoSettings.TeamTextColor,
             DefaultTextColor
@@ -580,10 +587,7 @@ function ESP.new(config)
                 and weaponName ~= nil
 
             library.Weapon.Text = weaponName or ""
-            library.Weapon.Color = ValidColor(
-                infoSettings.WeaponColor,
-                GetTextColor(plr, "Weapon")
-            )
+            library.Weapon.Color = GetTextColor(plr, "Weapon")
             library.Weapon.Size = math.max(nameScale - 1, 10)
             library.Weapon.Font = Fonts[infoSettings.Font] or Fonts.UI
             library.Weapon.Position = Vector2.new(
