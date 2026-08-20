@@ -30,6 +30,29 @@ function ESP.new(config)
         return fallback
     end
 
+    local function GetTeamColor(plr, fallback)
+        if plr.TeamColor then
+            return ValidColor(plr.TeamColor.Color, fallback)
+        end
+
+        return fallback
+    end
+
+    local function DarkenColor(color)
+        local teamSettings = Settings.TeamColor or {}
+        local amount = math.clamp(
+            tonumber(teamSettings.DarkenAmount) or 0,
+            0,
+            100
+        ) / 100
+
+        return Color3.new(
+            color.R * (1 - amount),
+            color.G * (1 - amount),
+            color.B * (1 - amount)
+        )
+    end
+
     local function NewLine()
         local line = Drawing.new("Line")
 
@@ -136,6 +159,22 @@ function ESP.new(config)
         )
     end
 
+    local function GetElementColor(plr, element, fallback)
+        local teamSettings = Settings.TeamColor or {}
+        local color = ValidColor(fallback, DefaultBoxColor)
+
+        if teamSettings[element] then
+            color = GetTeamColor(plr, color)
+
+            if (element == "BoxBorder" or element == "HealthBorder")
+                and teamSettings.DarkenBorders then
+                color = DarkenColor(color)
+            end
+        end
+
+        return color
+    end
+
     local function IsTeamBlocked(plr)
         local boxSettings = Settings.Box
 
@@ -152,6 +191,14 @@ function ESP.new(config)
 
     local function GetTextColor(plr, textType)
         local infoSettings = Settings.Information
+
+        if Settings.TeamColor.Text then
+            return GetElementColor(
+                plr,
+                "Text",
+                DefaultTextColor
+            )
+        end
 
         if not infoSettings.CustomTextColor then
             return GetColor(plr)
@@ -319,7 +366,11 @@ function ESP.new(config)
 
             local width = math.max(right - left, 1)
             local height = math.max(bottom - top, 1)
-            local color = GetColor(plr)
+            local color = GetElementColor(
+                plr,
+                "BoxBorder",
+                GetColor(plr)
+            )
 
             local cornerLength =
                 math.min(width, height) * 0.25
@@ -426,9 +477,13 @@ function ESP.new(config)
 
             if fillSettings.Enabled then
                 library.Fill.Visible = true
-                library.Fill.Color = ValidColor(
-                    fillSettings.Color,
-                    DefaultBoxColor
+                library.Fill.Color = GetElementColor(
+                    plr,
+                    "BoxFill",
+                    ValidColor(
+                        fillSettings.Color,
+                        DefaultBoxColor
+                    )
                 )
                 library.Fill.Transparency =
                     math.clamp(
@@ -526,9 +581,10 @@ function ESP.new(config)
                 healthSettings.Enabled
 
             library.HealthOutline.Color =
-                ValidColor(
+                GetElementColor(
+                    plr,
+                    "HealthBorder",
                     healthSettings.BorderColor,
-                    DefaultHealthBorder
                 )
 
             library.HealthOutline.Position =
@@ -547,9 +603,10 @@ function ESP.new(config)
                 healthSettings.Enabled
 
             library.HealthBar.Color =
-                ValidColor(
+                GetElementColor(
+                    plr,
+                    "HealthFill",
                     healthSettings.FillColor,
-                    DefaultHealthFill
                 )
 
             library.HealthBar.Position =

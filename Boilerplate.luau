@@ -50,6 +50,16 @@ local ESPSettings = {
         FillColor = Color3.fromRGB(255, 255, 255)
     },
 
+    TeamColor = {
+        BoxBorder = false,
+        BoxFill = false,
+        Text = false,
+        HealthBorder = false,
+        HealthFill = false,
+        DarkenBorders = false,
+        DarkenAmount = 50
+    },
+
     Chams = {
         Enabled = false,
         Color = Color3.fromRGB(255, 0, 0),
@@ -292,15 +302,6 @@ Toggles.ESPTeamCheck:OnChanged(function()
     ESPSettings.Box.TeamCheck = Toggles.ESPTeamCheck.Value
 end)
 
-BoxGroupBox:AddToggle('ESPTeamColor', {
-    Text = 'Team Color',
-    Default = ESPSettings.Box.TeamColor
-})
-
-Toggles.ESPTeamColor:OnChanged(function()
-    ESPSettings.Box.TeamColor = Toggles.ESPTeamColor.Value
-end)
-
 BoxGroupBox:AddToggle('ESPAutothickness', {
     Text = 'Auto Thickness',
     Default = ESPSettings.Box.AutoThickness
@@ -357,6 +358,61 @@ Options.ESPFillOpacity:OnChanged(function()
 end)
 
 local ChamsGroupBox = Tabs.Visuals:AddRightGroupbox('Chams')
+
+local TeamColorGroupBox = Tabs.Visuals:AddRightGroupbox('Team Color')
+
+TeamColorGroupBox:AddDropdown('ESPTeamColor', {
+    Values = {
+        'Box Border',
+        'Box Fill',
+        'Text',
+        'Health Border',
+        'Health Fill'
+    },
+    Default = {
+        ['Box Border'] = ESPSettings.TeamColor.BoxBorder,
+        ['Box Fill'] = ESPSettings.TeamColor.BoxFill,
+        Text = ESPSettings.TeamColor.Text,
+        ['Health Border'] = ESPSettings.TeamColor.HealthBorder,
+        ['Health Fill'] = ESPSettings.TeamColor.HealthFill
+    },
+    Multi = true,
+    Text = 'Apply Team Color'
+})
+
+Options.ESPTeamColor:OnChanged(function()
+    local values = Options.ESPTeamColor.Value
+
+    ESPSettings.TeamColor.BoxBorder = values['Box Border'] == true
+    ESPSettings.TeamColor.BoxFill = values['Box Fill'] == true
+    ESPSettings.TeamColor.Text = values.Text == true
+    ESPSettings.TeamColor.HealthBorder = values['Health Border'] == true
+    ESPSettings.TeamColor.HealthFill = values['Health Fill'] == true
+end)
+
+TeamColorGroupBox:AddToggle('ESPDarkenBorders', {
+    Text = 'Darken Borders',
+    Default = ESPSettings.TeamColor.DarkenBorders
+})
+
+Toggles.ESPDarkenBorders:OnChanged(function()
+    ESPSettings.TeamColor.DarkenBorders =
+        Toggles.ESPDarkenBorders.Value
+end)
+
+TeamColorGroupBox:AddSlider('ESPDarkenAmount', {
+    Text = 'Darken Amount',
+    Default = ESPSettings.TeamColor.DarkenAmount,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.ESPDarkenAmount:OnChanged(function()
+    ESPSettings.TeamColor.DarkenAmount =
+        Options.ESPDarkenAmount.Value
+end)
 
 local ChamsToggle = ChamsGroupBox:AddToggle('ESPChams', {
     Text = 'Enabled',
