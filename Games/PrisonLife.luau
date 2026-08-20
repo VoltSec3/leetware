@@ -91,20 +91,6 @@ local ESPSettings={
         RainbowFov=false,
         RainbowSpeed=0.005
     },
-    Triggerbot={
-        Enabled=false,
-        Bind="MB2",
-        InheritAimbot=true,
-        TargetPart="Head",
-        Fov=100,
-        Holding=false,
-        CPS=10,
-        FovColor=Color3.fromRGB(255,0,0),
-        TargetedFovColor=Color3.fromRGB(0,255,0),
-        RainbowFov=false,
-        RainbowSpeed=0.005,
-        WallCheck=true
-    }
 }
 
 local function LoadModule(url,name)
@@ -152,9 +138,7 @@ local AimbotController=AimbotModule.new({
     Workspace=Workspace,
     Player=Player,
     UserInputService=UserInputService,
-    Settings=ESPSettings.Aimbot,
-    Triggerbot=ESPSettings.Triggerbot,
-    AimbotSettings=ESPSettings.Aimbot
+    Settings=ESPSettings.Aimbot
 })
 
 local RainbowTools=false
@@ -770,107 +754,6 @@ AimbotSettingsGroupBox:AddToggle('AimbotRainbowFov',{
 
 Toggles.AimbotRainbowFov:OnChanged(function()
     ESPSettings.Aimbot.RainbowFov=Toggles.AimbotRainbowFov.Value
-end)
-
-local TriggerbotGroupBox=Tabs.Aimbot:AddRightGroupbox('Triggerbot')
-
-local TriggerbotToggle=TriggerbotGroupBox:AddToggle('TriggerbotEnabled',{
-    Text='Enabled',
-    Default=ESPSettings.Triggerbot.Enabled
-})
-
-TriggerbotToggle:OnChanged(function()
-    ESPSettings.Triggerbot.Enabled=TriggerbotToggle.Value
-end)
-
-TriggerbotGroupBox:AddLabel('Triggerbot Bind'):AddKeyPicker('TriggerbotBind',{
-    Default=ESPSettings.Triggerbot.Bind,
-    NoUI=false,
-    Text='Triggerbot bind',
-    Mode='Toggle',
-    ChangedCallback=function(value)
-        ESPSettings.Triggerbot.Bind=value
-    end
-})
-
-TriggerbotGroupBox:AddToggle('TriggerbotInheritAimbot',{
-    Text='Inherit Aimbot',
-    Default=ESPSettings.Triggerbot.InheritAimbot
-})
-
-Toggles.TriggerbotInheritAimbot:OnChanged(function()
-    ESPSettings.Triggerbot.InheritAimbot=Toggles.TriggerbotInheritAimbot.Value
-end)
-
-TriggerbotGroupBox:AddDropdown('TriggerbotTargetPart',{
-    Values={'Head','Torso','Left Arm','Right Arm','Left Leg','Right Leg'},
-    Default=1,
-    Multi=false,
-    Text='Target Part'
-})
-
-Options.TriggerbotTargetPart:OnChanged(function()
-    ESPSettings.Triggerbot.TargetPart=Options.TriggerbotTargetPart.Value
-end)
-
-TriggerbotGroupBox:AddSlider('TriggerbotFov',{
-    Text='FOV',
-    Default=ESPSettings.Triggerbot.Fov,
-    Min=0,
-    Max=1000,
-    Rounding=0,
-    Compact=false
-})
-
-Options.TriggerbotFov:OnChanged(function()
-    ESPSettings.Triggerbot.Fov=Options.TriggerbotFov.Value
-end)
-
-TriggerbotGroupBox:AddToggle('TriggerbotHolding',{
-    Text='Holding',
-    Default=ESPSettings.Triggerbot.Holding
-})
-
-Toggles.TriggerbotHolding:OnChanged(function()
-    ESPSettings.Triggerbot.Holding=Toggles.TriggerbotHolding.Value
-end)
-
-TriggerbotGroupBox:AddSlider('TriggerbotCPS',{
-    Text='CPS',
-    Default=ESPSettings.Triggerbot.CPS,
-    Min=5,
-    Max=25,
-    Rounding=0,
-    Compact=false
-})
-
-Options.TriggerbotCPS:OnChanged(function()
-    ESPSettings.Triggerbot.CPS=Options.TriggerbotCPS.Value
-end)
-
-TriggerbotGroupBox:AddLabel('FOV Color'):AddColorPicker('TriggerbotFovColor',{
-    Default=ESPSettings.Triggerbot.FovColor,
-    Title='Triggerbot FOV Color',
-    Callback=function(value)
-        ESPSettings.Triggerbot.FovColor=value
-    end
-})
-
-TriggerbotGroupBox:AddLabel('Targeted FOV Color'):AddColorPicker('TriggerbotTargetedFovColor',{
-    Default=ESPSettings.Triggerbot.TargetedFovColor,
-    Title='Triggerbot Targeted FOV Color',
-    Callback=function(value)
-        ESPSettings.Triggerbot.TargetedFovColor=value
-    end
-})
-
-TriggerbotGroupBox:AddToggle('TriggerbotRainbowFov',{
-    Text='Rainbow FOV',
-    Default=ESPSettings.Triggerbot.RainbowFov
-})
-
-Toggles.TriggerbotRainbowFov:OnChanged(function()
-    ESPSettings.Triggerbot.RainbowFov=Toggles.TriggerbotRainbowFov.Value
 end)
 
 local InfoGroupBox=Tabs.Visuals:AddLeftGroupbox('Information')
