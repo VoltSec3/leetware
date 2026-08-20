@@ -122,7 +122,7 @@ local Tabs = {
 
 local MainGroupBox = Tabs.Main:AddLeftGroupbox('Main')
 
-MainGroupBox:AddLabel('leetware')
+MainGroupBox:AddLabel('leetware, you are in a game that doesnt have a specific script for it, thus you are using the universal one. the main tab will have nothing but placeholder content. if this is an error, report it to arcmage.js on discord.')
 
 MainGroupBox:AddButton('Placeholder Button', function()
 end)
