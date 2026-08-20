@@ -7,6 +7,7 @@ local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/ESP.luau'
 local chamsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Chams.luau'
 local tracersRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Tracers.luau'
+local aimbotRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Aimbot.luau'
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -76,6 +77,23 @@ local ESPSettings = {
         Thickness = 1,
         Transparency = 1,
         Origin = "Bottom"
+    },
+
+    Aimbot = {
+        Enabled = false,
+        Bind = "MouseButton2",
+        Fov = 100,
+        Smoothing = 5,
+        Prediction = 0.065,
+        WallCheck = true,
+        LockAim = true,
+        TeamCheck = false,
+        HealthCheck = false,
+        MinHealth = 0,
+        FovColor = Color3.fromRGB(255, 0, 0),
+        TargetedFovColor = Color3.fromRGB(0, 255, 0),
+        RainbowFov = false,
+        RainbowSpeed = 0.005
     }
 }
 
@@ -105,6 +123,7 @@ end
 local ESPModule = LoadModule(espRepo, 'ESP')
 local ChamsModule = LoadModule(chamsRepo, 'Chams')
 local TracersModule = LoadModule(tracersRepo, 'Tracers')
+local AimbotModule = LoadModule(aimbotRepo, 'Aimbot')
 
 local ESPController = ESPModule.new({
     Players = Players,
@@ -131,6 +150,15 @@ local TracersController = TracersModule.new({
     Settings = ESPSettings
 })
 
+local AimbotController = AimbotModule.new({
+    Players = Players,
+    RunService = RunService,
+    Workspace = Workspace,
+    Player = Player,
+    UserInputService = UserInputService,
+    Settings = ESPSettings.Aimbot
+})
+
 local Window = Library:CreateWindow({
     Title = 'leetware',
     Center = true,
@@ -140,6 +168,7 @@ local Window = Library:CreateWindow({
 local Tabs = {
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'),
+    Aimbot = Window:AddTab('Aimbot'),
     ['UI Settings'] = Window:AddTab('UI Settings')
 }
 
@@ -579,6 +608,146 @@ Options.ESPTracerOrigin:OnChanged(function()
     ESPSettings.Tracers.Origin = Options.ESPTracerOrigin.Value
 end)
 
+local AimbotGroupBox = Tabs.Aimbot:AddLeftGroupbox('Aimbot')
+
+local AimbotToggle = AimbotGroupBox:AddToggle('AimbotEnabled', {
+    Text = 'Enabled',
+    Default = ESPSettings.Aimbot.Enabled
+})
+
+AimbotToggle:OnChanged(function()
+    ESPSettings.Aimbot.Enabled = AimbotToggle.Value
+end)
+
+AimbotGroupBox:AddLabel('Aim Bind'):AddKeyPicker('AimbotBind', {
+    Default = ESPSettings.Aimbot.Bind,
+    NoUI = false,
+    Text = 'Aim bind',
+    Mode = 'Hold'
+})
+
+Options.AimbotBind:OnChanged(function()
+    ESPSettings.Aimbot.Bind = Options.AimbotBind.Value
+end)
+
+AimbotGroupBox:AddToggle('AimbotLockAim', {
+    Text = 'Lock Aim',
+    Default = ESPSettings.Aimbot.LockAim
+})
+
+Toggles.AimbotLockAim:OnChanged(function()
+    ESPSettings.Aimbot.LockAim = Toggles.AimbotLockAim.Value
+end)
+
+AimbotGroupBox:AddToggle('AimbotWallCheck', {
+    Text = 'Wall Check',
+    Default = ESPSettings.Aimbot.WallCheck
+})
+
+Toggles.AimbotWallCheck:OnChanged(function()
+    ESPSettings.Aimbot.WallCheck = Toggles.AimbotWallCheck.Value
+end)
+
+AimbotGroupBox:AddToggle('AimbotTeamCheck', {
+    Text = 'Team Check',
+    Default = ESPSettings.Aimbot.TeamCheck
+})
+
+Toggles.AimbotTeamCheck:OnChanged(function()
+    ESPSettings.Aimbot.TeamCheck = Toggles.AimbotTeamCheck.Value
+end)
+
+AimbotGroupBox:AddToggle('AimbotHealthCheck', {
+    Text = 'Health Check',
+    Default = ESPSettings.Aimbot.HealthCheck
+})
+
+Toggles.AimbotHealthCheck:OnChanged(function()
+    ESPSettings.Aimbot.HealthCheck = Toggles.AimbotHealthCheck.Value
+end)
+
+AimbotGroupBox:AddSlider('AimbotMinHealth', {
+    Text = 'Minimum Health',
+    Default = ESPSettings.Aimbot.MinHealth,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.AimbotMinHealth:OnChanged(function()
+    ESPSettings.Aimbot.MinHealth = Options.AimbotMinHealth.Value
+end)
+
+local AimbotSettingsGroupBox = Tabs.Aimbot:AddRightGroupbox('Settings')
+
+AimbotSettingsGroupBox:AddSlider('AimbotFov', {
+    Text = 'Aim FOV',
+    Default = ESPSettings.Aimbot.Fov,
+    Min = 0,
+    Max = 1000,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.AimbotFov:OnChanged(function()
+    ESPSettings.Aimbot.Fov = Options.AimbotFov.Value
+end)
+
+AimbotSettingsGroupBox:AddSlider('AimbotSmoothing', {
+    Text = 'Smoothing',
+    Default = ESPSettings.Aimbot.Smoothing,
+    Min = 1,
+    Max = 100,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.AimbotSmoothing:OnChanged(function()
+    ESPSettings.Aimbot.Smoothing = Options.AimbotSmoothing.Value
+end)
+
+AimbotSettingsGroupBox:AddSlider('AimbotPrediction', {
+    Text = 'Prediction Strength',
+    Default = ESPSettings.Aimbot.Prediction,
+    Min = 0,
+    Max = 0.2,
+    Rounding = 3,
+    Compact = false
+})
+
+Options.AimbotPrediction:OnChanged(function()
+    ESPSettings.Aimbot.Prediction = Options.AimbotPrediction.Value
+end)
+
+AimbotSettingsGroupBox:AddLabel('FOV Color'):AddColorPicker('AimbotFovColor', {
+    Default = ESPSettings.Aimbot.FovColor,
+    Title = 'FOV Color'
+})
+
+Options.AimbotFovColor:OnChanged(function()
+    ESPSettings.Aimbot.FovColor = Options.AimbotFovColor.Value
+end)
+
+AimbotSettingsGroupBox:AddLabel('Targeted FOV Color'):AddColorPicker('AimbotTargetedFovColor', {
+    Default = ESPSettings.Aimbot.TargetedFovColor,
+    Title = 'Targeted FOV Color'
+})
+
+Options.AimbotTargetedFovColor:OnChanged(function()
+    ESPSettings.Aimbot.TargetedFovColor =
+        Options.AimbotTargetedFovColor.Value
+end)
+
+AimbotSettingsGroupBox:AddToggle('AimbotRainbowFov', {
+    Text = 'Rainbow FOV',
+    Default = ESPSettings.Aimbot.RainbowFov
+})
+
+Toggles.AimbotRainbowFov:OnChanged(function()
+    ESPSettings.Aimbot.RainbowFov = Toggles.AimbotRainbowFov.Value
+end)
+
 local InfoGroupBox = Tabs.Visuals:AddLeftGroupbox('Information')
 
 local ShowNameToggle = InfoGroupBox:AddToggle('ESPShowName', {
@@ -773,6 +942,11 @@ Library:OnUnload(function()
     if TracersController then
         TracersController:Destroy()
         TracersController = nil
+    end
+
+    if AimbotController then
+        AimbotController:Destroy()
+        AimbotController = nil
     end
 
     Library.Unloaded = true
