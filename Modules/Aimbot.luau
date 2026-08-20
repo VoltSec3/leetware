@@ -64,7 +64,7 @@ function Aimbot.new(config)
             and not result.Instance:IsDescendantOf(character)
     end
 
-    local function IsTargetValid(target, requireFov)
+    local function IsTargetValid(target, requireFov, maintainLock)
         if not target or target == Player then
             return false
         end
@@ -77,7 +77,11 @@ function Aimbot.new(config)
             return false
         end
 
-        if IsTeamBlocked(target) or not HasValidHealth(target) then
+        if IsTeamBlocked(target) then
+            return false
+        end
+
+        if not maintainLock and not HasValidHealth(target) then
             return false
         end
 
@@ -85,11 +89,12 @@ function Aimbot.new(config)
             head.Position
         )
 
-        if screenPosition.Z <= 0 or not visible then
+        if not maintainLock
+            and (screenPosition.Z <= 0 or not visible) then
             return false
         end
 
-        if requireFov then
+        if not maintainLock and requireFov then
             local cursorPosition = UserInputService:GetMouseLocation()
             local targetPosition = Vector2.new(
                 screenPosition.X,
@@ -102,7 +107,9 @@ function Aimbot.new(config)
             end
         end
 
-        if Settings.WallCheck and IsBlocked(character) then
+        if not maintainLock
+            and Settings.WallCheck
+            and IsBlocked(character) then
             return false
         end
 
@@ -152,7 +159,8 @@ function Aimbot.new(config)
             return CurrentTarget
         end
 
-        if CurrentTarget and IsTargetValid(CurrentTarget, false) then
+        if CurrentTarget
+            and IsTargetValid(CurrentTarget, false, true) then
             return CurrentTarget
         end
 
@@ -189,6 +197,14 @@ function Aimbot.new(config)
 
         if type(bind) ~= "string" then
             return false
+        end
+
+        if bind == "MB1" then
+            return input.UserInputType == Enum.UserInputType.MouseButton1
+        end
+
+        if bind == "MB2" then
+            return input.UserInputType == Enum.UserInputType.MouseButton2
         end
 
         return input.KeyCode.Name == bind

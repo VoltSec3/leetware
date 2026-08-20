@@ -81,7 +81,7 @@ local ESPSettings = {
 
     Aimbot = {
         Enabled = false,
-        Bind = "MouseButton2",
+        Bind = "MB2",
         Fov = 100,
         Smoothing = 5,
         Prediction = 0.065,
@@ -623,12 +623,11 @@ AimbotGroupBox:AddLabel('Aim Bind'):AddKeyPicker('AimbotBind', {
     Default = ESPSettings.Aimbot.Bind,
     NoUI = false,
     Text = 'Aim bind',
-    Mode = 'Hold'
+    Mode = 'Hold',
+    ChangedCallback = function(value)
+        ESPSettings.Aimbot.Bind = value
+    end
 })
-
-Options.AimbotBind:OnChanged(function()
-    ESPSettings.Aimbot.Bind = Options.AimbotBind.Value
-end)
 
 AimbotGroupBox:AddToggle('AimbotLockAim', {
     Text = 'Lock Aim',
