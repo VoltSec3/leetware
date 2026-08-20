@@ -11,6 +11,10 @@ function Aimbot.new(config)
     local CurrentTarget = nil
     local Aiming = false
     local Hue = 0
+    local OriginalMouseBehavior = nil
+    local MouseLockedByAimbot = false
+    local LockStartedInFirstPerson = false
+    local PendingFirstPersonUnlock = false
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -232,18 +236,48 @@ function Aimbot.new(config)
             or input.UserInputType.Name == bind
     end
 
+    local function IsFirstPerson()
+        local character = Player.Character
+        local head = character and character:FindFirstChild("Head")
+
+        if Player.CameraMode == Enum.CameraMode.LockFirstPerson then
+            return true
+        end
+
+        return head
+            and (Camera.CFrame.Position - head.Position).Magnitude <= 1.5
+            or false
+    end
+
     local function StopAiming()
         Aiming = false
         CurrentTarget = nil
 
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        if MouseLockedByAimbot then
+            if LockStartedInFirstPerson then
+                PendingFirstPersonUnlock = IsFirstPerson()
+                UserInputService.MouseBehavior = PendingFirstPersonUnlock
+                    and OriginalMouseBehavior
+                    or Enum.MouseBehavior.Default
+            else
+                UserInputService.MouseBehavior = OriginalMouseBehavior
+            end
+
+            OriginalMouseBehavior = nil
+            MouseLockedByAimbot = false
+            LockStartedInFirstPerson = false
+        end
     end
 
     local function LockMouse()
-        if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+        if MouseLockedByAimbot then
             return
         end
 
+        OriginalMouseBehavior = UserInputService.MouseBehavior
+        LockStartedInFirstPerson = IsFirstPerson()
+        MouseLockedByAimbot = true
+        PendingFirstPersonUnlock = false
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     end
 
@@ -294,6 +328,11 @@ function Aimbot.new(config)
 
         if not Settings.Enabled or not Aiming then
             StopAiming()
+
+            if PendingFirstPersonUnlock and not IsFirstPerson() then
+                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                PendingFirstPersonUnlock = false
+            end
         else
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
@@ -317,7 +356,7 @@ function Aimbot.new(config)
                 )
             else
                 CurrentTarget = nil
-                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                StopAiming()
             end
         end
 
