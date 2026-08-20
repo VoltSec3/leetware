@@ -249,10 +249,7 @@ function Aimbot.new(config)
             or false
     end
 
-    local function StopAiming()
-        Aiming = false
-        CurrentTarget = nil
-
+    local function UnlockMouse()
         if MouseLockedByAimbot then
             if LockStartedInFirstPerson then
                 PendingFirstPersonUnlock = IsFirstPerson()
@@ -267,6 +264,12 @@ function Aimbot.new(config)
             MouseLockedByAimbot = false
             LockStartedInFirstPerson = false
         end
+    end
+
+    local function StopAiming()
+        Aiming = false
+        CurrentTarget = nil
+        UnlockMouse()
     end
 
     local function LockMouse()
@@ -356,7 +359,7 @@ function Aimbot.new(config)
                 )
             else
                 CurrentTarget = nil
-                StopAiming()
+                UnlockMouse()
             end
         end
 
