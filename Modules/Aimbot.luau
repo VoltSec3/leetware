@@ -11,6 +11,7 @@ function Aimbot.new(config)
     local CurrentTarget = nil
     local Aiming = false
     local Hue = 0
+    local PreviousMouseBehavior = nil
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -216,16 +217,30 @@ function Aimbot.new(config)
             return false
         end
 
-        if bind == "MB1" then
+        bind = string.upper(bind)
+        bind = string.gsub(bind, "^ENUM%.KEYCODE%.", "")
+        bind = string.gsub(bind, "^ENUM%.USERINPUTTYPE%.", "")
+
+        if bind == "MB1" or bind == "MOUSEBUTTON1" then
             return input.UserInputType == Enum.UserInputType.MouseButton1
         end
 
-        if bind == "MB2" then
+        if bind == "MB2" or bind == "MOUSEBUTTON2" then
             return input.UserInputType == Enum.UserInputType.MouseButton2
         end
 
         return input.KeyCode.Name == bind
             or input.UserInputType.Name == bind
+    end
+
+    local function StopAiming()
+        Aiming = false
+        CurrentTarget = nil
+
+        if PreviousMouseBehavior then
+            UserInputService.MouseBehavior = PreviousMouseBehavior
+            PreviousMouseBehavior = nil
+        end
     end
 
     local function UpdateCircle()
@@ -249,11 +264,13 @@ function Aimbot.new(config)
     end
 
     local inputBegan = UserInputService.InputBegan:Connect(function(input, processed)
-        if processed or not Settings.Enabled or not IsInputBound(input) then
+        if not Settings.Enabled or not IsInputBound(input) then
             return
         end
 
         Aiming = true
+        PreviousMouseBehavior = UserInputService.MouseBehavior
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     end)
 
     local inputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -261,8 +278,7 @@ function Aimbot.new(config)
             return
         end
 
-        Aiming = false
-        CurrentTarget = nil
+        StopAiming()
     end)
 
     local renderConnection = RunService.RenderStepped:Connect(function()
@@ -275,7 +291,7 @@ function Aimbot.new(config)
         UpdateCircle()
 
         if not Settings.Enabled or not Aiming then
-            CurrentTarget = nil
+            StopAiming()
         else
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
@@ -310,8 +326,7 @@ function Aimbot.new(config)
         renderConnection:Disconnect()
         FovCircle.Visible = false
         FovCircle:Remove()
-        CurrentTarget = nil
-        Aiming = false
+        StopAiming()
     end
 
     return controller

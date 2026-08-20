@@ -39,6 +39,7 @@ local ESPSettings = {
 
     Information = {
         ShowName = false,
+        ShowDisplayName = false,
         ShowTeam = false,
         CustomTextColor = false,
         NameColor = Color3.fromRGB(255, 255, 255),
@@ -780,6 +781,16 @@ ShowNameToggle:AddColorPicker('ESPNameColor', {
 
 Toggles.ESPShowName:OnChanged(function()
     ESPSettings.Information.ShowName = Toggles.ESPShowName.Value
+end)
+
+InfoGroupBox:AddToggle('ESPShowDisplayName', {
+    Text = 'Show Display Name',
+    Default = ESPSettings.Information.ShowDisplayName
+})
+
+Toggles.ESPShowDisplayName:OnChanged(function()
+    ESPSettings.Information.ShowDisplayName =
+        Toggles.ESPShowDisplayName.Value
 end)
 
 Options.ESPNameColor:OnChanged(function()

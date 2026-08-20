@@ -226,7 +226,7 @@ function ESP.new(config)
         local maxY = -math.huge
         local found = false
 
-        for _, object in ipairs(character:GetChildren()) do
+        for _, object in ipairs(character:GetDescendants()) do
             if object:IsA("BasePart") then
                 local half = object.Size / 2
                 local cf = object.CFrame
@@ -358,6 +358,10 @@ function ESP.new(config)
             local rootPosition = Camera:WorldToViewportPoint(
                 root.Position
             )
+
+            local distance = (
+                root.Position - Camera.CFrame.Position
+            ).Magnitude
 
             if rootPosition.Z <= 0 then
                 HideLibrary(library)
@@ -520,7 +524,11 @@ function ESP.new(config)
                 infoSettings.ShowName
 
             library.Name.Text =
-                tostring(plr.Name)
+                tostring(
+                    infoSettings.ShowDisplayName
+                    and plr.DisplayName
+                    or plr.Name
+                )
 
             library.Name.Color =
                 GetTextColor(
