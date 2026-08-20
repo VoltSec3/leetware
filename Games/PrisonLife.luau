@@ -1,4 +1,5 @@
 local repo='https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
+
 local Library=loadstring(game:HttpGet(repo..'Library.lua'))()
 local ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
 local SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
@@ -14,7 +15,6 @@ local RunService=game:GetService("RunService")
 local Workspace=game:GetService("Workspace")
 local Stats=game:GetService("Stats")
 local UserInputService=game:GetService("UserInputService")
-
 local Player=Players.LocalPlayer
 local GameId=tostring(game.GameId)
 
@@ -31,13 +31,11 @@ local ESPSettings={
         Rainbow=false,
         AutoThickness=false
     },
-
     Fill={
         Enabled=false,
         Color=Color3.fromRGB(255,0,0),
         Opacity=0.15
     },
-
     Information={
         ShowName=false,
         ShowDisplayName=false,
@@ -50,13 +48,11 @@ local ESPSettings={
         NameScale=14,
         Font="UI"
     },
-
     Health={
         Enabled=false,
         BorderColor=Color3.fromRGB(0,0,0),
         FillColor=Color3.fromRGB(255,255,255)
     },
-
     TeamColor={
         BoxBorder=false,
         BoxFill=false,
@@ -66,7 +62,6 @@ local ESPSettings={
         DarkenBorders=false,
         DarkenAmount=50
     },
-
     Chams={
         Enabled=false,
         Rainbow=false,
@@ -77,7 +72,6 @@ local ESPSettings={
         OutlineTransparency=0,
         AlwaysOnTop=true
     },
-
     Tracers={
         Enabled=false,
         Rainbow=false,
@@ -86,7 +80,6 @@ local ESPSettings={
         Transparency=1,
         Origin="Bottom"
     },
-
     Aimbot={
         Enabled=false,
         Bind="MB2",
@@ -105,25 +98,15 @@ local ESPSettings={
         RainbowSpeed=0.005,
         ExcludeTeams={},
         PrioritizeTeams={}
-    }
+    },
 }
 
 local function LoadModule(url,name)
     local source=game:HttpGet(url)
     local chunk,compileError=loadstring(source)
-
-    assert(
-        chunk,
-        string.format('Failed to compile %s: %s',name,tostring(compileError))
-    )
-
+    assert(chunk,string.format('Failed to compile %s: %s',name,tostring(compileError)))
     local module=chunk()
-
-    assert(
-        module and type(module.new)=='function',
-        string.format('%s did not return a valid module',name)
-    )
-
+    assert(module and type(module.new)=='function',string.format('%s did not return a valid module',name))
     return module
 end
 
@@ -167,18 +150,13 @@ local AimbotController=AimbotModule.new({
     Workspace=Workspace,
     Player=Player,
     UserInputService=UserInputService,
-    Settings=ESPSettings.Aimbot,
-    Utils=Utils
+    Utils=Utils,
+    Settings=ESPSettings.Aimbot
 })
 
 local RainbowTools=false
 local RainbowHue=0
 local RainbowObjects={}
-
-local DoorCollision=false
-local DoorParts={}
-local DoorScanInterval=0.25
-local DoorScanTimer=0
 
 local function GetRainbowColor(offset)
     return Color3.fromHSV((RainbowHue+offset)%1,1,1)
@@ -208,7 +186,6 @@ local function SaveRainbowObject(object)
 
     if object:IsA("MeshPart") then
         data.TextureID=object.TextureID
-
         pcall(function()
             data.TextureContent=object.TextureContent
         end)
@@ -225,34 +202,27 @@ end
 local function ProcessRainbowObject(object,offset)
     if object:IsA("BasePart") then
         SaveRainbowObject(object)
-
         local color=GetRainbowColor(offset)
-
         object.Color=color
         object.BrickColor=BrickColor.new(color)
     end
 
     if object:IsA("MeshPart") then
         SaveRainbowObject(object)
-
         object.TextureID=""
-
         pcall(function()
             object.TextureContent=Content.none
         end)
 
         local color=GetRainbowColor(offset)
-
         object.Color=color
         object.BrickColor=BrickColor.new(color)
     elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
         SaveRainbowObject(object)
-
         object.TextureId=""
         object.VertexColor=Vector3.new(1,1,1)
     elseif object:IsA("Texture") or object:IsA("Decal") then
         SaveRainbowObject(object)
-
         object.Texture=""
     end
 end
@@ -316,81 +286,6 @@ local function RestoreRainbowObjects()
     table.clear(RainbowObjects)
 end
 
-local function GetDoorContainers()
-    return {
-        Workspace:FindFirstChild("Doors"),
-        Workspace:FindFirstChild("Prison_Fences"),
-        Workspace:FindFirstChild("CellDoors")
-    }
-end
-
-local function SaveDoorPart(part)
-    if DoorParts[part] then
-        return
-    end
-
-    DoorParts[part]={
-        Color=part.Color,
-        Transparency=part.Transparency,
-        CanCollide=part.CanCollide
-    }
-end
-
-local function ProcessDoorPart(part)
-    if not part:IsA("BasePart") then
-        return
-    end
-
-    SaveDoorPart(part)
-
-    part.CanCollide=false
-    part.Transparency=0.5
-end
-
-local function ScanDoors()
-    if not DoorCollision then
-        return
-    end
-
-    local found={}
-
-    for _,container in ipairs(GetDoorContainers()) do
-        if container then
-            for _,object in ipairs(container:GetDescendants()) do
-                if object:IsA("BasePart") then
-                    found[object]=true
-
-                    if not DoorParts[object] then
-                        SaveDoorPart(object)
-                    end
-
-                    ProcessDoorPart(object)
-                end
-            end
-        end
-    end
-
-    for part in pairs(DoorParts) do
-        if not found[part] or not part.Parent then
-            DoorParts[part]=nil
-        end
-    end
-end
-
-local function RestoreDoorParts()
-    for part,data in pairs(DoorParts) do
-        if part and part.Parent then
-            part.Color=data.Color
-            part.Transparency=data.Transparency
-            part.CanCollide=data.CanCollide
-        end
-    end
-
-    table.clear(DoorParts)
-end
-
--- ui init
-
 local Window=Library:CreateWindow({
     Title='leetware',
     Center=true,
@@ -405,7 +300,6 @@ local Tabs={
 }
 
 local MainVisualsGroupBox=Tabs.Main:AddLeftGroupbox('Visuals')
-local BlatantGroupBox=Tabs.Main:AddRightGroupbox('Blatant')
 
 MainVisualsGroupBox:AddToggle('RainbowTools',{
     Text='Rainbow Tools',
@@ -417,22 +311,6 @@ Toggles.RainbowTools:OnChanged(function()
 
     if not RainbowTools then
         RestoreRainbowObjects()
-    end
-end)
-
-BlatantGroupBox:AddToggle('DoorCollision',{
-    Text='Door Collision',
-    Default=false
-})
-
-Toggles.DoorCollision:OnChanged(function()
-    DoorCollision=Toggles.DoorCollision.Value
-    DoorScanTimer=0
-
-    if DoorCollision then
-        ScanDoors()
-    else
-        RestoreDoorParts()
     end
 end)
 
@@ -576,7 +454,6 @@ TeamColorGroupBox:AddDropdown('ESPTeamColor',{
 
 Options.ESPTeamColor:OnChanged(function()
     local values=Options.ESPTeamColor.Value
-
     ESPSettings.TeamColor.BoxBorder=values['Box Border']==true
     ESPSettings.TeamColor.BoxFill=values['Box Fill']==true
     ESPSettings.TeamColor.Text=values.Text==true
@@ -956,7 +833,8 @@ InfoGroupBox:AddToggle('ESPShowDisplayName',{
 })
 
 Toggles.ESPShowDisplayName:OnChanged(function()
-    ESPSettings.Information.ShowDisplayName=Toggles.ESPShowDisplayName.Value
+    ESPSettings.Information.ShowDisplayName=
+        Toggles.ESPShowDisplayName.Value
 end)
 
 local WeaponToggle=InfoGroupBox:AddToggle('ESPShowWeapon',{
@@ -1099,7 +977,6 @@ local ConfigGroup=Tabs['UI Settings']:AddRightGroupbox('Configs')
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-
 SaveManager:SetIgnoreIndexes({
     'MenuKeybind'
 })
@@ -1116,7 +993,7 @@ local fps=0
 local frames=0
 local last=os.clock()
 
-Library:SetWatermark("leetware | loading")
+Library:SetWatermark("leetware | 0 FPS | 0 ms")
 
 RunService.Heartbeat:Connect(function()
     frames+=1
@@ -1141,51 +1018,28 @@ RunService.Heartbeat:Connect(function()
 end)
 
 RunService.RenderStepped:Connect(function(deltaTime)
-    RainbowHue=(RainbowHue+deltaTime*0.5)%1
-
-    if RainbowTools then
-        local backpack=Player:FindFirstChildOfClass("Backpack")
-
-        if backpack then
-            ProcessRainbowContainer(backpack)
-        end
-
-        local character=Player.Character
-
-        if character then
-            ProcessRainbowContainer(character)
-        end
+    if not RainbowTools then
+        return
     end
 
-    if DoorCollision then
-        DoorScanTimer+=deltaTime
+    RainbowHue=(RainbowHue+deltaTime*0.5)%1
 
-        if DoorScanTimer>=DoorScanInterval then
-            DoorScanTimer=0
-            ScanDoors()
-        end
+    local backpack=Player:FindFirstChildOfClass("Backpack")
 
-        local doorColor=GetRainbowColor(0)
+    if backpack then
+        ProcessRainbowContainer(backpack)
+    end
 
-        for part in pairs(DoorParts) do
-            if part and part.Parent then
-                part.Color=doorColor
-                part.BrickColor=BrickColor.new(doorColor)
-                part.Transparency=0.5
-                part.CanCollide=false
-            end
-        end
-    else
-        DoorScanTimer=0
+    local character=Player.Character
+
+    if character then
+        ProcessRainbowContainer(character)
     end
 end)
 
 Library:OnUnload(function()
     RainbowTools=false
-    DoorCollision=false
-
     RestoreRainbowObjects()
-    RestoreDoorParts()
 
     if ESPController then
         ESPController:Destroy()

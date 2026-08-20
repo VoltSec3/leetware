@@ -8,6 +8,7 @@ local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Module
 local chamsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Chams.luau'
 local tracersRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Tracers.luau'
 local aimbotRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Aimbot.luau'
+local utilsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Utils.luau'
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -40,9 +41,11 @@ local ESPSettings = {
     Information = {
         ShowName = false,
         ShowDisplayName = false,
+        ShowWeapon = false,
         ShowTeam = false,
         CustomTextColor = false,
         NameColor = Color3.fromRGB(255, 255, 255),
+        WeaponColor = Color3.fromRGB(255, 255, 255),
         TeamTextColor = Color3.fromRGB(255, 255, 255),
         NameScale = 14,
         Font = "UI"
@@ -66,6 +69,7 @@ local ESPSettings = {
 
     Chams = {
         Enabled = false,
+        Rainbow = false,
         Color = Color3.fromRGB(255, 0, 0),
         Transparency = 0.5,
         Outline = true,
@@ -76,6 +80,7 @@ local ESPSettings = {
 
     Tracers = {
         Enabled = false,
+        Rainbow = false,
         Color = Color3.fromRGB(255, 0, 0),
         Thickness = 1,
         Transparency = 1,
@@ -97,7 +102,9 @@ local ESPSettings = {
         FovColor = Color3.fromRGB(255, 0, 0),
         TargetedFovColor = Color3.fromRGB(0, 255, 0),
         RainbowFov = false,
-        RainbowSpeed = 0.005
+        RainbowSpeed = 0.005,
+        ExcludeTeams = {},
+        PrioritizeTeams = {}
     },
 
 }
@@ -129,6 +136,7 @@ local ESPModule = LoadModule(espRepo, 'ESP')
 local ChamsModule = LoadModule(chamsRepo, 'Chams')
 local TracersModule = LoadModule(tracersRepo, 'Tracers')
 local AimbotModule = LoadModule(aimbotRepo, 'Aimbot')
+local Utils = loadstring(game:HttpGet(utilsRepo))()
 
 local ESPController = ESPModule.new({
     Players = Players,
@@ -136,7 +144,8 @@ local ESPController = ESPModule.new({
     Workspace = Workspace,
     Player = Player,
     Settings = ESPSettings,
-    UserInputService = UserInputService
+    UserInputService = UserInputService,
+    Utils = Utils
 })
 
 local ChamsController = ChamsModule.new({
@@ -144,7 +153,8 @@ local ChamsController = ChamsModule.new({
     RunService = RunService,
     Workspace = Workspace,
     Player = Player,
-    Settings = ESPSettings
+    Settings = ESPSettings,
+    Utils = Utils
 })
 
 local TracersController = TracersModule.new({
@@ -152,7 +162,8 @@ local TracersController = TracersModule.new({
     RunService = RunService,
     Workspace = Workspace,
     Player = Player,
-    Settings = ESPSettings
+    Settings = ESPSettings,
+    Utils = Utils
 })
 
 local AimbotController = AimbotModule.new({
@@ -161,6 +172,7 @@ local AimbotController = AimbotModule.new({
     Workspace = Workspace,
     Player = Player,
     UserInputService = UserInputService,
+    Utils = Utils,
     Settings = ESPSettings.Aimbot
 })
 
@@ -497,6 +509,15 @@ ChamsToggle:OnChanged(function()
     ESPSettings.Chams.Enabled = ChamsToggle.Value
 end)
 
+ChamsGroupBox:AddToggle('ESPChamsRainbow', {
+    Text = 'Rainbow',
+    Default = ESPSettings.Chams.Rainbow
+})
+
+Toggles.ESPChamsRainbow:OnChanged(function()
+    ESPSettings.Chams.Rainbow = Toggles.ESPChamsRainbow.Value
+end)
+
 ChamsGroupBox:AddSlider('ESPChamsTransparency', {
     Text = 'Transparency',
     Default = math.floor(ESPSettings.Chams.Transparency * 100),
@@ -578,6 +599,15 @@ TracerToggle:OnChanged(function()
     ESPSettings.Tracers.Enabled = TracerToggle.Value
 end)
 
+TracerGroupBox:AddToggle('ESPTracersRainbow', {
+    Text = 'Rainbow',
+    Default = ESPSettings.Tracers.Rainbow
+})
+
+Toggles.ESPTracersRainbow:OnChanged(function()
+    ESPSettings.Tracers.Rainbow = Toggles.ESPTracersRainbow.Value
+end)
+
 TracerGroupBox:AddSlider('ESPTracerThickness', {
     Text = 'Thickness',
     Default = ESPSettings.Tracers.Thickness,
@@ -628,6 +658,30 @@ local AimbotToggle = AimbotGroupBox:AddToggle('AimbotEnabled', {
 
 AimbotToggle:OnChanged(function()
     ESPSettings.Aimbot.Enabled = AimbotToggle.Value
+end)
+
+local GetTeamDropdownValues = Utils.GetTeamNames
+
+AimbotGroupBox:AddDropdown('AimbotExcludeTeams', {
+    Values = GetTeamDropdownValues(),
+    Default = {},
+    Multi = true,
+    Text = 'Exclude Teams'
+})
+
+Options.AimbotExcludeTeams:OnChanged(function()
+    ESPSettings.Aimbot.ExcludeTeams = Options.AimbotExcludeTeams.Value
+end)
+
+AimbotGroupBox:AddDropdown('AimbotPrioritizeTeams', {
+    Values = GetTeamDropdownValues(),
+    Default = {},
+    Multi = true,
+    Text = 'Prioritize Teams'
+})
+
+Options.AimbotPrioritizeTeams:OnChanged(function()
+    ESPSettings.Aimbot.PrioritizeTeams = Options.AimbotPrioritizeTeams.Value
 end)
 
 AimbotGroupBox:AddLabel('Aim Bind'):AddKeyPicker('AimbotBind', {
@@ -791,6 +845,24 @@ InfoGroupBox:AddToggle('ESPShowDisplayName', {
 Toggles.ESPShowDisplayName:OnChanged(function()
     ESPSettings.Information.ShowDisplayName =
         Toggles.ESPShowDisplayName.Value
+end)
+
+local WeaponToggle = InfoGroupBox:AddToggle('ESPShowWeapon', {
+    Text = 'Show Weapon',
+    Default = ESPSettings.Information.ShowWeapon
+})
+
+WeaponToggle:AddColorPicker('ESPWeaponColor', {
+    Default = ESPSettings.Information.WeaponColor,
+    Title = 'Weapon Color'
+})
+
+Toggles.ESPShowWeapon:OnChanged(function()
+    ESPSettings.Information.ShowWeapon = Toggles.ESPShowWeapon.Value
+end)
+
+Options.ESPWeaponColor:OnChanged(function()
+    ESPSettings.Information.WeaponColor = Options.ESPWeaponColor.Value
 end)
 
 Options.ESPNameColor:OnChanged(function()

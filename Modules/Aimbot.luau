@@ -6,6 +6,7 @@ function Aimbot.new(config)
     local Workspace = config.Workspace
     local Player = config.Player
     local UserInputService = config.UserInputService
+    local Utils = config.Utils
     local Settings = config.Settings
     local Camera = Workspace.CurrentCamera
     local CurrentTarget = nil
@@ -24,16 +25,27 @@ function Aimbot.new(config)
     FovCircle.Visible = false
 
     local function IsTeamBlocked(target)
+        local excludedTeams = Settings.ExcludeTeams or {}
+        local teamName = Utils.GetTeamName(target)
+
+        if excludedTeams[teamName] then
+            return true
+        end
+
         return Settings.TeamCheck
             and target.Team
             and Player.Team
             and target.Team == Player.Team
     end
 
+    local function GetTeamPriority(target)
+        local prioritizedTeams = Settings.PrioritizeTeams or {}
+
+        return prioritizedTeams[Utils.GetTeamName(target)] and 1 or 0
+    end
+
     local function HasValidHealth(target, ignoreMinimum)
-        local character = target.Character
-        local humanoid = character
-            and character:FindFirstChildOfClass("Humanoid")
+        local humanoid = Utils.GetHumanoid(target)
 
         if not humanoid or humanoid.Health <= 0 then
             return false
@@ -49,17 +61,13 @@ function Aimbot.new(config)
             return false
         end
 
-        local success, isFriend = pcall(function()
-            return Player:IsFriendsWith(target.UserId)
-        end)
-
-        return success and isFriend
+        return Utils.IsFriend(Player, target)
     end
 
     local IsBlocked
 
     IsBlocked = function(character)
-        local head = character:FindFirstChild("Head")
+        local head = Utils.GetCharacterPart(character, "Head")
 
         if not head then
             return true
@@ -89,8 +97,7 @@ function Aimbot.new(config)
         end
 
         local character = target.Character
-        local head = character
-            and character:FindFirstChild("Head")
+        local head = Utils.GetHead(target)
 
         if not character or not head then
             return false
@@ -141,6 +148,7 @@ function Aimbot.new(config)
 
     local function GetTarget()
         local nearestTarget = nil
+        local nearestPriority = -1
         local nearestCursorDistance = Settings.Fov
         local nearestPlayerDistance = math.huge
         local cursorPosition = UserInputService:GetMouseLocation()
@@ -148,6 +156,7 @@ function Aimbot.new(config)
 
         for _, target in ipairs(Players:GetPlayers()) do
             if IsTargetValid(target, true) then
+                local priority = GetTeamPriority(target)
                 local head = target.Character.Head
                 local screenPosition = Camera:WorldToViewportPoint(
                     head.Position
@@ -163,9 +172,15 @@ function Aimbot.new(config)
                     head.Position - cameraPosition
                 ).Magnitude
 
-                if cursorDistance < nearestCursorDistance
+                if priority > nearestPriority then
+                    nearestPriority = priority
+                    nearestCursorDistance = cursorDistance
+                    nearestPlayerDistance = playerDistance
+                    nearestTarget = target
+                elseif priority == nearestPriority
+                    and (cursorDistance < nearestCursorDistance
                     or (cursorDistance == nearestCursorDistance
-                        and playerDistance < nearestPlayerDistance) then
+                        and playerDistance < nearestPlayerDistance)) then
                     nearestCursorDistance = cursorDistance
                     nearestPlayerDistance = playerDistance
                     nearestTarget = target
@@ -193,9 +208,8 @@ function Aimbot.new(config)
 
     local function GetAimPosition(target)
         local character = target and target.Character
-        local head = character and character:FindFirstChild("Head")
-        local root = character
-            and character:FindFirstChild("HumanoidRootPart")
+        local head = Utils.GetHead(target)
+        local root = Utils.GetRootPart(target)
 
         if not head then
             return nil

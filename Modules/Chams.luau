@@ -6,6 +6,7 @@ function Chams.new(config)
     local Workspace = config.Workspace
     local Player = config.Player
     local Settings = config.Settings
+    local Utils = config.Utils
 
     local Objects = {}
 
@@ -25,18 +26,13 @@ function Chams.new(config)
             return false
         end
 
-        local success, isFriend = pcall(function()
-            return Player:IsFriendsWith(plr.UserId)
-        end)
-
-        return success and isFriend
+        return Utils.IsFriend(Player, plr)
     end
 
     local function GetColor(plr)
-        local boxSettings = Settings.Box
         local chamsSettings = Settings.Chams
 
-        if boxSettings.Rainbow then
+        if chamsSettings.Rainbow then
             return Color3.fromHSV(
                 (tick() % 5) / 5,
                 0.6,
@@ -112,13 +108,9 @@ function Chams.new(config)
 
                 local character = plr.Character
 
-                local humanoid =
-                    character
-                    and character:FindFirstChildOfClass("Humanoid")
+                local humanoid = Utils.GetHumanoid(plr)
 
-                local root =
-                    character
-                    and character:FindFirstChild("HumanoidRootPart")
+                local root = Utils.GetRootPart(plr)
 
                 if not character
                     or not humanoid

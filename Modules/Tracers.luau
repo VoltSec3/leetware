@@ -6,6 +6,7 @@ function Tracers.new(config)
     local Workspace = config.Workspace
     local Player = config.Player
     local Settings = config.Settings
+    local Utils = config.Utils
     local UserInputService =
         config.UserInputService
         or game:GetService("UserInputService")
@@ -28,18 +29,13 @@ function Tracers.new(config)
             return false
         end
 
-        local success, isFriend = pcall(function()
-            return Player:IsFriendsWith(plr.UserId)
-        end)
-
-        return success and isFriend
+        return Utils.IsFriend(Player, plr)
     end
 
     local function GetColor(plr)
-        local boxSettings = Settings.Box
         local tracerSettings = Settings.Tracers
 
-        if boxSettings.Rainbow then
+        if tracerSettings.Rainbow then
             return Color3.fromHSV(
                 (tick() % 5) / 5,
                 0.6,
@@ -123,13 +119,9 @@ function Tracers.new(config)
 
                 local character = plr.Character
 
-                local humanoid =
-                    character
-                    and character:FindFirstChildOfClass("Humanoid")
+                local humanoid = Utils.GetHumanoid(plr)
 
-                local root =
-                    character
-                    and character:FindFirstChild("HumanoidRootPart")
+                local root = Utils.GetRootPart(plr)
 
                 if not character
                     or not humanoid

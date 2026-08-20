@@ -5,6 +5,7 @@ function ESP.new(config)
     local RunService = config.RunService
     local Workspace = config.Workspace
     local Player = config.Player
+    local Utils = config.Utils
 
     local Settings = config.Settings
     local Camera = Workspace.CurrentCamera
@@ -35,10 +36,8 @@ function ESP.new(config)
             return false
         end
 
-        local success, isFriend = pcall(function()
-            return Player:IsFriendsWith(plr.UserId)
-        end)
 
+            return Utils.IsFriend(Player, plr)
         return success and isFriend
     end
 
@@ -194,12 +193,8 @@ function ESP.new(config)
     local function GetTextColor(plr, textType)
         local infoSettings = Settings.Information
 
-        if Settings.TeamColor.Text then
-            return GetElementColor(
-                plr,
-                "Text",
-                DefaultTextColor
-            )
+            if Settings.TeamColor.Text then
+                return GetElementColor(plr, "Text", DefaultTextColor)
         end
 
         if not infoSettings.CustomTextColor then
@@ -303,6 +298,7 @@ function ESP.new(config)
             Fill = NewSquare(),
             Name = NewText(),
             Team = NewText(),
+            Weapon = NewText(),
             HealthOutline = NewSquare(DefaultHealthBorder),
             HealthBar = NewSquare(DefaultHealthFill)
         }
@@ -331,11 +327,9 @@ function ESP.new(config)
 
             local character = plr.Character
 
-            local humanoid = character
-                and character:FindFirstChildOfClass("Humanoid")
+                local humanoid = Utils.GetHumanoid(plr)
 
-            local root = character
-                and character:FindFirstChild("HumanoidRootPart")
+                local root = Utils.GetRootPart(plr)
 
             if not character
                 or not humanoid
@@ -580,6 +574,24 @@ function ESP.new(config)
                         or 18
                     )
                 )
+
+            local weaponName = Utils.GetEquippedToolName(plr)
+
+            library.Weapon.Visible =
+                infoSettings.ShowWeapon
+                and weaponName ~= nil
+
+            library.Weapon.Text = weaponName or ""
+            library.Weapon.Color = ValidColor(
+                infoSettings.WeaponColor,
+                GetTextColor(plr, "Weapon")
+            )
+            library.Weapon.Size = math.max(nameScale - 1, 10)
+            library.Weapon.Font = Fonts[infoSettings.Font] or Fonts.UI
+            library.Weapon.Position = Vector2.new(
+                (left + right) / 2,
+                bottom + 5
+            )
 
             local healthRatio = 0
 
