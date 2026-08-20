@@ -120,6 +120,8 @@ function Aimbot.new(config)
         return success and isFriend
     end
 
+    local IsBlocked
+
     local function IsTriggerTargetValid(target, partName)
         if not target or target == Player then
             return false
@@ -232,7 +234,7 @@ function Aimbot.new(config)
             or AimbotSettings.Enabled
     end
 
-    local function IsBlocked(character)
+    IsBlocked = function(character)
         local head = character:FindFirstChild("Head")
 
         if not head then
