@@ -4,9 +4,9 @@ local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
-local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/ESP.luau'
-local chamsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/Chams.luau'
-local tracersRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/refs/heads/main/Modules/Tracers.luau'
+local espRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/ESP.luau'
+local chamsRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Chams.luau'
+local tracersRepo = 'https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Tracers.luau'
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -79,9 +79,32 @@ local ESPSettings = {
     }
 }
 
-local ESPModule = loadstring(game:HttpGet(espRepo))()
-local ChamsModule = loadstring(game:HttpGet(chamsRepo))()
-local TracersModule = loadstring(game:HttpGet(tracersRepo))()
+local function LoadModule(url, name)
+    local source = game:HttpGet(url)
+    local chunk, compileError = loadstring(source)
+
+    assert(
+        chunk,
+        string.format(
+            'Failed to compile %s: %s',
+            name,
+            tostring(compileError)
+        )
+    )
+
+    local module = chunk()
+
+    assert(
+        module and type(module.new) == 'function',
+        string.format('%s did not return a valid module', name)
+    )
+
+    return module
+end
+
+local ESPModule = LoadModule(espRepo, 'ESP')
+local ChamsModule = LoadModule(chamsRepo, 'Chams')
+local TracersModule = LoadModule(tracersRepo, 'Tracers')
 
 local ESPController = ESPModule.new({
     Players = Players,

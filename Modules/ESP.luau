@@ -584,7 +584,7 @@ function ESP.new(config)
                 GetElementColor(
                     plr,
                     "HealthBorder",
-                    healthSettings.BorderColor,
+                    healthSettings.BorderColor
                 )
 
             library.HealthOutline.Position =
@@ -606,7 +606,7 @@ function ESP.new(config)
                 GetElementColor(
                     plr,
                     "HealthFill",
-                    healthSettings.FillColor,
+                    healthSettings.FillColor
                 )
 
             library.HealthBar.Position =
