@@ -11,7 +11,6 @@ function Aimbot.new(config)
     local CurrentTarget = nil
     local Aiming = false
     local Hue = 0
-    local PreviousMouseBehavior = nil
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -237,18 +236,14 @@ function Aimbot.new(config)
         Aiming = false
         CurrentTarget = nil
 
-        if PreviousMouseBehavior then
-            UserInputService.MouseBehavior = PreviousMouseBehavior
-            PreviousMouseBehavior = nil
-        end
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     end
 
     local function LockMouse()
-        if PreviousMouseBehavior then
+        if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
             return
         end
 
-        PreviousMouseBehavior = UserInputService.MouseBehavior
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     end
 
@@ -322,11 +317,7 @@ function Aimbot.new(config)
                 )
             else
                 CurrentTarget = nil
-
-                if PreviousMouseBehavior then
-                    UserInputService.MouseBehavior = PreviousMouseBehavior
-                    PreviousMouseBehavior = nil
-                end
+                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
             end
         end
 

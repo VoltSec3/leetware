@@ -98,7 +98,7 @@ local ESPSettings={
         TargetedFovColor=Color3.fromRGB(0,255,0),
         RainbowFov=false,
         RainbowSpeed=0.005
-    },
+    }
 }
 
 local function LoadModule(url,name)
@@ -165,6 +165,8 @@ local RainbowObjects={}
 
 local DoorCollision=false
 local DoorParts={}
+local DoorScanInterval=0.25
+local DoorScanTimer=0
 
 local function GetRainbowColor(offset)
     return Color3.fromHSV((RainbowHue+offset)%1,1,1)
@@ -302,6 +304,14 @@ local function RestoreRainbowObjects()
     table.clear(RainbowObjects)
 end
 
+local function GetDoorContainers()
+    return {
+        Workspace:FindFirstChild("Doors"),
+        Workspace:FindFirstChild("Prison_Fences"),
+        Workspace:FindFirstChild("CellDoors")
+    }
+end
+
 local function SaveDoorPart(part)
     if DoorParts[part] then
         return
@@ -314,25 +324,43 @@ local function SaveDoorPart(part)
     }
 end
 
-local function EnableDoorCollision()
-    local doors=Workspace:FindFirstChild("Doors")
-
-    if not doors then
+local function ProcessDoorPart(part)
+    if not part:IsA("BasePart") then
         return
     end
 
-    table.clear(DoorParts)
+    SaveDoorPart(part)
 
-    for _,model in ipairs(doors:GetChildren()) do
-        if model:IsA("Model") then
-            for _,part in ipairs(model:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    SaveDoorPart(part)
+    part.CanCollide=false
+    part.Transparency=0.5
+end
 
-                    part.CanCollide=false
-                    part.Transparency=0.5
+local function ScanDoors()
+    if not DoorCollision then
+        return
+    end
+
+    local found={}
+
+    for _,container in ipairs(GetDoorContainers()) do
+        if container then
+            for _,object in ipairs(container:GetDescendants()) do
+                if object:IsA("BasePart") then
+                    found[object]=true
+
+                    if not DoorParts[object] then
+                        SaveDoorPart(object)
+                    end
+
+                    ProcessDoorPart(object)
                 end
             end
+        end
+    end
+
+    for part in pairs(DoorParts) do
+        if not found[part] or not part.Parent then
+            DoorParts[part]=nil
         end
     end
 end
@@ -363,6 +391,7 @@ local Tabs={
 }
 
 local MainVisualsGroupBox=Tabs.Main:AddLeftGroupbox('Visuals')
+local BlatantGroupBox=Tabs.Main:AddRightGroupbox('Blatant')
 
 MainVisualsGroupBox:AddToggle('RainbowTools',{
     Text='Rainbow Tools',
@@ -377,16 +406,17 @@ Toggles.RainbowTools:OnChanged(function()
     end
 end)
 
-MainVisualsGroupBox:AddToggle('DoorCollision',{
+BlatantGroupBox:AddToggle('DoorCollision',{
     Text='Door Collision',
     Default=false
 })
 
 Toggles.DoorCollision:OnChanged(function()
     DoorCollision=Toggles.DoorCollision.Value
+    DoorScanTimer=0
 
     if DoorCollision then
-        EnableDoorCollision()
+        ScanDoors()
     else
         RestoreDoorParts()
     end
@@ -1054,15 +1084,25 @@ RunService.RenderStepped:Connect(function(deltaTime)
     end
 
     if DoorCollision then
+        DoorScanTimer+=deltaTime
+
+        if DoorScanTimer>=DoorScanInterval then
+            DoorScanTimer=0
+            ScanDoors()
+        end
+
         local doorColor=GetRainbowColor(0)
 
         for part in pairs(DoorParts) do
             if part and part.Parent then
                 part.Color=doorColor
+                part.BrickColor=BrickColor.new(doorColor)
                 part.Transparency=0.5
                 part.CanCollide=false
             end
         end
+    else
+        DoorScanTimer=0
     end
 end)
 
