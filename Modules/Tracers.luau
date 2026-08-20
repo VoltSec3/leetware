@@ -54,16 +54,6 @@ function Tracers.new(config)
             )
         end
 
-        if boxSettings.TeamCheck then
-            if plr.TeamColor
-                and Player.TeamColor
-                and plr.TeamColor == Player.TeamColor then
-                return Color3.fromRGB(0, 255, 0)
-            end
-
-            return Color3.fromRGB(255, 0, 0)
-        end
-
         return ValidColor(
             tracerSettings.Color,
             DefaultColor
