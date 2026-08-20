@@ -15,6 +15,7 @@ function Aimbot.new(config)
     local MouseLockedByAimbot = false
     local LockStartedInFirstPerson = false
     local PendingFirstPersonUnlock = false
+    local MouseLockDisabled = false
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -236,6 +237,46 @@ function Aimbot.new(config)
             or input.UserInputType.Name == bind
     end
 
+    local function IsBindHeld()
+        local bind = Settings.Bind
+
+        if typeof(bind) == "EnumItem" then
+            if bind.EnumType == Enum.KeyCode then
+                return UserInputService:IsKeyDown(bind)
+            end
+
+            return UserInputService:IsMouseButtonPressed(bind)
+        end
+
+        if type(bind) ~= "string" then
+            return false
+        end
+
+        bind = string.upper(bind)
+        bind = string.gsub(bind, "^ENUM%.KEYCODE%.", "")
+        bind = string.gsub(bind, "^ENUM%.USERINPUTTYPE%.", "")
+
+        if bind == "MB1" or bind == "MOUSEBUTTON1" then
+            return UserInputService:IsMouseButtonPressed(
+                Enum.UserInputType.MouseButton1
+            )
+        end
+
+        if bind == "MB2" or bind == "MOUSEBUTTON2" then
+            return UserInputService:IsMouseButtonPressed(
+                Enum.UserInputType.MouseButton2
+            )
+        end
+
+        local keyCode = Enum.KeyCode[bind]
+
+        if keyCode then
+            return UserInputService:IsKeyDown(keyCode)
+        end
+
+        return false
+    end
+
     local function IsFirstPerson()
         local character = Player.Character
         local head = character and character:FindFirstChild("Head")
@@ -269,11 +310,12 @@ function Aimbot.new(config)
     local function StopAiming()
         Aiming = false
         CurrentTarget = nil
+        MouseLockDisabled = false
         UnlockMouse()
     end
 
     local function LockMouse()
-        if MouseLockedByAimbot then
+        if MouseLockedByAimbot or MouseLockDisabled then
             return
         end
 
@@ -310,6 +352,7 @@ function Aimbot.new(config)
         end
 
         Aiming = true
+        MouseLockDisabled = false
     end)
 
     local inputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -337,6 +380,20 @@ function Aimbot.new(config)
                 PendingFirstPersonUnlock = false
             end
         else
+            if not IsBindHeld() then
+                StopAiming()
+                return
+            end
+
+            if LockStartedInFirstPerson
+                and not IsFirstPerson()
+                and MouseLockedByAimbot then
+                UnlockMouse()
+                MouseLockDisabled = true
+                PendingFirstPersonUnlock = false
+                return
+            end
+
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
 
