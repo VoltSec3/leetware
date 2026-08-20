@@ -60,6 +60,33 @@ function Aimbot.new(config)
         return character:FindFirstChild(partName)
     end
 
+    local function IsMatchingTargetPart(character, targetPart, partName)
+        if partName == "Torso" then
+            return targetPart.Name == "UpperTorso"
+                or targetPart.Name == "Torso"
+                or targetPart.Name == "HumanoidRootPart"
+        end
+
+        local aliases = {
+            ["Left Arm"] = {"Left Arm", "LeftUpperArm", "LeftLowerArm"},
+            ["Right Arm"] = {"Right Arm", "RightUpperArm", "RightLowerArm"},
+            ["Left Leg"] = {"Left Leg", "LeftUpperLeg", "LeftLowerLeg"},
+            ["Right Leg"] = {"Right Leg", "RightUpperLeg", "RightLowerLeg"}
+        }
+
+        if aliases[partName] then
+            for _, alias in ipairs(aliases[partName]) do
+                if targetPart.Name == alias then
+                    return true
+                end
+            end
+
+            return false
+        end
+
+        return targetPart.Name == partName
+    end
+
     local function IsTeamBlocked(target)
         return Settings.TeamCheck
             and target.Team
@@ -113,16 +140,54 @@ function Aimbot.new(config)
             return false
         end
 
-        local screenPosition, visible = Camera:WorldToViewportPoint(
-            part.Position
-        )
-
-        if screenPosition.Z <= 0 or not visible then
+        if TriggerSettings.WallCheck and IsBlocked(character) then
             return false
         end
 
+        return true, part
+    end
+
+    local function GetTriggerTarget()
+        local mouseTarget = Mouse.Target
+
+        if not mouseTarget then
+            return nil
+        end
+
+        local character = mouseTarget:FindFirstAncestorOfClass("Model")
+        local target = character
+            and Players:GetPlayerFromCharacter(character)
+
+        if not target or not IsTriggerTargetValid(
+            target,
+            TriggerSettings.TargetPart
+        ) then
+            return nil
+        end
+
+        local targetPart = GetTargetPart(
+            character,
+            TriggerSettings.TargetPart
+        )
+
+        if not IsMatchingTargetPart(
+            character,
+            mouseTarget,
+            TriggerSettings.TargetPart
+        ) then
+            return nil
+        end
+
+        local screenPosition, visible = Camera:WorldToViewportPoint(
+            targetPart.Position
+        )
+
+        if screenPosition.Z <= 0 or not visible then
+            return nil
+        end
+
         local mousePosition = UserInputService:GetMouseLocation()
-        local partPosition = Vector2.new(
+        local targetPosition = Vector2.new(
             screenPosition.X,
             screenPosition.Y
         )
@@ -132,43 +197,11 @@ function Aimbot.new(config)
             fov = AimbotSettings.Fov
         end
 
-        if (partPosition - mousePosition).Magnitude > fov then
-            return false
+        if (targetPosition - mousePosition).Magnitude > fov then
+            return nil
         end
 
-        if TriggerSettings.WallCheck and IsBlocked(character) then
-            return false
-        end
-
-        return true, part
-    end
-
-    local function GetTriggerTarget()
-        local closest = nil
-        local closestDistance = math.huge
-        local partName = TriggerSettings.TargetPart
-
-        for _, target in ipairs(Players:GetPlayers()) do
-            local valid, part = IsTriggerTargetValid(target, partName)
-
-            if valid then
-                local screenPosition = Camera:WorldToViewportPoint(
-                    part.Position
-                )
-                local mousePosition = UserInputService:GetMouseLocation()
-                local distance = (
-                    Vector2.new(screenPosition.X, screenPosition.Y)
-                    - mousePosition
-                ).Magnitude
-
-                if distance < closestDistance then
-                    closest = target
-                    closestDistance = distance
-                end
-            end
-        end
-
-        return closest
+        return target
     end
 
     local function SetTriggerHeld(held)
@@ -387,6 +420,14 @@ function Aimbot.new(config)
             return false
         end
 
+        if bind == "MB1" then
+            return input.UserInputType == Enum.UserInputType.MouseButton1
+        end
+
+        if bind == "MB2" then
+            return input.UserInputType == Enum.UserInputType.MouseButton2
+        end
+
         return input.KeyCode.Name == bind
             or input.UserInputType.Name == bind
     end
@@ -417,6 +458,7 @@ function Aimbot.new(config)
         TriggerCircle.Position = mousePosition
         TriggerCircle.Radius = triggerFov
         TriggerCircle.Visible = IsTriggerEnabled()
+            and not TriggerSettings.InheritAimbot
 
         if TriggerSettings.RainbowFov then
             TriggerHue = (TriggerHue + TriggerSettings.RainbowSpeed) % 1
@@ -426,6 +468,7 @@ function Aimbot.new(config)
         else
             TriggerCircle.Color = TriggerSettings.FovColor
         end
+
     end
 
     local inputBegan = UserInputService.InputBegan:Connect(function(input, processed)
@@ -532,8 +575,6 @@ function Aimbot.new(config)
         renderConnection:Disconnect()
         FovCircle.Visible = false
         FovCircle:Remove()
-        TriggerCircle.Visible = false
-        TriggerCircle:Remove()
         CurrentTarget = nil
         TriggerTarget = nil
         Aiming = false

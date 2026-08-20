@@ -101,7 +101,7 @@ local ESPSettings = {
 
     Triggerbot = {
         Enabled = false,
-        Bind = "E",
+        Bind = "MB2",
         InheritAimbot = true,
         TargetPart = "Head",
         Fov = 100,
