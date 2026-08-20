@@ -18,6 +18,8 @@ local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 
 local ESPSettings = {
+    FriendCheck = false,
+
     Box = {
         Enabled = true,
         Style = "Corner",
@@ -88,6 +90,7 @@ local ESPSettings = {
         WallCheck = true,
         LockAim = true,
         TeamCheck = false,
+        FriendCheck = false,
         HealthCheck = false,
         MinHealth = 0,
         FovColor = Color3.fromRGB(255, 0, 0),
@@ -354,6 +357,15 @@ Toggles.ESPTeamCheck:OnChanged(function()
     ESPSettings.Box.TeamCheck = Toggles.ESPTeamCheck.Value
 end)
 
+BoxGroupBox:AddToggle('ESPFriendCheck', {
+    Text = 'Friend Check',
+    Default = ESPSettings.FriendCheck
+})
+
+Toggles.ESPFriendCheck:OnChanged(function()
+    ESPSettings.FriendCheck = Toggles.ESPFriendCheck.Value
+end)
+
 BoxGroupBox:AddToggle('ESPAutothickness', {
     Text = 'Auto Thickness',
     Default = ESPSettings.Box.AutoThickness
@@ -473,15 +485,14 @@ local ChamsToggle = ChamsGroupBox:AddToggle('ESPChams', {
 
 ChamsToggle:AddColorPicker('ESPChamsColor', {
     Default = ESPSettings.Chams.Color,
-    Title = 'Chams Color'
+    Title = 'Chams Color',
+    Callback = function(value)
+        ESPSettings.Chams.Color = value
+    end
 })
 
 ChamsToggle:OnChanged(function()
     ESPSettings.Chams.Enabled = ChamsToggle.Value
-end)
-
-Options.ESPChamsColor:OnChanged(function()
-    ESPSettings.Chams.Color = Options.ESPChamsColor.Value
 end)
 
 ChamsGroupBox:AddSlider('ESPChamsTransparency', {
@@ -504,7 +515,10 @@ local ChamsOutlineToggle = ChamsGroupBox:AddToggle('ESPChamsOutline', {
 
 ChamsOutlineToggle:AddColorPicker('ESPChamsOutlineColor', {
     Default = ESPSettings.Chams.OutlineColor,
-    Title = 'Outline Color'
+    Title = 'Outline Color',
+    Callback = function(value)
+        ESPSettings.Chams.OutlineColor = value
+    end
 })
 
 Toggles.ESPChamsOutline:OnChanged(function()
@@ -515,10 +529,6 @@ Toggles.ESPChamsOutline:OnChanged(function()
     else
         ESPSettings.Chams.OutlineTransparency = 1
     end
-end)
-
-Options.ESPChamsOutlineColor:OnChanged(function()
-    ESPSettings.Chams.OutlineColor = Options.ESPChamsOutlineColor.Value
 end)
 
 ChamsGroupBox:AddSlider('ESPChamsOutlineTransparency', {
@@ -556,15 +566,14 @@ local TracerToggle = TracerGroupBox:AddToggle('ESPTracers', {
 
 TracerToggle:AddColorPicker('ESPTracerColor', {
     Default = ESPSettings.Tracers.Color,
-    Title = 'Tracer Color'
+    Title = 'Tracer Color',
+    Callback = function(value)
+        ESPSettings.Tracers.Color = value
+    end
 })
 
 TracerToggle:OnChanged(function()
     ESPSettings.Tracers.Enabled = TracerToggle.Value
-end)
-
-Options.ESPTracerColor:OnChanged(function()
-    ESPSettings.Tracers.Color = Options.ESPTracerColor.Value
 end)
 
 TracerGroupBox:AddSlider('ESPTracerThickness', {
@@ -654,6 +663,15 @@ AimbotGroupBox:AddToggle('AimbotTeamCheck', {
 
 Toggles.AimbotTeamCheck:OnChanged(function()
     ESPSettings.Aimbot.TeamCheck = Toggles.AimbotTeamCheck.Value
+end)
+
+AimbotGroupBox:AddToggle('AimbotFriendCheck', {
+    Text = 'Friend Check',
+    Default = ESPSettings.Aimbot.FriendCheck
+})
+
+Toggles.AimbotFriendCheck:OnChanged(function()
+    ESPSettings.Aimbot.FriendCheck = Toggles.AimbotFriendCheck.Value
 end)
 
 AimbotGroupBox:AddToggle('AimbotHealthCheck', {
@@ -891,7 +909,7 @@ SaveManager:SetIgnoreIndexes({
 })
 
 ThemeManager:SetFolder('leetware')
-SaveManager:SetFolder('leetware/configs')
+SaveManager:SetFolder('leetware/configs/boilerplate')
 
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])

@@ -20,6 +20,18 @@ function Chams.new(config)
         return fallback
     end
 
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        local success, isFriend = pcall(function()
+            return Player:IsFriendsWith(plr.UserId)
+        end)
+
+        return success and isFriend
+    end
+
     local function GetColor(plr)
         local boxSettings = Settings.Box
         local chamsSettings = Settings.Chams
@@ -150,6 +162,12 @@ function Chams.new(config)
                     and Player.TeamColor
                     and plr.TeamColor
                     and Player.TeamColor == plr.TeamColor then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                if IsFriendBlocked(plr) then
                     highlight.Enabled = false
                     highlight.Adornee = nil
                     return

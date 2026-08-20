@@ -26,7 +26,7 @@ function Aimbot.new(config)
             and target.Team == Player.Team
     end
 
-    local function HasValidHealth(target)
+    local function HasValidHealth(target, ignoreMinimum)
         local character = target.Character
         local humanoid = character
             and character:FindFirstChildOfClass("Humanoid")
@@ -35,8 +35,21 @@ function Aimbot.new(config)
             return false
         end
 
-        return not Settings.HealthCheck
+        return ignoreMinimum
+            or not Settings.HealthCheck
             or humanoid.Health >= Settings.MinHealth
+    end
+
+    local function IsFriendBlocked(target)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        local success, isFriend = pcall(function()
+            return Player:IsFriendsWith(target.UserId)
+        end)
+
+        return success and isFriend
     end
 
     local function IsBlocked(character)
@@ -81,7 +94,11 @@ function Aimbot.new(config)
             return false
         end
 
-        if not maintainLock and not HasValidHealth(target) then
+        if IsFriendBlocked(target) then
+            return false
+        end
+
+        if not HasValidHealth(target, maintainLock) then
             return false
         end
 

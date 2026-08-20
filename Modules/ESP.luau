@@ -30,6 +30,18 @@ function ESP.new(config)
         return fallback
     end
 
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        local success, isFriend = pcall(function()
+            return Player:IsFriendsWith(plr.UserId)
+        end)
+
+        return success and isFriend
+    end
+
     local function GetTeamColor(plr, fallback)
         if plr.TeamColor then
             return ValidColor(plr.TeamColor.Color, fallback)
@@ -344,6 +356,11 @@ function ESP.new(config)
             end
 
             if IsTeamBlocked(plr) then
+                HideLibrary(library)
+                return
+            end
+
+            if IsFriendBlocked(plr) then
                 HideLibrary(library)
                 return
             end

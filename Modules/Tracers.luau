@@ -23,6 +23,18 @@ function Tracers.new(config)
         return fallback
     end
 
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        local success, isFriend = pcall(function()
+            return Player:IsFriendsWith(plr.UserId)
+        end)
+
+        return success and isFriend
+    end
+
     local function GetColor(plr)
         local boxSettings = Settings.Box
         local tracerSettings = Settings.Tracers
@@ -141,6 +153,11 @@ function Tracers.new(config)
                     and Player.TeamColor
                     and plr.TeamColor
                     and Player.TeamColor == plr.TeamColor then
+                    Hide(line)
+                    return
+                end
+
+                if IsFriendBlocked(plr) then
                     Hide(line)
                     return
                 end
