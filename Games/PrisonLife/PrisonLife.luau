@@ -104,6 +104,8 @@ local ESPSettings={
         TargetedFovColor=Color3.fromRGB(0,255,0),
         RainbowFov=false,
         RainbowSpeed=0.005,
+        Triggerbot=false,
+        TriggerbotDelay=0,
         ExcludeTeams={},
         PrioritizeTeams={}
     }
@@ -175,6 +177,8 @@ local AimbotController=AimbotModule.new({
 local RainbowTools=false
 local RainbowHue=0
 local RainbowObjects={}
+local GunTransparency=0
+local GunTransparencyObjects={}
 
 local CustomGunSounds=false
 local CustomGunSoundValues={}
@@ -285,6 +289,209 @@ local DoorScanInterval=0.25
 local DoorScanTimer=0
 
 local BlatantToolValues={}
+
+local AntiAimEnabled=false
+local AntiAimRotationTime=0.18
+local AntiAimRandomization=360
+local AntiAimPreviewTransparency=0.5
+local AntiAimRotation=0
+local AntiAimNextRotation=0
+local AntiAimNextChange=0
+local AntiAimCharacter=nil
+local AntiAimOriginalAutoRotate=nil
+local AntiAimPreview=nil
+local AntiAimShowPreview=false
+local AntiAimPreviewRainbow=false
+local AntiAimPreviewHue=0
+local AntiAimRandom=Random.new()
+
+local function GetAntiAimRotation()
+    return math.rad(AntiAimRandom:NextInteger(0,math.floor(AntiAimRandomization)))
+end
+
+local function DestroyAntiAimPreview()
+    if AntiAimPreview then
+        AntiAimPreview:Destroy()
+        AntiAimPreview=nil
+    end
+end
+
+local function SetupAntiAimCharacter(character)
+    AntiAimCharacter=character
+    AntiAimRotation=GetAntiAimRotation()
+    AntiAimNextRotation=GetAntiAimRotation()
+    AntiAimNextChange=os.clock()+AntiAimRotationTime
+
+    local humanoid=character:FindFirstChildOfClass('Humanoid')
+
+    if humanoid then
+        AntiAimOriginalAutoRotate=humanoid.AutoRotate
+        humanoid.AutoRotate=false
+    end
+end
+
+local function CreateAntiAimPreview(character)
+    DestroyAntiAimPreview()
+
+    local archivable=character.Archivable
+    character.Archivable=true
+
+    local success,preview=pcall(function()
+        return character:Clone()
+    end)
+
+    character.Archivable=archivable
+
+    if not success or not preview then
+        return
+    end
+
+    for _,object in ipairs(preview:GetDescendants()) do
+        if object:IsA('Script') or object:IsA('LocalScript')
+            or object:IsA('ModuleScript') or object:IsA('Humanoid') then
+            object:Destroy()
+        elseif object:IsA('BasePart') then
+            object.Anchored=true
+            object.CanCollide=false
+            object.CanTouch=false
+            object.CanQuery=false
+            object.Transparency=0.5
+            object.Color=Color3.fromRGB(150,150,150)
+        elseif object:IsA('Decal') or object:IsA('Texture') then
+            object.Transparency=0.5
+        end
+    end
+
+    preview.Name='LeetwareAntiAimPreview'
+    preview.Parent=Workspace
+    AntiAimPreview=preview
+end
+
+local function UpdateAntiAimPreview(character,rotation)
+    if not AntiAimPreview or not AntiAimPreview.Parent then
+        CreateAntiAimPreview(character)
+    end
+
+    if not AntiAimPreview then
+        return
+    end
+
+    local root=character:FindFirstChild('HumanoidRootPart')
+    local previewRoot=AntiAimPreview:FindFirstChild('HumanoidRootPart')
+
+    if root and previewRoot then
+        local target=CFrame.new(root.Position)*CFrame.Angles(0,rotation,0)
+        local delta=target*previewRoot.CFrame:Inverse()
+
+        AntiAimPreview:PivotTo(delta*AntiAimPreview:GetPivot())
+    end
+
+    AntiAimPreviewHue=(AntiAimPreviewHue+0.01)%1
+    local color=AntiAimPreviewRainbow
+        and Color3.fromHSV(AntiAimPreviewHue,1,1)
+        or Color3.fromRGB(150,150,150)
+
+    for _,object in ipairs(AntiAimPreview:GetDescendants()) do
+        if object:IsA('BasePart') then
+            object.Color=color
+            object.Transparency=AntiAimPreviewTransparency
+        elseif object:IsA('Decal') or object:IsA('Texture') then
+            object.Transparency=AntiAimPreviewTransparency
+        end
+    end
+end
+
+local function IsAntiAimBlocked(character,root,humanoid)
+    if humanoid.Sit or humanoid:GetState()==Enum.HumanoidStateType.Seated then
+        return true
+    end
+
+    local overlapParams=OverlapParams.new()
+    overlapParams.FilterType=Enum.RaycastFilterType.Include
+    overlapParams.FilterDescendantsInstances={Workspace}
+
+    for _,part in ipairs(Workspace:GetPartBoundsInRadius(root.Position,1,overlapParams)) do
+        if part:IsA('TrussPart') then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function RestoreAntiAimCharacter()
+    if AntiAimCharacter and AntiAimCharacter.Parent then
+        local humanoid=AntiAimCharacter:FindFirstChildOfClass('Humanoid')
+
+        if humanoid then
+            humanoid.AutoRotate=AntiAimOriginalAutoRotate
+        end
+    end
+
+    AntiAimCharacter=nil
+    AntiAimOriginalAutoRotate=nil
+end
+
+local function SetAntiAimEnabled(enabled)
+    AntiAimEnabled=enabled
+
+    if not enabled then
+        RestoreAntiAimCharacter()
+        DestroyAntiAimPreview()
+    elseif Player.Character then
+        SetupAntiAimCharacter(Player.Character)
+    end
+end
+
+local function ApplyAntiAim()
+    if not AntiAimEnabled then
+        return
+    end
+
+    local character=Player.Character
+
+    if not character then
+        return
+    end
+
+    if AntiAimCharacter~=character then
+        SetupAntiAimCharacter(character)
+    end
+
+    local humanoid=character:FindFirstChildOfClass('Humanoid')
+    local root=character:FindFirstChild('HumanoidRootPart')
+
+    if not humanoid or not root then
+        return
+    end
+
+    if IsAntiAimBlocked(character,root,humanoid) then
+        humanoid.AutoRotate=AntiAimOriginalAutoRotate
+
+        if AntiAimShowPreview and AntiAimPreview then
+            UpdateAntiAimPreview(character,AntiAimNextRotation)
+        end
+
+        return
+    end
+
+    humanoid.AutoRotate=false
+
+    if os.clock()>=AntiAimNextChange then
+        AntiAimRotation=AntiAimNextRotation
+        AntiAimNextRotation=GetAntiAimRotation()
+        AntiAimNextChange=os.clock()+AntiAimRotationTime
+    end
+
+    local position=root.Position
+    root.CFrame=CFrame.new(position)*CFrame.Angles(0,AntiAimRotation,0)
+
+    if AntiAimShowPreview then
+        UpdateAntiAimPreview(character,AntiAimNextRotation)
+    else
+        DestroyAntiAimPreview()
+    end
+end
 
 local function GetPlayerTools()
     local tools={}
@@ -400,11 +607,6 @@ local function RefreshBlatantToolMods()
             SetToolValue(tool,'Range',100000)
         end
 
-        if Toggles.FastReload and Toggles.FastReload.Value then
-            RememberToolValue(tool,'ReloadTime')
-            SetToolValue(tool,'ReloadTime',0.1)
-        end
-
         if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
             local maxAmmo=tonumber(GetToolValue(tool,'MaxAmmo'))
 
@@ -514,6 +716,45 @@ local function ProcessRainbowContainer(container)
             ProcessRainbowTool(object)
         end
     end
+end
+
+local function SaveGunTransparency(object)
+    if GunTransparencyObjects[object]~=nil then
+        return
+    end
+
+    GunTransparencyObjects[object]=object.Transparency
+end
+
+local function ProcessGunTransparencyTool(tool)
+    if not tool:IsA('Tool') then
+        return
+    end
+
+    for _,object in ipairs(tool:GetDescendants()) do
+        if object:IsA('BasePart') then
+            SaveGunTransparency(object)
+            object.Transparency=GunTransparency
+        end
+    end
+end
+
+local function ProcessGunTransparencyContainer(container)
+    for _,object in ipairs(container:GetChildren()) do
+        if object:IsA('Tool') then
+            ProcessGunTransparencyTool(object)
+        end
+    end
+end
+
+local function RestoreGunTransparency()
+    for object,transparency in pairs(GunTransparencyObjects) do
+        if object and object.Parent then
+            object.Transparency=transparency
+        end
+    end
+
+    table.clear(GunTransparencyObjects)
 end
 
 local function RestoreRainbowObjects()
@@ -658,6 +899,23 @@ Toggles.RainbowTools:OnChanged(function()
     end
 end)
 
+MainVisualsGroupBox:AddSlider('GunTransparency',{
+    Text='Gun Transparency',
+    Default=0,
+    Min=0,
+    Max=1,
+    Rounding=2,
+    Compact=false
+})
+
+Options.GunTransparency:OnChanged(function()
+    GunTransparency=Options.GunTransparency.Value
+
+    if GunTransparency<=0 then
+        RestoreGunTransparency()
+    end
+end)
+
 MainVisualsGroupBox:AddToggle('CustomGunSounds',{
     Text='Custom Gun Sounds',
     Default=false
@@ -679,6 +937,80 @@ Toggles.CustomGunSounds:OnChanged(function()
     else
         RestoreCustomGunSounds()
     end
+end)
+
+local AntiAimGroupBox=Tabs.Main:AddLeftGroupbox('Anti Aim')
+
+AntiAimGroupBox:AddToggle('AntiAimEnabled',{
+    Text='Enabled',
+    Default=false
+})
+
+Toggles.AntiAimEnabled:OnChanged(function()
+    SetAntiAimEnabled(Toggles.AntiAimEnabled.Value)
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimRotationTime',{
+    Text='Rotation Time',
+    Default=0.18,
+    Min=0.1,
+    Max=1,
+    Rounding=2,
+    Compact=false
+})
+
+Options.AntiAimRotationTime:OnChanged(function()
+    AntiAimRotationTime=Options.AntiAimRotationTime.Value
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimRandomization',{
+    Text='Randomization',
+    Default=360,
+    Min=0,
+    Max=360,
+    Rounding=0,
+    Compact=false
+})
+
+Options.AntiAimRandomization:OnChanged(function()
+    AntiAimRandomization=Options.AntiAimRandomization.Value
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimPreviewTransparency',{
+    Text='Preview Transparency',
+    Default=0.5,
+    Min=0,
+    Max=1,
+    Rounding=2,
+    Compact=false
+})
+
+Options.AntiAimPreviewTransparency:OnChanged(function()
+    AntiAimPreviewTransparency=Options.AntiAimPreviewTransparency.Value
+end)
+
+AntiAimGroupBox:AddToggle('AntiAimShowPreview',{
+    Text='Show Next Rotation',
+    Default=false
+})
+
+Toggles.AntiAimShowPreview:OnChanged(function()
+    AntiAimShowPreview=Toggles.AntiAimShowPreview.Value
+
+    if AntiAimShowPreview and AntiAimEnabled and Player.Character then
+        UpdateAntiAimPreview(Player.Character,AntiAimNextRotation)
+    elseif not AntiAimShowPreview then
+        DestroyAntiAimPreview()
+    end
+end)
+
+AntiAimGroupBox:AddToggle('AntiAimPreviewRainbow',{
+    Text='SNR Rainbow',
+    Default=false
+})
+
+Toggles.AntiAimPreviewRainbow:OnChanged(function()
+    AntiAimPreviewRainbow=Toggles.AntiAimPreviewRainbow.Value
 end)
 
 BlatantGroupBox:AddToggle('DoorCollision',{
@@ -713,15 +1045,6 @@ BlatantGroupBox:AddToggle('InfiniteRange',{
 
 Toggles.InfiniteRange:OnChanged(function()
     ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},100000)
-end)
-
-BlatantGroupBox:AddToggle('FastReload',{
-    Text='Fast Reload',
-    Default=false
-})
-
-Toggles.FastReload:OnChanged(function()
-    ApplyBlatantToolMod(Toggles.FastReload.Value,{'ReloadTime'},0.1)
 end)
 
 BlatantGroupBox:AddToggle('InfiniteAmmo',{
@@ -1179,6 +1502,30 @@ Options.AimbotMinHealth:OnChanged(function()
     ESPSettings.Aimbot.MinHealth=Options.AimbotMinHealth.Value
 end)
 
+local TriggerbotGroupBox=Tabs.Aimbot:AddLeftGroupbox('Triggerbot')
+
+TriggerbotGroupBox:AddToggle('AimbotTriggerbot',{
+    Text='Triggerbot',
+    Default=ESPSettings.Aimbot.Triggerbot
+})
+
+Toggles.AimbotTriggerbot:OnChanged(function()
+    ESPSettings.Aimbot.Triggerbot=Toggles.AimbotTriggerbot.Value
+end)
+
+TriggerbotGroupBox:AddSlider('AimbotTriggerbotDelay',{
+    Text='Triggerbot Delay',
+    Default=ESPSettings.Aimbot.TriggerbotDelay,
+    Min=0,
+    Max=0.3,
+    Rounding=3,
+    Compact=false
+})
+
+Options.AimbotTriggerbotDelay:OnChanged(function()
+    ESPSettings.Aimbot.TriggerbotDelay=Options.AimbotTriggerbotDelay.Value
+end)
+
 local AimbotSettingsGroupBox=Tabs.Aimbot:AddRightGroupbox('Settings')
 
 AimbotSettingsGroupBox:AddSlider('AimbotFov',{
@@ -1456,6 +1803,7 @@ end)
 RunService.RenderStepped:Connect(function(deltaTime)
     RainbowHue=(RainbowHue+deltaTime*0.5)%1
 
+    ApplyAntiAim()
     RefreshBlatantToolMods()
 
     if RainbowTools then
@@ -1469,6 +1817,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
         if character then
             ProcessRainbowContainer(character)
+        end
+    end
+
+    if GunTransparency>0 then
+        local backpack=Player:FindFirstChildOfClass('Backpack')
+
+        if backpack then
+            ProcessGunTransparencyContainer(backpack)
+        end
+
+        local character=Player.Character
+
+        if character then
+            ProcessGunTransparencyContainer(character)
         end
     end
 
@@ -1504,11 +1866,15 @@ end)
 Library:OnUnload(function()
     RainbowTools=false
     DoorCollision=false
+    AntiAimEnabled=false
 
     RestoreRainbowObjects()
+    RestoreGunTransparency()
     RestoreDoorParts()
     RestoreCustomGunSounds()
     RestoreBlatantToolMods()
+    RestoreAntiAimCharacter()
+    DestroyAntiAimPreview()
 
     if ESPController then
         ESPController:Destroy()

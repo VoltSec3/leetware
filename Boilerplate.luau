@@ -17,6 +17,197 @@ local Stats = game:GetService("Stats")
 local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
+local AntiAimEnabled = false
+local AntiAimRotationTime = 0.18
+local AntiAimRandomization = 360
+local AntiAimPreviewTransparency = 0.5
+local AntiAimRotation = 0
+local AntiAimNextRotation = 0
+local AntiAimNextChange = 0
+local AntiAimCharacter = nil
+local AntiAimOriginalAutoRotate = nil
+local AntiAimPreview = nil
+local AntiAimShowPreview = false
+local AntiAimPreviewRainbow = false
+local AntiAimPreviewHue = 0
+local AntiAimRandom = Random.new()
+
+local function GetAntiAimRotation()
+    return math.rad(AntiAimRandom:NextInteger(0, math.floor(AntiAimRandomization)))
+end
+
+local function DestroyAntiAimPreview()
+    if AntiAimPreview then
+        AntiAimPreview:Destroy()
+        AntiAimPreview = nil
+    end
+end
+
+local function SetupAntiAimCharacter(character)
+    AntiAimCharacter = character
+    AntiAimRotation = GetAntiAimRotation()
+    AntiAimNextRotation = GetAntiAimRotation()
+    AntiAimNextChange = os.clock() + AntiAimRotationTime
+
+    local humanoid = character:FindFirstChildOfClass('Humanoid')
+
+    if humanoid then
+        AntiAimOriginalAutoRotate = humanoid.AutoRotate
+        humanoid.AutoRotate = false
+    end
+end
+
+local function CreateAntiAimPreview(character)
+    DestroyAntiAimPreview()
+
+    local archivable = character.Archivable
+    character.Archivable = true
+
+    local success, preview = pcall(function()
+        return character:Clone()
+    end)
+
+    character.Archivable = archivable
+
+    if not success or not preview then
+        return
+    end
+
+    for _, object in ipairs(preview:GetDescendants()) do
+        if object:IsA('Script') or object:IsA('LocalScript')
+            or object:IsA('ModuleScript') or object:IsA('Humanoid') then
+            object:Destroy()
+        elseif object:IsA('BasePart') then
+            object.Anchored = true
+            object.CanCollide = false
+            object.CanTouch = false
+            object.CanQuery = false
+            object.Transparency = 0.5
+            object.Color = Color3.fromRGB(150, 150, 150)
+        elseif object:IsA('Decal') or object:IsA('Texture') then
+            object.Transparency = 0.5
+        end
+    end
+
+    preview.Name = 'LeetwareAntiAimPreview'
+    preview.Parent = Workspace
+    AntiAimPreview = preview
+end
+
+local function UpdateAntiAimPreview(character, rotation)
+    if not AntiAimPreview or not AntiAimPreview.Parent then
+        CreateAntiAimPreview(character)
+    end
+
+    if not AntiAimPreview then
+        return
+    end
+
+    local root = character:FindFirstChild('HumanoidRootPart')
+    local previewRoot = AntiAimPreview:FindFirstChild('HumanoidRootPart')
+
+    if root and previewRoot then
+        local target = CFrame.new(root.Position) * CFrame.Angles(0, rotation, 0)
+        local delta = target * previewRoot.CFrame:Inverse()
+
+        AntiAimPreview:PivotTo(delta * AntiAimPreview:GetPivot())
+    end
+
+    AntiAimPreviewHue = (AntiAimPreviewHue + 0.01) % 1
+    local color = AntiAimPreviewRainbow
+        and Color3.fromHSV(AntiAimPreviewHue, 1, 1)
+        or Color3.fromRGB(150, 150, 150)
+
+    for _, object in ipairs(AntiAimPreview:GetDescendants()) do
+        if object:IsA('BasePart') then
+            object.Color = color
+            object.Transparency = AntiAimPreviewTransparency
+        elseif object:IsA('Decal') or object:IsA('Texture') then
+            object.Transparency = AntiAimPreviewTransparency
+        end
+    end
+end
+
+local function IsAntiAimBlocked(character, root, humanoid)
+    if humanoid.Sit or humanoid:GetState() == Enum.HumanoidStateType.Seated then
+        return true
+    end
+
+    local overlapParams = OverlapParams.new()
+    overlapParams.FilterType = Enum.RaycastFilterType.Include
+    overlapParams.FilterDescendantsInstances = {Workspace}
+
+    for _, part in ipairs(Workspace:GetPartBoundsInRadius(root.Position, 1, overlapParams)) do
+        if part:IsA('TrussPart') then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function RestoreAntiAimCharacter()
+    if AntiAimCharacter and AntiAimCharacter.Parent then
+        local humanoid = AntiAimCharacter:FindFirstChildOfClass('Humanoid')
+
+        if humanoid then
+            humanoid.AutoRotate = AntiAimOriginalAutoRotate
+        end
+    end
+
+    AntiAimCharacter = nil
+    AntiAimOriginalAutoRotate = nil
+end
+
+local function ApplyAntiAim()
+    if not AntiAimEnabled then
+        return
+    end
+
+    local character = Player.Character
+
+    if not character then
+        return
+    end
+
+    if AntiAimCharacter ~= character then
+        SetupAntiAimCharacter(character)
+    end
+
+    local humanoid = character:FindFirstChildOfClass('Humanoid')
+    local root = character:FindFirstChild('HumanoidRootPart')
+
+    if not humanoid or not root then
+        return
+    end
+
+    if IsAntiAimBlocked(character, root, humanoid) then
+        humanoid.AutoRotate = AntiAimOriginalAutoRotate
+
+        if AntiAimShowPreview and AntiAimPreview then
+            UpdateAntiAimPreview(character, AntiAimNextRotation)
+        end
+
+        return
+    end
+
+    humanoid.AutoRotate = false
+
+    if os.clock() >= AntiAimNextChange then
+        AntiAimRotation = AntiAimNextRotation
+        AntiAimNextRotation = GetAntiAimRotation()
+        AntiAimNextChange = os.clock() + AntiAimRotationTime
+    end
+
+    local position = root.Position
+    root.CFrame = CFrame.new(position) * CFrame.Angles(0, AntiAimRotation, 0)
+
+    if AntiAimShowPreview then
+        UpdateAntiAimPreview(character, AntiAimNextRotation)
+    else
+        DestroyAntiAimPreview()
+    end
+end
 
 local ESPSettings = {
     FriendCheck = false,
@@ -104,6 +295,8 @@ local ESPSettings = {
         TargetedFovColor = Color3.fromRGB(0, 255, 0),
         RainbowFov = false,
         RainbowSpeed = 0.005,
+        Triggerbot = false,
+        TriggerbotDelay = 0,
         ExcludeTeams = {},
         PrioritizeTeams = {}
     },
@@ -191,6 +384,86 @@ local Tabs = {
 }
 
 local MainGroupBox = Tabs.Main:AddLeftGroupbox('Main')
+local AntiAimGroupBox = Tabs.Main:AddRightGroupbox('Anti Aim')
+
+AntiAimGroupBox:AddToggle('AntiAimEnabled', {
+    Text = 'Enabled',
+    Default = false
+})
+
+Toggles.AntiAimEnabled:OnChanged(function()
+    AntiAimEnabled = Toggles.AntiAimEnabled.Value
+
+    if AntiAimEnabled and Player.Character then
+        SetupAntiAimCharacter(Player.Character)
+    elseif not AntiAimEnabled then
+        RestoreAntiAimCharacter()
+        DestroyAntiAimPreview()
+    end
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimRotationTime', {
+    Text = 'Rotation Time',
+    Default = 0.18,
+    Min = 0.1,
+    Max = 1,
+    Rounding = 2,
+    Compact = false
+})
+
+Options.AntiAimRotationTime:OnChanged(function()
+    AntiAimRotationTime = Options.AntiAimRotationTime.Value
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimRandomization', {
+    Text = 'Randomization',
+    Default = 360,
+    Min = 0,
+    Max = 360,
+    Rounding = 0,
+    Compact = false
+})
+
+Options.AntiAimRandomization:OnChanged(function()
+    AntiAimRandomization = Options.AntiAimRandomization.Value
+end)
+
+AntiAimGroupBox:AddSlider('AntiAimPreviewTransparency', {
+    Text = 'Preview Transparency',
+    Default = 0.5,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false
+})
+
+Options.AntiAimPreviewTransparency:OnChanged(function()
+    AntiAimPreviewTransparency = Options.AntiAimPreviewTransparency.Value
+end)
+
+AntiAimGroupBox:AddToggle('AntiAimShowPreview', {
+    Text = 'Show Next Rotation',
+    Default = false
+})
+
+Toggles.AntiAimShowPreview:OnChanged(function()
+    AntiAimShowPreview = Toggles.AntiAimShowPreview.Value
+
+    if AntiAimShowPreview and AntiAimEnabled and Player.Character then
+        UpdateAntiAimPreview(Player.Character, AntiAimNextRotation)
+    elseif not AntiAimShowPreview then
+        DestroyAntiAimPreview()
+    end
+end)
+
+AntiAimGroupBox:AddToggle('AntiAimPreviewRainbow', {
+    Text = 'SNR Rainbow',
+    Default = false
+})
+
+Toggles.AntiAimPreviewRainbow:OnChanged(function()
+    AntiAimPreviewRainbow = Toggles.AntiAimPreviewRainbow.Value
+end)
 
 MainGroupBox:AddLabel('leetware, you are in a game that doesnt have a specific script for it, thus you are using the universal one. the main tab will have nothing but placeholder content. if this is an error, report it to arcmage.js on discord.')
 
@@ -1049,7 +1322,15 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+RunService.RenderStepped:Connect(function()
+    ApplyAntiAim()
+end)
+
 Library:OnUnload(function()
+    AntiAimEnabled = false
+    RestoreAntiAimCharacter()
+    DestroyAntiAimPreview()
+
     if ESPController then
         ESPController:Destroy()
         ESPController = nil

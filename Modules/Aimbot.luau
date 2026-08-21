@@ -18,6 +18,9 @@ function Aimbot.new(config)
     local LockStartedInFirstPerson = false
     local PendingFirstPersonUnlock = false
     local MouseLockDisabled = false
+    local TriggerbotHeld = false
+    local TriggerbotTarget = nil
+    local TriggerbotFireAt = nil
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -325,9 +328,83 @@ function Aimbot.new(config)
     local function StopAiming()
         Aiming = false
         CurrentTarget = nil
+        TriggerbotTarget = nil
+        TriggerbotFireAt = nil
+
+        if TriggerbotHeld and type(mouse1release) == "function" then
+            mouse1release()
+        end
+
+        TriggerbotHeld = false
         MouseLockDisabled = false
         UnlockMouse()
         AimStartMouseBehavior = nil
+    end
+
+    local function IsCursorOverHead(target)
+        local character = target and target.Character
+        local head = Utils.GetHead(target)
+
+        if not character or not head then
+            return false
+        end
+
+        local cursorPosition = UserInputService:GetMouseLocation()
+        local ray = Camera:ViewportPointToRay(
+            cursorPosition.X,
+            cursorPosition.Y
+        )
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {
+            Player.Character
+        }
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        local result = Workspace:Raycast(
+            ray.Origin,
+            ray.Direction * 1000,
+            raycastParams
+        )
+
+        return result ~= nil and result.Instance:IsDescendantOf(head)
+    end
+
+    local function UpdateTriggerbot(target)
+        local canFire = Settings.Triggerbot
+            and Aiming
+            and target
+            and IsCursorOverHead(target)
+            and type(mouse1press) == "function"
+            and type(mouse1release) == "function"
+
+        if not canFire then
+            TriggerbotTarget = nil
+            TriggerbotFireAt = nil
+
+            if TriggerbotHeld then
+                mouse1release()
+                TriggerbotHeld = false
+            end
+
+            return
+        end
+
+        if TriggerbotTarget ~= target then
+            TriggerbotTarget = target
+            local delay = math.clamp(
+                tonumber(Settings.TriggerbotDelay) or 0,
+                0,
+                0.3
+            )
+            TriggerbotFireAt = os.clock() + math.random() * delay
+        end
+
+        if not TriggerbotHeld
+            and TriggerbotFireAt
+            and os.clock() >= TriggerbotFireAt then
+            mouse1press()
+            TriggerbotHeld = true
+        end
     end
 
     local function LockMouse()
@@ -433,6 +510,8 @@ function Aimbot.new(config)
 
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
+
+            UpdateTriggerbot(target)
 
             if aimPosition then
                 LockMouse()
