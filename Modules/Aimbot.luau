@@ -128,6 +128,16 @@ function Aimbot.new(config)
             return false
         end
 
+        local range = math.clamp(
+            tonumber(Settings.Range) or 500,
+            1,
+            1500
+        )
+
+        if (head.Position - Camera.CFrame.Position).Magnitude > range then
+            return false
+        end
+
         if IsTeamBlocked(target) then
             return false
         end
