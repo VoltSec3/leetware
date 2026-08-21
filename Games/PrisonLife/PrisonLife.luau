@@ -176,6 +176,109 @@ local RainbowTools=false
 local RainbowHue=0
 local RainbowObjects={}
 
+local CustomGunSounds=false
+local CustomGunSoundValues={}
+local CustomGunSoundIds=nil
+
+local CustomGunSoundFiles={
+    Shoot={
+        URL='https://files.catbox.moe/lip2i4.mp3',
+        File='leetware_shoot.mp3'
+    },
+    Reload={
+        URL='https://files.catbox.moe/c4qtkm.mp3',
+        File='leetware_reload.mp3'
+    }
+}
+
+local function LoadCustomGunSounds()
+    if CustomGunSoundIds then
+        return true
+    end
+
+    local ids={}
+
+    for name,data in pairs(CustomGunSoundFiles) do
+        local success,result=pcall(function()
+            if not isfile(data.File) then
+                writefile(data.File,game:HttpGet(data.URL))
+            end
+
+            return getcustomasset(data.File)
+        end)
+
+        if not success then
+            Library:Notify('Failed to load custom '..string.lower(name)..' sound',3)
+            return false
+        end
+
+        ids[name]=result
+    end
+
+    CustomGunSoundIds=ids
+    return true
+end
+
+local function SaveCustomGunSoundValue(tool,sound,name)
+    CustomGunSoundValues[tool]=CustomGunSoundValues[tool] or {
+        Sounds={},
+        Attributes={},
+        Captured={}
+    }
+
+    if not CustomGunSoundValues[tool].Captured[name] then
+        CustomGunSoundValues[tool].Sounds[name]=sound.SoundId
+        CustomGunSoundValues[tool].Attributes[name]=tool:GetAttribute(name)
+        CustomGunSoundValues[tool].Captured[name]=true
+    end
+end
+
+local function UpdateCustomGunSound(tool)
+    if not CustomGunSoundIds or not tool:IsA('Tool') then
+        return
+    end
+
+    local handle=tool:FindFirstChild('Handle')
+
+    if not handle then
+        return
+    end
+
+    local sounds={
+        Shoot={Object=handle:FindFirstChild('ShootSound'),Id=CustomGunSoundIds.Shoot},
+        Reload={Object=handle:FindFirstChild('ReloadSound'),Id=CustomGunSoundIds.Reload}
+    }
+
+    for name,data in pairs(sounds) do
+        if data.Object and data.Object:IsA('Sound') then
+            SaveCustomGunSoundValue(tool,data.Object,name)
+            data.Object.SoundId=data.Id
+            tool:SetAttribute(name..'SoundId',data.Id)
+        end
+    end
+end
+
+local function RestoreCustomGunSounds()
+    for tool,data in pairs(CustomGunSoundValues) do
+        if tool and tool.Parent then
+            for name,soundId in pairs(data.Sounds) do
+                local handle=tool:FindFirstChild('Handle')
+                local sound=handle and handle:FindFirstChild(name..'Sound')
+
+                if sound and sound:IsA('Sound') then
+                    sound.SoundId=soundId
+                end
+            end
+
+            for name,value in pairs(data.Attributes) do
+                tool:SetAttribute(name,value)
+            end
+        end
+    end
+
+    table.clear(CustomGunSoundValues)
+end
+
 local DoorCollision=false
 local DoorParts={}
 local DoorScanInterval=0.25
@@ -295,6 +398,11 @@ local function RefreshBlatantToolMods()
         if Toggles.InfiniteRange and Toggles.InfiniteRange.Value then
             RememberToolValue(tool,'Range')
             SetToolValue(tool,'Range',100000)
+        end
+
+        if Toggles.FastReload and Toggles.FastReload.Value then
+            RememberToolValue(tool,'ReloadTime')
+            SetToolValue(tool,'ReloadTime',0.1)
         end
 
         if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
@@ -550,6 +658,29 @@ Toggles.RainbowTools:OnChanged(function()
     end
 end)
 
+MainVisualsGroupBox:AddToggle('CustomGunSounds',{
+    Text='Custom Gun Sounds',
+    Default=false
+})
+
+Toggles.CustomGunSounds:OnChanged(function()
+    CustomGunSounds=Toggles.CustomGunSounds.Value
+
+    if CustomGunSounds then
+        if not LoadCustomGunSounds() then
+            CustomGunSounds=false
+            Toggles.CustomGunSounds:SetValue(false)
+            return
+        end
+
+        for _,tool in ipairs(GetPlayerTools()) do
+            UpdateCustomGunSound(tool)
+        end
+    else
+        RestoreCustomGunSounds()
+    end
+end)
+
 BlatantGroupBox:AddToggle('DoorCollision',{
     Text='Door Collision',
     Default=false
@@ -582,6 +713,15 @@ BlatantGroupBox:AddToggle('InfiniteRange',{
 
 Toggles.InfiniteRange:OnChanged(function()
     ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},100000)
+end)
+
+BlatantGroupBox:AddToggle('FastReload',{
+    Text='Fast Reload',
+    Default=false
+})
+
+Toggles.FastReload:OnChanged(function()
+    ApplyBlatantToolMod(Toggles.FastReload.Value,{'ReloadTime'},0.1)
 end)
 
 BlatantGroupBox:AddToggle('InfiniteAmmo',{
@@ -1332,6 +1472,12 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
+    if CustomGunSounds then
+        for _,tool in ipairs(GetPlayerTools()) do
+            UpdateCustomGunSound(tool)
+        end
+    end
+
     if DoorCollision then
         DoorScanTimer+=deltaTime
 
@@ -1361,6 +1507,7 @@ Library:OnUnload(function()
 
     RestoreRainbowObjects()
     RestoreDoorParts()
+    RestoreCustomGunSounds()
     RestoreBlatantToolMods()
 
     if ESPController then
