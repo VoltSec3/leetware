@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LicenseStatus {
+  UNUSED
+  ACTIVATED
+  REVOKED
+  EXPIRED
+}
+
+model AdminUser {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sessions     AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  adminId   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+model License {
+  id          String        @id @default(cuid())
+  licenseHash String        @unique
+  keyCipher   String?
+  status      LicenseStatus @default(UNUSED)
+  note        String?
+  createdAt   DateTime      @default(now())
+  expiresAt   DateTime?
+  activatedAt DateTime?
+  activation  Activation?
+  sessions    LoaderSession[]
+  auditLogs   AuditLog[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Activation {
+  id            String   @id @default(cuid())
+  licenseId     String   @unique
+  hwidHash      String
+  firstIp       String?
+  lastIp        String?
+  clientVersion String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  lastSeen      DateTime @default(now())
+  license       License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([hwidHash])
+  @@index([lastSeen])
+}
+
+model LoaderSession {
+  id        String   @id @default(cuid())
+  licenseId String
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  lastSeen  DateTime @default(now())
+  revoked   Boolean  @default(false)
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@index([expiresAt])
+  @@index([revoked])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  licenseId String?
+  event     String
+  ip        String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  license   License? @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+
+  @@index([licenseId])
+  @@index([event])
+  @@index([createdAt])
+}
+
+model SupportedGame {
+  id             String    @id @default(cuid())
+  gameId         String    @unique
+  name           String
+  moduleKey      String    @unique
+  delivery       String    @default("direct")
+  scriptUrl      String?
+  payloadSource  String?
+  enabled        Boolean   @default(true)
+  autoRegistered Boolean   @default(false)
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([enabled])
+}
+
+model RateLimitEntry {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}

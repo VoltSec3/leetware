@@ -4,26 +4,44 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "setup:admin": "tsx scripts/setup-admin.ts",
+    "seed:games": "tsx scripts/seed-games.ts",
+    "setup": "npm run db:push && npm run seed:games && npm run setup:admin"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "bcryptjs": "^3.0.2",
     "next": "16.3.1",
     "prisma": "^7.9.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^16.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.9.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.9.1": true,
+    "unrs-resolver@1.12.2": true
   }
 }

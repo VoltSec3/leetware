@@ -22,6 +22,15 @@ function Aimbot.new(config)
     local TriggerbotTarget = nil
     local TriggerbotNextFire = nil
 
+    local function GetGlobalFunction(name)
+        local environment = type(getgenv) == "function"
+            and getgenv()
+            or _G
+
+        return environment and environment[name]
+            or _G[name]
+    end
+
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
     FovCircle.Filled = false
@@ -349,25 +358,52 @@ function Aimbot.new(config)
         TriggerbotNextFire = nil
     end
 
-    local function UpdateTriggerbot(target)
+    local function GetMouseTargetPlayer(hitPart)
+        local current = hitPart
+
+        while current and current ~= Workspace do
+            local targetPlayer = Players:GetPlayerFromCharacter(current)
+
+            if targetPlayer then
+                return targetPlayer
+            end
+
+            current = current.Parent
+        end
+
+        return nil
+    end
+
+    local function ClickMouse1()
+        local press = GetGlobalFunction("mouse1press")
+        local release = GetGlobalFunction("mouse1release")
+
+        if type(press) ~= "function" or type(release) ~= "function" then
+            return false
+        end
+
+        local pressed = pcall(press)
+        local released = pcall(release)
+
+        return pressed and released
+    end
+
+    local function UpdateTriggerbot()
         if not Settings.Triggerbot
             or not Aiming
-            or not target
-            or type(mouse1press) ~= "function"
-            or type(mouse1release) ~= "function" then
+            or type(Mouse.Target) == "nil" then
             ResetTriggerbot()
             return
         end
 
         local hitPart = Mouse.Target
-        local targetCharacter = hitPart and hitPart.Parent
-        local targetPlayer = targetCharacter
-            and Players:GetPlayerFromCharacter(targetCharacter)
-        local isValidHead = targetPlayer == target
+        local targetPlayer = GetMouseTargetPlayer(hitPart)
+        local isValidHead = targetPlayer
             and targetPlayer ~= Player
             and targetPlayer.Team ~= Player.Team
             and hitPart
             and hitPart.Name == "Head"
+            and IsTargetValid(targetPlayer, false)
 
         if not isValidHead then
             ResetTriggerbot()
@@ -380,8 +416,11 @@ function Aimbot.new(config)
         end
 
         if TriggerbotNextFire and os.clock() >= TriggerbotNextFire then
-            mouse1press()
-            mouse1release()
+            if not ClickMouse1() then
+                ResetTriggerbot()
+                return
+            end
+
             TriggerbotNextFire = os.clock() + GetTriggerbotDelay()
         end
     end
@@ -508,7 +547,7 @@ function Aimbot.new(config)
                     smoothing
                 )
 
-                UpdateTriggerbot(target)
+                UpdateTriggerbot()
             else
                 CurrentTarget = nil
                 ResetTriggerbot()
