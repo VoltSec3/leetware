@@ -1,1 +1,160 @@
-local a = {} local g = function(b, c) if (((1 + 1) == 2) and a[b]) then return a[b] end local d = {} for e = 1, #b do d[e] = string.char(bit32.bxor(b[e], c)) end local f = table.concat(d) a[b] = f return f end local Players = game:GetService(g({10, 54, 59, 35, 63, 40, 41}, 90)) local h = {} function h.create(i) local j = Players.LocalPlayer local k = j:WaitForChild(g({10, 54, 59, 35, 63, 40, 29, 47, 51}, 90)) local l = k:FindFirstChild(g({59, 47, 46, 50}, 90)) if (((15 * 15) == 225) and l) then l:Destroy() end local m = Instance.new(g({9, 57, 40, 63, 63, 52, 29, 47, 51}, 90)) m.Name = g({59, 47, 46, 50}, 90) m.ResetOnSpawn = true m.IgnoreGuiInset = false m.DisplayOrder = 0 m.Parent = k local n = Instance.new(g({28, 40, 59, 55, 63}, 90)) n.Name = g({28, 40, 59, 55, 63}, 90) n.ZIndex = -1 n.Position = UDim2.new(0.432031631, 0, 0.412836075, 0) n.Size = UDim2.new(0, 274, 0, 201) n.BackgroundColor3 = Color3.fromRGB(44, 13, 52) n.BackgroundTransparency = 0 n.Visible = true n.AnchorPoint = Vector2.new(0, 0) n.ClipsDescendants = false n.BorderSizePixel = 0 n.Parent = m local o = Instance.new(g({28, 40, 59, 55, 63}, 90)) o.Name = g({55, 59, 51, 52}, 90) o.ZIndex = 1 o.Position = UDim2.new(0.0189391635, 0, 0.0250049792, 0) o.Size = UDim2.new(0, 262, 0, 189) o.BackgroundColor3 = Color3.fromRGB(52, 52, 52) o.BackgroundTransparency = 0 o.Visible = true o.AnchorPoint = Vector2.new(0, 0) o.ClipsDescendants = false o.BorderSizePixel = 0 o.Parent = n local p = Instance.new(g({14, 63, 34, 46, 24, 53, 34}, 90)) p.Name = g({14, 63, 34, 46, 24, 53, 34}, 90) p.ZIndex = 1 p.Position = UDim2.new(0, 0, 0.370370358, 0) p.Size = UDim2.new(0, 262, 0, 50) p.BackgroundColor3 = Color3.fromRGB(255, 255, 255) p.BackgroundTransparency = 1 p.Text = "" p.TextScaled = true p.TextSize = 14 p.Font = Enum.Font.SourceSans p.TextColor3 = Color3.fromRGB(0, 0, 0) p.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) p.TextStrokeTransparency = 1 p.TextWrapped = true p.TextXAlignment = Enum.TextXAlignment.Center p.TextYAlignment = Enum.TextYAlignment.Center p.TextTransparency = 0 p.ClearTextOnFocus = true p.MultiLine = false p.Visible = true p.AnchorPoint = Vector2.new(0, 0) p.ClipsDescendants = false p.Parent = o local q = Instance.new(g({14, 63, 34, 46, 24, 47, 46, 46, 53, 52}, 90)) q.Name = g({14, 63, 34, 46, 24, 47, 46, 46, 53, 52}, 90) q.ZIndex = 1 q.Position = UDim2.new(0, 0, 0.661375642, 0) q.Size = UDim2.new(0, 262, 0, 64) q.BackgroundColor3 = Color3.fromRGB(255, 255, 255) q.BackgroundTransparency = 1 q.Text = g({57, 54, 51, 57, 49, 122, 55, 63, 122, 46, 53, 122, 59, 47, 46, 50, 123, 123, 123, 107, 123, 107, 123, 123}, 90) q.TextScaled = true q.TextSize = 14 q.Font = Enum.Font.SourceSans q.TextColor3 = Color3.fromRGB(104, 104, 104) q.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) q.TextStrokeTransparency = 1 q.TextWrapped = true q.TextXAlignment = Enum.TextXAlignment.Center q.TextYAlignment = Enum.TextYAlignment.Center q.TextTransparency = 0 q.Visible = true q.AnchorPoint = Vector2.new(0, 0) q.ClipsDescendants = false q.AutoButtonColor = true q.Parent = o local r = Instance.new(g({14, 63, 34, 46, 22, 59, 56, 63, 54}, 90)) r.Name = g({14, 63, 34, 46, 22, 59, 56, 63, 54}, 90) r.ZIndex = 1 r.Position = UDim2.new(0, 0, 0, 0) r.Size = UDim2.new(0, 262, 0, 71) r.BackgroundColor3 = Color3.fromRGB(255, 255, 255) r.BackgroundTransparency = 1 r.Text = g({41, 50, 51, 46, 46, 35, 122, 46, 63, 55, 42, 122, 59, 47, 46, 50, 122, 47, 51}, 90) r.TextScaled = true r.TextSize = 14 r.Font = Enum.Font.SourceSans r.TextColor3 = Color3.fromRGB(132, 132, 132) r.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) r.TextStrokeTransparency = 1 r.TextWrapped = true r.TextXAlignment = Enum.TextXAlignment.Center r.TextYAlignment = Enum.TextYAlignment.Center r.TextTransparency = 0 r.Visible = true r.AnchorPoint = Vector2.new(0, 0) r.ClipsDescendants = false r.Parent = o local function s(t, u) r.Text = t r.TextColor3 = (u or Color3.fromRGB(132, 132, 132)) end local function v(w) q.AutoButtonColor = not w q.Text = ((w and g({59, 47, 46, 50, 63, 52, 46, 51, 57, 59, 46, 51, 52, 61, 116, 116, 116}, 90)) or g({57, 54, 51, 57, 49, 122, 55, 63, 122, 46, 53, 122, 59, 47, 46, 50, 123, 123, 123, 107, 123, 107, 123, 123}, 90)) p.TextEditable = not w end q.MouseButton1Click:Connect(function() local x = string.gsub(p.Text, g({127, 41, 113}, 90), "") if (((100 % 7) == 2) and (x == "")) then s(g({22, 51, 57, 63, 52, 41, 63, 122, 51, 41, 122, 40, 63, 43, 47, 51, 40, 63, 62, 116}, 90), Color3.fromRGB(255, 120, 120)) return end v(true) s(g({25, 53, 52, 46, 59, 57, 46, 51, 52, 61, 122, 54, 51, 57, 63, 52, 41, 63, 122, 41, 63, 40, 44, 63, 40, 116, 116, 116}, 90), Color3.fromRGB(180, 180, 190)) task.spawn(function() local z, aa = i(x, function(y) s(y) end, function() m:Destroy() end) if (((12 * 12) == 144) and not z) then v(false) s(tostring((aa or g({27, 47, 46, 50, 63, 52, 46, 51, 57, 59, 46, 51, 53, 52, 122, 60, 59, 51, 54, 63, 62}, 90))), Color3.fromRGB(255, 120, 120)) end end) end) return m end return h
+local Players = game:GetService("Players")
+
+local UI = {}
+
+function UI.create(onSubmit)
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+
+    local existing = playerGui:FindFirstChild("auth")
+    if existing then
+        existing:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "auth"
+    screenGui.ResetOnSpawn = true
+    screenGui.IgnoreGuiInset = false
+    screenGui.DisplayOrder = 0
+    screenGui.Parent = playerGui
+
+    local frame = Instance.new("Frame")
+    frame.Name = "Frame"
+    frame.ZIndex = -1
+    frame.Position = UDim2.new(0.432031631, 0, 0.412836075, 0)
+    frame.Size = UDim2.new(0, 274, 0, 201)
+    frame.BackgroundColor3 = Color3.fromRGB(44, 13, 52)
+    frame.BackgroundTransparency = 0
+    frame.Visible = true
+    frame.AnchorPoint = Vector2.new(0, 0)
+    frame.ClipsDescendants = false
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local main = Instance.new("Frame")
+    main.Name = "main"
+    main.ZIndex = 1
+    main.Position = UDim2.new(0.0189391635, 0, 0.0250049792, 0)
+    main.Size = UDim2.new(0, 262, 0, 189)
+    main.BackgroundColor3 = Color3.fromRGB(52, 52, 52)
+    main.BackgroundTransparency = 0
+    main.Visible = true
+    main.AnchorPoint = Vector2.new(0, 0)
+    main.ClipsDescendants = false
+    main.BorderSizePixel = 0
+    main.Parent = frame
+
+    local input = Instance.new("TextBox")
+    input.Name = "TextBox"
+    input.ZIndex = 1
+    input.Position = UDim2.new(0, 0, 0.370370358, 0)
+    input.Size = UDim2.new(0, 262, 0, 50)
+    input.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    input.BackgroundTransparency = 1
+    input.Text = ""
+    input.TextScaled = true
+    input.TextSize = 14
+    input.Font = Enum.Font.SourceSans
+    input.TextColor3 = Color3.fromRGB(0, 0, 0)
+    input.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    input.TextStrokeTransparency = 1
+    input.TextWrapped = true
+    input.TextXAlignment = Enum.TextXAlignment.Center
+    input.TextYAlignment = Enum.TextYAlignment.Center
+    input.TextTransparency = 0
+    input.ClearTextOnFocus = true
+    input.MultiLine = false
+    input.Visible = true
+    input.AnchorPoint = Vector2.new(0, 0)
+    input.ClipsDescendants = false
+    input.Parent = main
+
+    local button = Instance.new("TextButton")
+    button.Name = "TextButton"
+    button.ZIndex = 1
+    button.Position = UDim2.new(0, 0, 0.661375642, 0)
+    button.Size = UDim2.new(0, 262, 0, 64)
+    button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    button.BackgroundTransparency = 1
+    button.Text = "click me to auth!!!1!1!!"
+    button.TextScaled = true
+    button.TextSize = 14
+    button.Font = Enum.Font.SourceSans
+    button.TextColor3 = Color3.fromRGB(104, 104, 104)
+    button.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    button.TextStrokeTransparency = 1
+    button.TextWrapped = true
+    button.TextXAlignment = Enum.TextXAlignment.Center
+    button.TextYAlignment = Enum.TextYAlignment.Center
+    button.TextTransparency = 0
+    button.Visible = true
+    button.AnchorPoint = Vector2.new(0, 0)
+    button.ClipsDescendants = false
+    button.AutoButtonColor = true
+    button.Parent = main
+
+    local status = Instance.new("TextLabel")
+    status.Name = "TextLabel"
+    status.ZIndex = 1
+    status.Position = UDim2.new(0, 0, 0, 0)
+    status.Size = UDim2.new(0, 262, 0, 71)
+    status.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    status.BackgroundTransparency = 1
+    status.Text = "shitty temp auth ui"
+    status.TextScaled = true
+    status.TextSize = 14
+    status.Font = Enum.Font.SourceSans
+    status.TextColor3 = Color3.fromRGB(132, 132, 132)
+    status.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    status.TextStrokeTransparency = 1
+    status.TextWrapped = true
+    status.TextXAlignment = Enum.TextXAlignment.Center
+    status.TextYAlignment = Enum.TextYAlignment.Center
+    status.TextTransparency = 0
+    status.Visible = true
+    status.AnchorPoint = Vector2.new(0, 0)
+    status.ClipsDescendants = false
+    status.Parent = main
+
+    local function setStatus(text, color)
+        status.Text = text
+        status.TextColor3 = color or Color3.fromRGB(132, 132, 132)
+    end
+
+    local function setLoading(loading)
+        button.AutoButtonColor = not loading
+        button.Text = loading and "authenticating..." or "click me to auth!!!1!1!!"
+        input.TextEditable = not loading
+    end
+
+    button.MouseButton1Click:Connect(function()
+        local license = string.gsub(input.Text, "%s+", "")
+        if license == "" then
+            setStatus("License is required.", Color3.fromRGB(255, 120, 120))
+            return
+        end
+
+        setLoading(true)
+        setStatus("Contacting license server...", Color3.fromRGB(180, 180, 190))
+
+        task.spawn(function()
+            local ok, err = onSubmit(license, function(message)
+                setStatus(message)
+            end, function()
+                screenGui:Destroy()
+            end)
+
+            if not ok then
+                setLoading(false)
+                setStatus(
+                    tostring(err or "Authentication failed"),
+                    Color3.fromRGB(255, 120, 120)
+                )
+            end
+        end)
+    end)
+
+    return screenGui
+end
+
+return UI

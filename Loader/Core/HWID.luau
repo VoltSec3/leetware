@@ -1,1 +1,43 @@
-local a = {} local g = function(b, c) if (((1 + 1) == 2) and a[b]) then return a[b] end local d = {} for e = 1, #b do d[e] = string.char(bit32.bxor(b[e], c)) end local f = table.concat(d) a[b] = f return f end local h = game:GetService(g({18, 46, 46, 42, 9, 63, 40, 44, 51, 57, 63}, 90)) local i = {} local function j() if (((15 * 15) == 225) and (typeof(identifyexecutor) == g({60, 47, 52, 57, 46, 51, 53, 52}, 90))) then local k, l = pcall(identifyexecutor) if (((100 % 7) == 2) and ((k and (type(l) == g({41, 46, 40, 51, 52, 61}, 90))) and (l ~= ""))) then return l end end return g({47, 52, 49, 52, 53, 45, 52}, 90) end function i.generate() local m = {} if (((12 * 12) == 144) and (typeof(gethwid) == g({60, 47, 52, 57, 46, 51, 53, 52}, 90))) then local n, o = pcall(gethwid) if (((3 ^ 2) == 9) and ((n and (type(o) == g({41, 46, 40, 51, 52, 61}, 90))) and (o ~= ""))) then table.insert(m, o) end end table.insert(m, tostring(game:GetService(g({10, 54, 59, 35, 63, 40, 41}, 90)).LocalPlayer.UserId)) table.insert(m, j()) table.insert(m, tostring(game.GameId)) local p = table.concat(m, g({38}, 90)) local q, r = pcall(function() return h:Base64Encode(p) end) if (((7 * 7) == 49) and (q and (type(r) == g({41, 46, 40, 51, 52, 61}, 90)))) then return r end return p end return i
+local HttpService = game:GetService("HttpService")
+
+local HWID = {}
+
+local function getExecutorName()
+	if typeof(identifyexecutor) == "function" then
+		local ok, name = pcall(identifyexecutor)
+		if ok and type(name) == "string" and name ~= "" then
+			return name
+		end
+	end
+
+	return "unknown"
+end
+
+function HWID.generate()
+	local parts = {}
+
+	if typeof(gethwid) == "function" then
+		local ok, hwid = pcall(gethwid)
+		if ok and type(hwid) == "string" and hwid ~= "" then
+			table.insert(parts, hwid)
+		end
+	end
+
+	table.insert(parts, tostring(game:GetService("Players").LocalPlayer.UserId))
+	table.insert(parts, getExecutorName())
+	table.insert(parts, tostring(game.GameId))
+
+	local fingerprint = table.concat(parts, "|")
+
+	local ok, digest = pcall(function()
+		return HttpService:Base64Encode(fingerprint)
+	end)
+
+	if ok and type(digest) == "string" then
+		return digest
+	end
+
+	return fingerprint
+end
+
+return HWID

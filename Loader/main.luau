@@ -1,1 +1,102 @@
-local a = {} local g = function(b, c) if (((1 + 1) == 2) and a[b]) then return a[b] end local d = {} for e = 1, #b do d[e] = string.char(bit32.bxor(b[e], c)) end local f = table.concat(d) a[b] = f return f end local h = g({50, 46, 46, 42, 41, 96, 117, 117, 40, 59, 45, 116, 61, 51, 46, 50, 47, 56, 47, 41, 63, 40, 57, 53, 52, 46, 63, 52, 46, 116, 57, 53, 55, 117, 12, 53, 54, 46, 9, 63, 57, 105, 117, 54, 63, 63, 46, 45, 59, 40, 63, 117, 55, 59, 51, 52, 117}, 90) local i = (h .. g({22, 53, 59, 62, 63, 40, 117, 9, 47, 56, 54, 53, 59, 62, 63, 40, 116, 54, 47, 59, 47}, 90)) local function j(k, l) local m = game:HttpGet((h .. k)) local n, o = loadstring(m) assert(n, string.format(g({28, 59, 51, 54, 63, 62, 122, 46, 53, 122, 57, 53, 55, 42, 51, 54, 63, 122, 127, 41, 96, 122, 127, 41}, 90), l, tostring(o))) return n() end local p = j(g({22, 53, 59, 62, 63, 40, 117, 25, 53, 40, 63, 117, 25, 53, 52, 60, 51, 61, 116, 54, 47, 59, 47}, 90), g({25, 53, 52, 60, 51, 61}, 90)) local q = j(g({22, 53, 59, 62, 63, 40, 117, 25, 53, 40, 63, 117, 18, 13, 19, 30, 116, 54, 47, 59, 47}, 90), g({18, 13, 19, 30}, 90)) local r = j(g({22, 53, 59, 62, 63, 40, 117, 25, 53, 40, 63, 117, 27, 47, 46, 50, 116, 54, 47, 59, 47}, 90), g({27, 47, 46, 50}, 90)) local s = j(g({22, 53, 59, 62, 63, 40, 117, 25, 53, 40, 63, 117, 18, 63, 59, 40, 46, 56, 63, 59, 46, 116, 54, 47, 59, 47}, 90), g({18, 63, 59, 40, 46, 56, 63, 59, 46}, 90)) local t = j(g({22, 53, 59, 62, 63, 40, 117, 15, 19, 117, 22, 53, 61, 51, 52, 116, 54, 47, 59, 47}, 90), g({15, 19}, 90)) local u = q.generate() local v = nil local function w() if (((15 * 15) == 225) and v) then v() end v = s.start(r, u, p.HEARTBEAT_INTERVAL, function() warn(g({1, 54, 63, 63, 46, 45, 59, 40, 63, 7, 122, 9, 63, 41, 41, 51, 53, 52, 122, 51, 52, 44, 59, 54, 51, 62, 59, 46, 63, 62, 116, 122, 8, 63, 54, 53, 59, 62, 122, 46, 50, 63, 122, 54, 53, 59, 62, 63, 40, 116}, 90)) end) end local function x() local y = game:HttpGet(i) local z, aa = loadstring(y) assert(z, string.format(g({28, 59, 51, 54, 63, 62, 122, 46, 53, 122, 57, 53, 55, 42, 51, 54, 63, 122, 41, 47, 56, 54, 53, 59, 62, 63, 40, 96, 122, 127, 41}, 90), tostring(aa))) return z()(r, u) end local function ab(ac, ad) ac(g({12, 59, 54, 51, 62, 59, 46, 51, 52, 61, 122, 41, 63, 41, 41, 51, 53, 52, 116, 116, 116}, 90), Color3.fromRGB(180, 180, 190)) local ae = r.validate(u) if (((100 % 7) == 2) and not ae) then return false, g({9, 63, 41, 41, 51, 53, 52, 122, 44, 59, 54, 51, 62, 59, 46, 51, 53, 52, 122, 60, 59, 51, 54, 63, 62}, 90) end ac(g({22, 53, 59, 62, 51, 52, 61, 122, 61, 59, 55, 63, 122, 55, 53, 62, 47, 54, 63, 116, 116, 116}, 90), Color3.fromRGB(180, 180, 190)) local af, ag = pcall(function() x() end) if (((12 * 12) == 144) and not af) then return false, ag end w() ad() return true end local an = t.create(function(ah, ai, aj) ai(g({27, 47, 46, 50, 63, 52, 46, 51, 57, 59, 46, 51, 52, 61, 122, 54, 51, 57, 63, 52, 41, 63, 116, 116, 116}, 90), Color3.fromRGB(180, 180, 190)) local ak, al = r.authenticate(ah, u) if (((3 ^ 2) == 9) and not ak) then local am = ((((type(al) == g({41, 46, 40, 51, 52, 61}, 90)) and al) or ((al and al.error))) or g({27, 47, 46, 50, 63, 52, 46, 51, 57, 59, 46, 51, 53, 52, 122, 60, 59, 51, 54, 63, 62}, 90)) return false, am end return ab(ai, aj) end) task.defer(function() local ao = r.loadLicense() local ap = r.loadSession() if (((7 * 7) == 49) and (ao and ap)) then local aq = r.validate(u) if (((1 + 1) == 2) and aq) then local ar = pcall(function() x() end) if (((15 * 15) == 225) and ar) then w() if (((100 % 7) == 2) and an) then an:Destroy() an = nil end end end end end)
+local baseUrl = "https://raw.githubusercontent.com/VoltSec3/leetware/main/"
+local subloaderUrl = baseUrl .. "Loader/Subloader.luau"
+
+local function loadModule(path, name)
+	local source = game:HttpGet(baseUrl .. path)
+	local chunk, compileError = loadstring(source)
+
+	assert(
+		chunk,
+		string.format("Failed to compile %s: %s", name, tostring(compileError))
+	)
+
+	return chunk()
+end
+
+local Config = loadModule("Loader/Core/Config.luau", "Config")
+local HWID = loadModule("Loader/Core/HWID.luau", "HWID")
+local Auth = loadModule("Loader/Core/Auth.luau", "Auth")
+local Heartbeat = loadModule("Loader/Core/Heartbeat.luau", "Heartbeat")
+local UI = loadModule("Loader/UI/Login.luau", "UI")
+
+local hwid = HWID.generate()
+local stopHeartbeat = nil
+
+local function startHeartbeat()
+	if stopHeartbeat then
+		stopHeartbeat()
+	end
+
+	stopHeartbeat = Heartbeat.start(Auth, hwid, Config.HEARTBEAT_INTERVAL, function()
+		warn("[leetware] Session invalidated. Reload the loader.")
+	end)
+end
+
+local function runSubloader()
+	local source = game:HttpGet(subloaderUrl)
+	local chunk, compileError = loadstring(source)
+
+	assert(
+		chunk,
+		string.format("Failed to compile subloader: %s", tostring(compileError))
+	)
+
+	return chunk()(Auth, hwid)
+end
+
+local function runLoader(setStatus, closeUi)
+	setStatus("Validating session...", Color3.fromRGB(180, 180, 190))
+
+	local valid = Auth.validate(hwid)
+	if not valid then
+		return false, "Session validation failed"
+	end
+
+	setStatus("Loading game module...", Color3.fromRGB(180, 180, 190))
+
+	local ok, err = pcall(function()
+		runSubloader()
+	end)
+
+	if not ok then
+		return false, err
+	end
+
+	startHeartbeat()
+	closeUi()
+	return true
+end
+
+local loaderUi = UI.create(function(license, setStatus, closeUi)
+	setStatus("Authenticating license...", Color3.fromRGB(180, 180, 190))
+
+	local ok, result = Auth.authenticate(license, hwid)
+	if not ok then
+		local message = type(result) == "string" and result or (result and result.error) or "Authentication failed"
+		return false, message
+	end
+
+	return runLoader(setStatus, closeUi)
+end)
+
+task.defer(function()
+	local savedLicense = Auth.loadLicense()
+	local savedSession = Auth.loadSession()
+
+	if savedLicense and savedSession then
+		local ok = Auth.validate(hwid)
+		if ok then
+			local loaded = pcall(function()
+				runSubloader()
+			end)
+
+			if loaded then
+				startHeartbeat()
+				if loaderUi then
+					loaderUi:Destroy()
+					loaderUi = nil
+				end
+			end
+		end
+	end
+end)
