@@ -181,6 +181,130 @@ local DoorParts={}
 local DoorScanInterval=0.25
 local DoorScanTimer=0
 
+local BlatantToolValues={}
+local BlatantScanTimer=0
+local BlatantScanInterval=0.5
+
+local function GetPlayerTools()
+    local tools={}
+    local backpack=Player:FindFirstChildOfClass('Backpack')
+    local character=Player.Character
+
+    if backpack then
+        for _,object in ipairs(backpack:GetChildren()) do
+            if object:IsA('Tool') then
+                table.insert(tools,object)
+            end
+        end
+    end
+
+    if character then
+        for _,object in ipairs(character:GetChildren()) do
+            if object:IsA('Tool') then
+                table.insert(tools,object)
+            end
+        end
+    end
+
+    return tools
+end
+
+local function GetToolValue(tool,name)
+    local value=tool:GetAttribute(name)
+    local child=tool:FindFirstChild(name)
+
+    if value==nil and child and child:IsA('ValueBase') then
+        value=child.Value
+    end
+
+    return value
+end
+
+local function SetToolValue(tool,name,value)
+    tool:SetAttribute(name,value)
+
+    local child=tool:FindFirstChild(name)
+
+    if child and child:IsA('ValueBase') then
+        child.Value=value
+    end
+end
+
+local function RememberToolValue(tool,name)
+    BlatantToolValues[tool]=BlatantToolValues[tool] or {}
+
+    if BlatantToolValues[tool][name]==nil then
+        BlatantToolValues[tool][name]={
+            Attribute=tool:GetAttribute(name),
+            Value=GetToolValue(tool,name),
+            Child=tool:FindFirstChild(name)
+        }
+    end
+end
+
+local function RestoreToolValue(tool,name)
+    local original=BlatantToolValues[tool] and BlatantToolValues[tool][name]
+
+    if not original or not tool.Parent then
+        return
+    end
+
+    if original.Attribute==nil then
+        tool:SetAttribute(name,nil)
+    else
+        tool:SetAttribute(name,original.Attribute)
+    end
+
+    local child=tool:FindFirstChild(name)
+
+    if child and child:IsA('ValueBase') and original.Value~=nil then
+        child.Value=original.Value
+    end
+end
+
+local function ApplyBlatantToolMod(enabled,names,value)
+    for _,tool in ipairs(GetPlayerTools()) do
+        for _,name in ipairs(names) do
+            if enabled then
+                RememberToolValue(tool,name)
+                SetToolValue(tool,name,value)
+            else
+                RestoreToolValue(tool,name)
+            end
+        end
+    end
+end
+
+local function RestoreBlatantToolMods()
+    for tool,values in pairs(BlatantToolValues) do
+        if tool and tool.Parent then
+            for name in pairs(values) do
+                RestoreToolValue(tool,name)
+            end
+        end
+    end
+
+    table.clear(BlatantToolValues)
+end
+
+local function RefreshBlatantToolMods()
+    if Toggles.NoSpread and Toggles.NoSpread.Value then
+        ApplyBlatantToolMod(true,{'SpreadRadius'},0)
+    end
+
+    if Toggles.InfiniteRange and Toggles.InfiniteRange.Value then
+        ApplyBlatantToolMod(true,{'Range'},2500)
+    end
+
+    if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
+        ApplyBlatantToolMod(
+            true,
+            {'CurrentAmmo','Local_CurrentAmmo','MaxAmmo'},
+            999999
+        )
+    end
+end
+
 local function GetRainbowColor(offset)
     return Color3.fromHSV((RainbowHue+offset)%1,1,1)
 end
@@ -435,6 +559,37 @@ Toggles.DoorCollision:OnChanged(function()
     else
         RestoreDoorParts()
     end
+end)
+
+BlatantGroupBox:AddToggle('NoSpread',{
+    Text='No Spread',
+    Default=false
+})
+
+Toggles.NoSpread:OnChanged(function()
+    ApplyBlatantToolMod(Toggles.NoSpread.Value,{'SpreadRadius'},0)
+end)
+
+BlatantGroupBox:AddToggle('InfiniteRange',{
+    Text='Infinite Range',
+    Default=false
+})
+
+Toggles.InfiniteRange:OnChanged(function()
+    ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},2500)
+end)
+
+BlatantGroupBox:AddToggle('InfiniteAmmo',{
+    Text='Infinite Ammo',
+    Default=false
+})
+
+Toggles.InfiniteAmmo:OnChanged(function()
+    ApplyBlatantToolMod(
+        Toggles.InfiniteAmmo.Value,
+        {'CurrentAmmo','Local_CurrentAmmo','MaxAmmo'},
+        999999
+    )
 end)
 
 local BoxGroupBox=Tabs.Visuals:AddLeftGroupbox('Box')
@@ -1156,6 +1311,13 @@ end)
 RunService.RenderStepped:Connect(function(deltaTime)
     RainbowHue=(RainbowHue+deltaTime*0.5)%1
 
+    BlatantScanTimer+=deltaTime
+
+    if BlatantScanTimer>=BlatantScanInterval then
+        BlatantScanTimer=0
+        RefreshBlatantToolMods()
+    end
+
     if RainbowTools then
         local backpack=Player:FindFirstChildOfClass("Backpack")
 
@@ -1199,6 +1361,7 @@ Library:OnUnload(function()
 
     RestoreRainbowObjects()
     RestoreDoorParts()
+    RestoreBlatantToolMods()
 
     if ESPController then
         ESPController:Destroy()
