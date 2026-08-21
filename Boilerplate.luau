@@ -31,6 +31,7 @@ local AntiAimShowPreview = false
 local AntiAimPreviewRainbow = false
 local AntiAimPreviewHue = 0
 local AntiAimRandom = Random.new()
+local GameId=tostring(game.GameId)
 
 local function GetAntiAimRotation()
     return math.rad(AntiAimRandom:NextInteger(0, math.floor(AntiAimRandomization)))
@@ -1286,7 +1287,7 @@ SaveManager:SetIgnoreIndexes({
 })
 
 ThemeManager:SetFolder('leetware')
-SaveManager:SetFolder('leetware/configs/boilerplate')
+SaveManager:SetFolder('leetware/configs/'..GameId)
 
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])

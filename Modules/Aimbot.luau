@@ -8,6 +8,7 @@ function Aimbot.new(config)
     local UserInputService = config.UserInputService
     local Utils = config.Utils
     local Settings = config.Settings
+    local Mouse = Player:GetMouse()
     local Camera = Workspace.CurrentCamera
     local CurrentTarget = nil
     local Aiming = false
@@ -18,9 +19,9 @@ function Aimbot.new(config)
     local LockStartedInFirstPerson = false
     local PendingFirstPersonUnlock = false
     local MouseLockDisabled = false
-    local TriggerbotHeld = false
     local TriggerbotTarget = nil
-    local TriggerbotFireAt = nil
+    local TriggerbotTimer = 0
+    local TriggerbotWait = 0
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -329,81 +330,63 @@ function Aimbot.new(config)
         Aiming = false
         CurrentTarget = nil
         TriggerbotTarget = nil
-        TriggerbotFireAt = nil
-
-        if TriggerbotHeld and type(mouse1release) == "function" then
-            mouse1release()
-        end
-
-        TriggerbotHeld = false
+        TriggerbotTimer = 0
+        TriggerbotWait = 0
         MouseLockDisabled = false
         UnlockMouse()
         AimStartMouseBehavior = nil
     end
 
-    local function IsCursorOverHead(target)
-        local character = target and target.Character
-        local head = Utils.GetHead(target)
-
-        if not character or not head then
-            return false
-        end
-
-        local cursorPosition = UserInputService:GetMouseLocation()
-        local ray = Camera:ViewportPointToRay(
-            cursorPosition.X,
-            cursorPosition.Y
-        )
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {
-            Player.Character
-        }
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-        local result = Workspace:Raycast(
-            ray.Origin,
-            ray.Direction * 1000,
-            raycastParams
-        )
-
-        return result ~= nil and result.Instance:IsDescendantOf(head)
-    end
-
-    local function UpdateTriggerbot(target)
-        local canFire = Settings.Triggerbot
-            and Aiming
-            and target
-            and IsCursorOverHead(target)
-            and type(mouse1press) == "function"
-            and type(mouse1release) == "function"
-
-        if not canFire then
+    local function UpdateTriggerbot(deltaTime, target)
+        if not Settings.Triggerbot
+            or not Aiming
+            or not target
+            or type(mouse1press) ~= "function"
+            or type(mouse1release) ~= "function" then
             TriggerbotTarget = nil
-            TriggerbotFireAt = nil
-
-            if TriggerbotHeld then
-                mouse1release()
-                TriggerbotHeld = false
-            end
-
+            TriggerbotTimer = 0
+            TriggerbotWait = 0
             return
         end
 
-        if TriggerbotTarget ~= target then
-            TriggerbotTarget = target
-            local delay = math.clamp(
+        local hitPart = Mouse.Target
+        local targetCharacter = hitPart and hitPart.Parent
+        local targetPlayer = targetCharacter
+            and Players:GetPlayerFromCharacter(targetCharacter)
+        local isValidHead = targetPlayer == target
+            and targetPlayer ~= Player
+            and targetPlayer.Team ~= Player.Team
+            and hitPart.Name == "Head"
+
+        if not isValidHead then
+            TriggerbotTarget = nil
+            TriggerbotTimer = 0
+            return
+        end
+
+        if TriggerbotTarget ~= targetPlayer then
+            TriggerbotTarget = targetPlayer
+            TriggerbotTimer = 0
+            TriggerbotWait = math.random()
+                * math.clamp(
                 tonumber(Settings.TriggerbotDelay) or 0,
                 0,
                 0.3
             )
-            TriggerbotFireAt = os.clock() + math.random() * delay
         end
 
-        if not TriggerbotHeld
-            and TriggerbotFireAt
-            and os.clock() >= TriggerbotFireAt then
+        TriggerbotTimer = TriggerbotTimer + deltaTime
+
+        if TriggerbotTimer >= TriggerbotWait then
+            TriggerbotTimer = 0
+            TriggerbotWait = math.random()
+                * math.clamp(
+                tonumber(Settings.TriggerbotDelay) or 0,
+                0,
+                0.3
+            )
             mouse1press()
-            TriggerbotHeld = true
+            mouse1release()
         end
     end
 
@@ -477,7 +460,7 @@ function Aimbot.new(config)
         StopAiming()
     end)
 
-    local renderConnection = RunService.RenderStepped:Connect(function()
+    local renderConnection = RunService.RenderStepped:Connect(function(deltaTime)
         Camera = Workspace.CurrentCamera
 
         if not Camera then
@@ -511,7 +494,7 @@ function Aimbot.new(config)
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
 
-            UpdateTriggerbot(target)
+            UpdateTriggerbot(deltaTime, target)
 
             if aimPosition then
                 LockMouse()
