@@ -182,8 +182,6 @@ local DoorScanInterval=0.25
 local DoorScanTimer=0
 
 local BlatantToolValues={}
-local BlatantScanTimer=0
-local BlatantScanInterval=0.5
 
 local function GetPlayerTools()
     local tools={}
@@ -288,20 +286,27 @@ local function RestoreBlatantToolMods()
 end
 
 local function RefreshBlatantToolMods()
-    if Toggles.NoSpread and Toggles.NoSpread.Value then
-        ApplyBlatantToolMod(true,{'SpreadRadius'},0)
-    end
+    for _,tool in ipairs(GetPlayerTools()) do
+        if Toggles.NoSpread and Toggles.NoSpread.Value then
+            RememberToolValue(tool,'SpreadRadius')
+            SetToolValue(tool,'SpreadRadius',0)
+        end
 
-    if Toggles.InfiniteRange and Toggles.InfiniteRange.Value then
-        ApplyBlatantToolMod(true,{'Range'},2500)
-    end
+        if Toggles.InfiniteRange and Toggles.InfiniteRange.Value then
+            RememberToolValue(tool,'Range')
+            SetToolValue(tool,'Range',100000)
+        end
 
-    if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
-        ApplyBlatantToolMod(
-            true,
-            {'CurrentAmmo','Local_CurrentAmmo','MaxAmmo'},
-            999999
-        )
+        if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
+            local maxAmmo=tonumber(GetToolValue(tool,'MaxAmmo'))
+
+            if maxAmmo then
+                RememberToolValue(tool,'CurrentAmmo')
+                RememberToolValue(tool,'Local_CurrentAmmo')
+                SetToolValue(tool,'CurrentAmmo',maxAmmo)
+                SetToolValue(tool,'Local_CurrentAmmo',maxAmmo)
+            end
+        end
     end
 end
 
@@ -576,7 +581,7 @@ BlatantGroupBox:AddToggle('InfiniteRange',{
 })
 
 Toggles.InfiniteRange:OnChanged(function()
-    ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},2500)
+    ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},100000)
 end)
 
 BlatantGroupBox:AddToggle('InfiniteAmmo',{
@@ -585,11 +590,11 @@ BlatantGroupBox:AddToggle('InfiniteAmmo',{
 })
 
 Toggles.InfiniteAmmo:OnChanged(function()
-    ApplyBlatantToolMod(
-        Toggles.InfiniteAmmo.Value,
-        {'CurrentAmmo','Local_CurrentAmmo','MaxAmmo'},
-        999999
-    )
+    if Toggles.InfiniteAmmo.Value then
+        RefreshBlatantToolMods()
+    else
+        ApplyBlatantToolMod(false,{'CurrentAmmo','Local_CurrentAmmo'})
+    end
 end)
 
 local BoxGroupBox=Tabs.Visuals:AddLeftGroupbox('Box')
@@ -1311,12 +1316,7 @@ end)
 RunService.RenderStepped:Connect(function(deltaTime)
     RainbowHue=(RainbowHue+deltaTime*0.5)%1
 
-    BlatantScanTimer+=deltaTime
-
-    if BlatantScanTimer>=BlatantScanInterval then
-        BlatantScanTimer=0
-        RefreshBlatantToolMods()
-    end
+    RefreshBlatantToolMods()
 
     if RainbowTools then
         local backpack=Player:FindFirstChildOfClass("Backpack")
