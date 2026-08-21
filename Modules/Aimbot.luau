@@ -20,8 +20,7 @@ function Aimbot.new(config)
     local PendingFirstPersonUnlock = false
     local MouseLockDisabled = false
     local TriggerbotTarget = nil
-    local TriggerbotTimer = 0
-    local TriggerbotWait = 0
+    local TriggerbotNextFire = nil
 
     local FovCircle = Drawing.new("Circle")
     FovCircle.Thickness = 2
@@ -330,22 +329,33 @@ function Aimbot.new(config)
         Aiming = false
         CurrentTarget = nil
         TriggerbotTarget = nil
-        TriggerbotTimer = 0
-        TriggerbotWait = 0
+        TriggerbotNextFire = nil
         MouseLockDisabled = false
         UnlockMouse()
         AimStartMouseBehavior = nil
     end
 
-    local function UpdateTriggerbot(deltaTime, target)
+    local function GetTriggerbotDelay()
+        return math.random()
+            * math.clamp(
+            tonumber(Settings.TriggerbotDelay) or 0,
+            0,
+            0.3
+        )
+    end
+
+    local function ResetTriggerbot()
+        TriggerbotTarget = nil
+        TriggerbotNextFire = nil
+    end
+
+    local function UpdateTriggerbot(target)
         if not Settings.Triggerbot
             or not Aiming
             or not target
             or type(mouse1press) ~= "function"
             or type(mouse1release) ~= "function" then
-            TriggerbotTarget = nil
-            TriggerbotTimer = 0
-            TriggerbotWait = 0
+            ResetTriggerbot()
             return
         end
 
@@ -356,37 +366,23 @@ function Aimbot.new(config)
         local isValidHead = targetPlayer == target
             and targetPlayer ~= Player
             and targetPlayer.Team ~= Player.Team
+            and hitPart
             and hitPart.Name == "Head"
 
         if not isValidHead then
-            TriggerbotTarget = nil
-            TriggerbotTimer = 0
+            ResetTriggerbot()
             return
         end
 
         if TriggerbotTarget ~= targetPlayer then
             TriggerbotTarget = targetPlayer
-            TriggerbotTimer = 0
-            TriggerbotWait = math.random()
-                * math.clamp(
-                tonumber(Settings.TriggerbotDelay) or 0,
-                0,
-                0.3
-            )
+            TriggerbotNextFire = os.clock() + GetTriggerbotDelay()
         end
 
-        TriggerbotTimer = TriggerbotTimer + deltaTime
-
-        if TriggerbotTimer >= TriggerbotWait then
-            TriggerbotTimer = 0
-            TriggerbotWait = math.random()
-                * math.clamp(
-                tonumber(Settings.TriggerbotDelay) or 0,
-                0,
-                0.3
-            )
+        if TriggerbotNextFire and os.clock() >= TriggerbotNextFire then
             mouse1press()
             mouse1release()
+            TriggerbotNextFire = os.clock() + GetTriggerbotDelay()
         end
     end
 
@@ -494,8 +490,6 @@ function Aimbot.new(config)
             local target = GetLockedTarget()
             local aimPosition = GetAimPosition(target)
 
-            UpdateTriggerbot(deltaTime, target)
-
             if aimPosition then
                 LockMouse()
 
@@ -513,8 +507,11 @@ function Aimbot.new(config)
                     targetCFrame,
                     smoothing
                 )
+
+                UpdateTriggerbot(target)
             else
                 CurrentTarget = nil
+                ResetTriggerbot()
                 UnlockMouse()
             end
         end
