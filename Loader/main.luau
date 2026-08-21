@@ -67,37 +67,41 @@ local function runLoader(setStatus, closeUi)
 	return true
 end
 
-local loaderUi = UI.create(function(license, setStatus, closeUi)
-	setStatus("Authenticating license...", Color3.fromRGB(180, 180, 190))
+local function createLoaderUi()
+	return UI.create(function(license, setStatus, closeUi)
+		setStatus("Authenticating license...", Color3.fromRGB(180, 180, 190))
 
-	local ok, result = Auth.authenticate(license, hwid)
-	if not ok then
-		local message = type(result) == "string" and result or (result and result.error) or "Authentication failed"
-		return false, message
-	end
+		local ok, result = Auth.authenticate(license, hwid)
+		if not ok then
+			local message = type(result) == "string"
+				and result
+				or (result and result.error)
+				or "Authentication failed"
 
-	return runLoader(setStatus, closeUi)
-end)
+			return false, message
+		end
 
--- Auto-resume if saved license + session exist
+		return runLoader(setStatus, closeUi)
+	end)
+end
+
 task.defer(function()
 	local savedLicense = Auth.loadLicense()
-	local savedSession = Auth.loadSession()
+	local resumed = false
 
-	if savedLicense and savedSession then
-		local ok = Auth.validate(hwid)
-		if ok then
-			local loaded = pcall(function()
-				runSubloader()
+	if savedLicense then
+		local authenticated = Auth.authenticate(savedLicense, hwid)
+
+		if authenticated then
+			local completed, loaded = pcall(function()
+				return runLoader(function() end, function() end)
 			end)
 
-			if loaded then
-				startHeartbeat()
-				if loaderUi then
-					loaderUi:Destroy()
-					loaderUi = nil
-				end
-			end
+			resumed = completed and loaded == true
 		end
+	end
+
+	if not resumed then
+		createLoaderUi()
 	end
 end)

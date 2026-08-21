@@ -283,7 +283,6 @@ local ESPSettings = {
         Enabled = false,
         Bind = "MB2",
         Targeting = "Normal",
-        Range = 500,
         Fov = 100,
         Smoothing = 5,
         Prediction = 0.065,
@@ -1075,19 +1074,6 @@ AimbotSettingsGroupBox:AddSlider('AimbotFov', {
 
 Options.AimbotFov:OnChanged(function()
     ESPSettings.Aimbot.Fov = Options.AimbotFov.Value
-end)
-
-AimbotSettingsGroupBox:AddSlider('AimbotRange', {
-    Text = 'Range (Studs)',
-    Default = ESPSettings.Aimbot.Range,
-    Min = 1,
-    Max = 1500,
-    Rounding = 0,
-    Compact = false
-})
-
-Options.AimbotRange:OnChanged(function()
-    ESPSettings.Aimbot.Range = Options.AimbotRange.Value
 end)
 
 AimbotSettingsGroupBox:AddSlider('AimbotSmoothing', {
