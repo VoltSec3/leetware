@@ -11,7 +11,7 @@ Dispatcher._catalog = nil
 Dispatcher._catalogFetched = false
 
 function Dispatcher.getGameId()
-	return tostring(game.GameId)
+	return tostring(game.PlaceId)
 end
 
 -- Fetch the server-side game catalog once per session. Entries registered in

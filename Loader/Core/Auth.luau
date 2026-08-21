@@ -147,7 +147,7 @@ local function gameContext()
 	end
 
 	local context = {
-		gameId = tostring(game.GameId),
+		gameId = tostring(game.PlaceId),
 	}
 
 	local ok, name = pcall(function()

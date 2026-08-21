@@ -62,7 +62,7 @@ local function runLoader(setStatus, closeUi)
 	return true
 end
 
-UI.create(function(license, setStatus, closeUi)
+local loaderUi = UI.create(function(license, setStatus, closeUi)
 	setStatus("Authenticating license...", Color3.fromRGB(180, 180, 190))
 
 	local ok, result = Auth.authenticate(license, hwid)
@@ -82,10 +82,17 @@ task.defer(function()
 	if savedLicense and savedSession then
 		local ok = Auth.validate(hwid)
 		if ok then
-			pcall(function()
+			local loaded = pcall(function()
 				Dispatcher.load(Auth, hwid)
 			end)
-			startHeartbeat()
+
+			if loaded then
+				startHeartbeat()
+				if loaderUi then
+					loaderUi:Destroy()
+					loaderUi = nil
+				end
+			end
 		end
 	end
 end)
