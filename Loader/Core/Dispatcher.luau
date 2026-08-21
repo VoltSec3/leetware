@@ -56,25 +56,24 @@ function Dispatcher.resolve(gameId, auth)
 	gameId = gameId or Dispatcher.getGameId()
 
 	print("[leetware] GameId:", gameId)
-	print("[leetware] Registry entry:", Registry[gameId])
-
-	local entry = Registry[gameId]
-
-	if entry then
-		print("[leetware] Built-in registry matched:", entry.name)
-		return entry
-	end
-
-	print("[leetware] Built-in registry did not match, checking API catalog")
 
 	local catalog = Dispatcher.fetchCatalog(auth)
 
 	if catalog then
 		print("[leetware] API catalog entry:", catalog[gameId])
-		return catalog[gameId]
+		if catalog[gameId] then
+			return catalog[gameId]
+		end
 	end
 
-	print("[leetware] No catalog available")
+	local entry = Registry[gameId]
+
+	if entry then
+		print("[leetware] Using built-in registry fallback:", entry.name)
+		return entry
+	end
+
+	print("[leetware] No catalog or registry entry available")
 
 	return nil
 end

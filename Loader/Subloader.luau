@@ -1,25 +1,28 @@
 local baseUrl = "https://raw.githubusercontent.com/VoltSec3/leetware/main/"
-local registryUrl = baseUrl .. "Loader/Games/registry.luau"
-local fallbackUrl = baseUrl .. "Boilerplate.luau"
 
-local function fetchSource(url, label)
-    local source = game:HttpGet(url)
+local function loadModule(path, name)
+    local source = game:HttpGet(baseUrl .. path)
     local chunk, compileError = loadstring(source)
 
     assert(
         chunk,
-        string.format("Failed to compile %s: %s", label, tostring(compileError))
+        string.format("Failed to compile %s: %s", name, tostring(compileError))
     )
 
-    return chunk
+    return chunk()
 end
 
-local registry = fetchSource(registryUrl, "game registry")()
-local gameId = tostring(game.PlaceId)
-local entry = registry[gameId]
-local scriptUrl = entry and entry.scriptUrl or fallbackUrl
-local scriptName = entry and entry.name or "universal boilerplate"
+local function run(auth, hwid)
+    local Dispatcher = loadModule("Loader/Core/Dispatcher.luau", "Dispatcher")
+    local module, entry = Dispatcher.load(auth, hwid)
 
-warn(string.format("[leetware] Loading %s for PlaceId %s", scriptName, gameId))
+    warn(string.format(
+        "[leetware] Loading %s for PlaceId %s",
+        entry and entry.name or "universal boilerplate",
+        tostring(game.PlaceId)
+    ))
 
-return fetchSource(scriptUrl, scriptName)(), entry
+    return module, entry
+end
+
+return run

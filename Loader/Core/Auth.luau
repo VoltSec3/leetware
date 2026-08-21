@@ -258,6 +258,14 @@ function Auth.payload(moduleKey, hwid)
 		return false, "Payload denied (HTTP " .. tostring(response.StatusCode) .. ")"
 	end
 
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(response.Body)
+	end)
+
+	if ok and type(data) == "table" and data.payload and data.payload.available == false then
+		return false, data.payload.message or "Payload is not available"
+	end
+
 	return true, response.Body
 end
 

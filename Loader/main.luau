@@ -41,7 +41,7 @@ local function runSubloader()
 		string.format("Failed to compile subloader: %s", tostring(compileError))
 	)
 
-	return chunk()
+	return chunk()(Auth, hwid)
 end
 
 local function runLoader(setStatus, closeUi)

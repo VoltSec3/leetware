@@ -413,7 +413,7 @@ Execute the GitHub-hosted `Loader/main.luau` through your executor's `loadstring
 
 1. GUI prompts for a license (skipped when a saved session is still valid).
 2. `Auth.authenticate` tries saved session → activate → session, sending `gameId`/`gameName` for auto-registration.
-3. After authentication succeeds, `Loader/Subloader.luau` reads `game.PlaceId` and fetches the matching GitHub script from `Loader/Games/registry.luau`.
+3. After authentication succeeds, `Loader/Subloader.luau` reads `game.PlaceId` and resolves the matching enabled entry from `GET /api/games`. The built-in registry is retained as a fallback if the catalog request fails.
 4. The selected module is compiled and executed with `loadstring`.
 5. Unknown games get `Boilerplate.luau`.
 6. Heartbeat loop validates every 60 s; on invalidation the user is told to reload.
@@ -429,7 +429,7 @@ Full guide: [`docs/ADDING_GAMES.md`](../docs/ADDING_GAMES.md) (repo root). Summa
 | Path | When | Effort |
 |------|------|--------|
 | **A. Zero-touch** | Any new game | None — loader reports GameId, catalog self-registers, boilerplate runs until you add a module |
-| **B. Direct module** | You have a public script URL | Add registry entry *and/or* register in dashboard with `delivery: direct` |
+| **B. Direct module** | You have a public script URL | Register it in the dashboard with `delivery: direct` |
 | **C. Gated payload** | You want the source private/obfuscated | Set `delivery: api` and paste source into Dashboard → Games |
 
 ---
