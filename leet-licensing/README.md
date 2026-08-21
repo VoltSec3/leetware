@@ -413,8 +413,8 @@ Execute the GitHub-hosted `Loader/main.luau` through your executor's `loadstring
 
 1. GUI prompts for a license (skipped when a saved session is still valid).
 2. `Auth.authenticate` tries saved session → activate → session, sending `gameId`/`gameName` for auto-registration.
-3. `Dispatcher.resolve` checks the built-in registry, then the live server catalog from `/api/games`.
-4. Module source is fetched (direct URL or gated payload) and compiled with `loadstring`.
+3. After authentication succeeds, `Loader/Subloader.luau` reads `game.PlaceId` and fetches the matching GitHub script from `Loader/Games/registry.luau`.
+4. The selected module is compiled and executed with `loadstring`.
 5. Unknown games get `Boilerplate.luau`.
 6. Heartbeat loop validates every 60 s; on invalidation the user is told to reload.
 

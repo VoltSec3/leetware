@@ -1,4 +1,5 @@
 local baseUrl = "https://raw.githubusercontent.com/VoltSec3/leetware/main/"
+local subloaderUrl = baseUrl .. "Loader/Subloader.luau"
 
 local function loadModule(path, name)
 	local source = game:HttpGet(baseUrl .. path)
@@ -16,7 +17,6 @@ local Config = loadModule("Loader/Core/Config.luau", "Config")
 local HWID = loadModule("Loader/Core/HWID.luau", "HWID")
 local Auth = loadModule("Loader/Core/Auth.luau", "Auth")
 local Heartbeat = loadModule("Loader/Core/Heartbeat.luau", "Heartbeat")
-local Dispatcher = loadModule("Loader/Core/Dispatcher.luau", "Dispatcher")
 local UI = loadModule("Loader/UI/Login.luau", "UI")
 
 local hwid = HWID.generate()
@@ -32,6 +32,18 @@ local function startHeartbeat()
 	end)
 end
 
+local function runSubloader()
+	local source = game:HttpGet(subloaderUrl)
+	local chunk, compileError = loadstring(source)
+
+	assert(
+		chunk,
+		string.format("Failed to compile subloader: %s", tostring(compileError))
+	)
+
+	return chunk()
+end
+
 local function runLoader(setStatus, closeUi)
 	setStatus("Validating session...", Color3.fromRGB(180, 180, 190))
 
@@ -40,17 +52,10 @@ local function runLoader(setStatus, closeUi)
 		return false, "Session validation failed"
 	end
 
-	setStatus("Detecting game module...", Color3.fromRGB(180, 180, 190))
-
-	local gameEntry = Dispatcher.resolve(nil, Auth)
-	if gameEntry then
-		setStatus("Loading " .. gameEntry.name .. "...", Color3.fromRGB(180, 180, 190))
-	else
-		setStatus("Loading universal boilerplate...", Color3.fromRGB(180, 180, 190))
-	end
+	setStatus("Loading game module...", Color3.fromRGB(180, 180, 190))
 
 	local ok, err = pcall(function()
-		Dispatcher.load(Auth, hwid)
+		runSubloader()
 	end)
 
 	if not ok then
@@ -83,7 +88,7 @@ task.defer(function()
 		local ok = Auth.validate(hwid)
 		if ok then
 			local loaded = pcall(function()
-				Dispatcher.load(Auth, hwid)
+				runSubloader()
 			end)
 
 			if loaded then
