@@ -280,10 +280,6 @@ function ESP.new(config)
             return
         end
 
-        if data.Connection then
-            data.Connection:Disconnect()
-        end
-
         for _, object in pairs(data.Library) do
             DestroyDrawing(object)
         end
@@ -321,14 +317,14 @@ function ESP.new(config)
 
         local data = {
             Library = library,
-            Connection = nil,
+            Update = nil,
             LastBoxColor = nil,
             LastThickness = nil
         }
 
         Objects[plr] = data
 
-        data.Connection = RunService.RenderStepped:Connect(function()
+        data.Update = function()
             Camera = Workspace.CurrentCamera
 
             local boxSettings = Settings.Box
@@ -685,7 +681,7 @@ function ESP.new(config)
                 SetThickness(library, thickness)
                 data.LastThickness = thickness
             end
-        end)
+        end
     end
 
     local controller = {}
@@ -693,6 +689,30 @@ function ESP.new(config)
     for _, plr in ipairs(Players:GetPlayers()) do
         CreateObject(plr)
     end
+
+    local wasEnabled = false
+
+    local renderConnection = RunService.RenderStepped:Connect(function()
+        if not Settings.Box.Enabled then
+            if wasEnabled then
+                for _, data in pairs(Objects) do
+                    HideLibrary(data.Library)
+                end
+
+                wasEnabled = false
+            end
+
+            return
+        end
+
+        wasEnabled = true
+
+        for _, data in pairs(Objects) do
+            if data.Update then
+                data.Update()
+            end
+        end
+    end)
 
     controller.PlayerAdded =
         Players.PlayerAdded:Connect(function(plr)
@@ -705,6 +725,11 @@ function ESP.new(config)
         end)
 
     function controller:Destroy()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+
         if controller.PlayerAdded then
             controller.PlayerAdded:Disconnect()
             controller.PlayerAdded = nil
