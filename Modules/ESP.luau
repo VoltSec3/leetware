@@ -22,6 +22,20 @@ function ESP.new(config)
     local DefaultTextColor = Color3.fromRGB(255, 255, 255)
     local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
     local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
+    local BoxLineNames = {
+        "TL1",
+        "TL2",
+        "TR1",
+        "TR2",
+        "BL1",
+        "BL2",
+        "BR1",
+        "BR2",
+        "BoxTop",
+        "BoxBottom",
+        "BoxLeft",
+        "BoxRight"
+    }
 
     local function ValidColor(value, fallback)
         if typeof(value) == "Color3" then
@@ -127,7 +141,9 @@ function ESP.new(config)
     end
 
     local function SetThickness(library, thickness)
-        for _, object in pairs(library) do
+        for _, name in ipairs(BoxLineNames) do
+            local object = library[name]
+
             if object and object.Thickness ~= nil then
                 object.Thickness = thickness
             end
@@ -220,34 +236,27 @@ function ESP.new(config)
     end
 
     local function GetBounds(character)
+        local boundsCFrame, boundsSize = character:GetBoundingBox()
+        local half = boundsSize / 2
         local minX = math.huge
         local minY = math.huge
         local maxX = -math.huge
         local maxY = -math.huge
         local found = false
 
-        for _, object in ipairs(character:GetDescendants()) do
-            if object:IsA("BasePart") then
-                local half = object.Size / 2
-                local cf = object.CFrame
-
-                local corners = {
-                    cf * Vector3.new(-half.X, -half.Y, -half.Z),
-                    cf * Vector3.new(-half.X, -half.Y, half.Z),
-                    cf * Vector3.new(-half.X, half.Y, -half.Z),
-                    cf * Vector3.new(-half.X, half.Y, half.Z),
-                    cf * Vector3.new(half.X, -half.Y, -half.Z),
-                    cf * Vector3.new(half.X, -half.Y, half.Z),
-                    cf * Vector3.new(half.X, half.Y, -half.Z),
-                    cf * Vector3.new(half.X, half.Y, half.Z)
-                }
-
-                for _, corner in ipairs(corners) do
-                    local position = Camera:WorldToViewportPoint(corner)
+        for x = -1, 1, 2 do
+            for y = -1, 1, 2 do
+                for z = -1, 1, 2 do
+                    local position = Camera:WorldToViewportPoint(
+                        boundsCFrame * Vector3.new(
+                            half.X * x,
+                            half.Y * y,
+                            half.Z * z
+                        )
+                    )
 
                     if position.Z > 0 then
                         found = true
-
                         minX = math.min(minX, position.X)
                         minY = math.min(minY, position.Y)
                         maxX = math.max(maxX, position.X)
@@ -312,7 +321,9 @@ function ESP.new(config)
 
         local data = {
             Library = library,
-            Connection = nil
+            Connection = nil,
+            LastBoxColor = nil,
+            LastThickness = nil
         }
 
         Objects[plr] = data
@@ -396,18 +407,13 @@ function ESP.new(config)
                 height / 2
             )
 
-            library.TL1.Color = color
-            library.TL2.Color = color
-            library.TR1.Color = color
-            library.TR2.Color = color
-            library.BL1.Color = color
-            library.BL2.Color = color
-            library.BR1.Color = color
-            library.BR2.Color = color
-            library.BoxTop.Color = color
-            library.BoxBottom.Color = color
-            library.BoxLeft.Color = color
-            library.BoxRight.Color = color
+            if data.LastBoxColor ~= color then
+                for _, name in ipairs(BoxLineNames) do
+                    library[name].Color = color
+                end
+
+                data.LastBoxColor = color
+            end
 
             library.TL1.From = Vector2.new(left, top)
             library.TL1.To = Vector2.new(
@@ -675,23 +681,10 @@ function ESP.new(config)
                 )
             end
 
-            SetThickness(
-                {
-                    TL1 = library.TL1,
-                    TL2 = library.TL2,
-                    TR1 = library.TR1,
-                    TR2 = library.TR2,
-                    BL1 = library.BL1,
-                    BL2 = library.BL2,
-                    BR1 = library.BR1,
-                    BR2 = library.BR2,
-                    BoxTop = library.BoxTop,
-                    BoxBottom = library.BoxBottom,
-                    BoxLeft = library.BoxLeft,
-                    BoxRight = library.BoxRight
-                },
-                thickness
-            )
+            if data.LastThickness ~= thickness then
+                SetThickness(library, thickness)
+                data.LastThickness = thickness
+            end
         end)
     end
 
