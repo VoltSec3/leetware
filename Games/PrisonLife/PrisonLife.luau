@@ -81,6 +81,7 @@ local ESPSettings={
     Tracers={
         Enabled=false,
         Rainbow=false,
+        ShowNotInView=false,
         Color=Color3.fromRGB(255,0,0),
         Thickness=1,
         Transparency=1,
@@ -720,6 +721,16 @@ TracerGroupBox:AddToggle('ESPTracersRainbow',{
 
 Toggles.ESPTracersRainbow:OnChanged(function()
     ESPSettings.Tracers.Rainbow=Toggles.ESPTracersRainbow.Value
+end)
+
+TracerGroupBox:AddToggle('ESPTracersShowNotInView',{
+    Text='Show Not In View',
+    Default=ESPSettings.Tracers.ShowNotInView
+})
+
+Toggles.ESPTracersShowNotInView:OnChanged(function()
+    ESPSettings.Tracers.ShowNotInView=
+        Toggles.ESPTracersShowNotInView.Value
 end)
 
 TracerGroupBox:AddSlider('ESPTracerThickness',{

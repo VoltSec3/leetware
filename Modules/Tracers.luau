@@ -151,7 +151,7 @@ function Tracers.new(config)
                         root.Position
                     )
 
-                if position.Z <= 0 then
+                if position.Z <= 0 and not settings.ShowNotInView then
                     Hide(line)
                     return
                 end
