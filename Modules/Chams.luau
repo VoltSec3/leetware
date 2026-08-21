@@ -1,1 +1,258 @@
-local a = {} local g = function(b, c) if (((1 + 1) == 2) and a[b]) then return a[b] end local d = {} for e = 1, #b do d[e] = string.char(bit32.bxor(b[e], c)) end local f = table.concat(d) a[b] = f return f end local h = {} function h.new(i) local Players = i.Players local j = i.RunService local k = i.Workspace local l = i.Player local m = i.Settings local n = i.Utils local o = {} local p = Color3.fromRGB(255, 0, 0) local q = Color3.fromRGB(255, 255, 255) local function r(s, t) if (((15 * 15) == 225) and (typeof(s) == g({25, 53, 54, 53, 40, 105}, 90))) then return s end return t end local function u(v) if (((100 % 7) == 2) and not m.FriendCheck) then return false end return n.IsFriend(l, v) end local function w(x) local y = m.Chams if (((12 * 12) == 144) and y.Rainbow) then return Color3.fromHSV((((tick() % 5)) / 5), 0.6, 1) end if (((3 ^ 2) == 9) and ((m.TeamColor and m.TeamColor.BoxFill) and x.TeamColor)) then return r(x.TeamColor.Color, p) end return r(y.Color, p) end local function z(aa) local ab = o[aa] if (((7 * 7) == 49) and not ab) then return end if (((1 + 1) == 2) and ab.Connection) then ab.Connection:Disconnect() end if (((15 * 15) == 225) and ab.Highlight) then ab.Highlight:Destroy() end o[aa] = nil end local function ac(ad) if (((100 % 7) == 2) and ((ad == l) or o[ad])) then return end local ae = Instance.new(g({18, 51, 61, 50, 54, 51, 61, 50, 46}, 90)) ae.Name = g({54, 63, 63, 46, 45, 59, 40, 63, 5, 25, 50, 59, 55, 41}, 90) ae.Enabled = false ae.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop ae.FillColor = p ae.FillTransparency = 0.5 ae.OutlineColor = q ae.OutlineTransparency = 0 ae.Parent = game:GetService(g({25, 53, 40, 63, 29, 47, 51}, 90)) local af = {Highlight = ae, Connection = nil} o[ad] = af af.Connection = j.RenderStepped:Connect(function() local ag = m.Chams if (((12 * 12) == 144) and not ag.Enabled) then ae.Enabled = false ae.Adornee = nil return end local ah = ad.Character local ai = n.GetHumanoid(ad) local aj = n.GetRootPart(ad) if (((3 ^ 2) == 9) and (((not ah or not ai) or not aj) or (ai.Health <= 0))) then ae.Enabled = false ae.Adornee = nil return end local ak = k.CurrentCamera if (((7 * 7) == 49) and not ak) then ae.Enabled = false ae.Adornee = nil return end local al = ak:WorldToViewportPoint(aj.Position) if (((1 + 1) == 2) and (al.Z <= 0)) then ae.Enabled = false ae.Adornee = nil return end if (((15 * 15) == 225) and (((m.Box.TeamCheck and l.TeamColor) and ad.TeamColor) and (l.TeamColor == ad.TeamColor))) then ae.Enabled = false ae.Adornee = nil return end if (((100 % 7) == 2) and u(ad)) then ae.Enabled = false ae.Adornee = nil return end local am = w(ad) ae.Adornee = ah ae.Enabled = true ae.FillColor = am ae.FillTransparency = math.clamp((tonumber(ag.Transparency) or 0.5), 0, 1) ae.OutlineColor = r(ag.OutlineColor, q) ae.OutlineTransparency = ((ag.Outline and math.clamp((tonumber(ag.OutlineTransparency) or 0), 0, 1)) or 1) ae.DepthMode = ((ag.AlwaysOnTop and Enum.HighlightDepthMode.AlwaysOnTop) or Enum.HighlightDepthMode.Occluded) end) end local an = {} for ao, ap in ipairs(Players:GetPlayers()) do ac(ap) end an.PlayerAdded = Players.PlayerAdded:Connect(function(aq) ac(aq) end) an.PlayerRemoving = Players.PlayerRemoving:Connect(function(ar) z(ar) end) function an:Destroy() if (((12 * 12) == 144) and an.PlayerAdded) then an.PlayerAdded:Disconnect() an.PlayerAdded = nil end if (((3 ^ 2) == 9) and an.PlayerRemoving) then an.PlayerRemoving:Disconnect() an.PlayerRemoving = nil end for as in pairs(o) do z(as) end end return an end return h
+local Chams = {}
+
+function Chams.new(config)
+    local Players = config.Players
+    local RunService = config.RunService
+    local Workspace = config.Workspace
+    local Player = config.Player
+    local Settings = config.Settings
+    local Utils = config.Utils
+
+    local Objects = {}
+
+    local DefaultColor = Color3.fromRGB(255, 0, 0)
+    local DefaultOutline = Color3.fromRGB(255, 255, 255)
+
+    local function ValidColor(value, fallback)
+        if typeof(value) == "Color3" then
+            return value
+        end
+
+        return fallback
+    end
+
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        return Utils.IsFriend(Player, plr)
+    end
+
+    local function GetColor(plr)
+        local chamsSettings = Settings.Chams
+
+        if chamsSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
+        end
+
+        if Settings.TeamColor
+            and Settings.TeamColor.BoxFill
+            and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultColor
+            )
+        end
+
+        return ValidColor(
+            chamsSettings.Color,
+            DefaultColor
+        )
+    end
+
+    local function DestroyObject(plr)
+        local data = Objects[plr]
+
+        if not data then
+            return
+        end
+
+        if data.Highlight then
+            data.Highlight:Destroy()
+        end
+
+        Objects[plr] = nil
+    end
+
+    local function CreateObject(plr)
+        if plr == Player or Objects[plr] then
+            return
+        end
+
+        local highlight = Instance.new("Highlight")
+
+        highlight.Name = "leetware_Chams"
+        highlight.Enabled = false
+        highlight.DepthMode =
+            Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.FillColor = DefaultColor
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = DefaultOutline
+        highlight.OutlineTransparency = 0
+
+        highlight.Parent = game:GetService("CoreGui")
+
+        local data = {
+            Highlight = highlight,
+            Update = nil
+        }
+
+        Objects[plr] = data
+
+        data.Update = function()
+                local settings = Settings.Chams
+
+                if not settings.Enabled then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                local character = plr.Character
+
+                local humanoid = Utils.GetHumanoid(plr)
+
+                local root = Utils.GetRootPart(plr)
+
+                if not character
+                    or not humanoid
+                    or not root
+                    or humanoid.Health <= 0 then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                local camera = Workspace.CurrentCamera
+
+                if not camera then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                local position =
+                    camera:WorldToViewportPoint(
+                        root.Position
+                    )
+
+                if position.Z <= 0 then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                if Settings.Box.TeamCheck
+                    and Player.TeamColor
+                    and plr.TeamColor
+                    and Player.TeamColor == plr.TeamColor then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                if IsFriendBlocked(plr) then
+                    highlight.Enabled = false
+                    highlight.Adornee = nil
+                    return
+                end
+
+                local color = GetColor(plr)
+
+                highlight.Adornee = character
+                highlight.Enabled = true
+                highlight.FillColor = color
+                highlight.FillTransparency =
+                    math.clamp(
+                        tonumber(
+                            settings.Transparency
+                        ) or 0.5,
+                        0,
+                        1
+                    )
+
+                highlight.OutlineColor =
+                    ValidColor(
+                        settings.OutlineColor,
+                        DefaultOutline
+                    )
+
+                highlight.OutlineTransparency =
+                    settings.Outline
+                    and math.clamp(
+                        tonumber(
+                            settings.OutlineTransparency
+                        ) or 0,
+                        0,
+                        1
+                    )
+                    or 1
+
+                highlight.DepthMode =
+                    settings.AlwaysOnTop
+                    and Enum.HighlightDepthMode.AlwaysOnTop
+                    or Enum.HighlightDepthMode.Occluded
+            end
+    end
+
+    local controller = {}
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        CreateObject(plr)
+    end
+
+    local wasEnabled = false
+
+    local renderConnection = RunService.RenderStepped:Connect(function()
+        if not Settings.Chams.Enabled then
+            if wasEnabled then
+                for _, data in pairs(Objects) do
+                    data.Highlight.Enabled = false
+                    data.Highlight.Adornee = nil
+                end
+
+                wasEnabled = false
+            end
+
+            return
+        end
+
+        wasEnabled = true
+
+        for _, data in pairs(Objects) do
+            if data.Update then
+                data.Update()
+            end
+        end
+    end)
+
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
+
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
+
+    function controller:Destroy()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+
+        if controller.PlayerAdded then
+            controller.PlayerAdded:Disconnect()
+            controller.PlayerAdded = nil
+        end
+
+        if controller.PlayerRemoving then
+            controller.PlayerRemoving:Disconnect()
+            controller.PlayerRemoving = nil
+        end
+
+        for plr in pairs(Objects) do
+            DestroyObject(plr)
+        end
+    end
+
+    return controller
+end
+
+return Chams

@@ -1,1 +1,270 @@
-local a = {} local g = function(b, c) if (((1 + 1) == 2) and a[b]) then return a[b] end local d = {} for e = 1, #b do d[e] = string.char(bit32.bxor(b[e], c)) end local f = table.concat(d) a[b] = f return f end local h = {} function h.new(i) local Players = i.Players local j = i.RunService local k = i.Workspace local l = i.Player local m = i.Settings local n = i.Utils local o = (i.UserInputService or game:GetService(g({15, 41, 63, 40, 19, 52, 42, 47, 46, 9, 63, 40, 44, 51, 57, 63}, 90))) local p = k.CurrentCamera local q = {} local r = Color3.fromRGB(255, 0, 0) local function s(t, u) if (((15 * 15) == 225) and (typeof(t) == g({25, 53, 54, 53, 40, 105}, 90))) then return t end return u end local function v(w) if (((100 % 7) == 2) and not m.FriendCheck) then return false end return n.IsFriend(l, w) end local function x(y) local z = m.Tracers if (((12 * 12) == 144) and z.Rainbow) then return Color3.fromHSV((((tick() % 5)) / 5), 0.6, 1) end if (((3 ^ 2) == 9) and ((m.TeamColor and m.TeamColor.BoxBorder) and y.TeamColor)) then return s(y.TeamColor.Color, r) end return s(z.Color, r) end local function aa(ab) ab.Visible = false end local function ac(ad) local ae = q[ad] if (((7 * 7) == 49) and not ae) then return end if (((1 + 1) == 2) and ae.Connection) then ae.Connection:Disconnect() end if (((15 * 15) == 225) and ae.Line) then pcall(function() ae.Line:Remove() end) end q[ad] = nil end local function af(ag) if (((100 % 7) == 2) and ((ag == l) or q[ag])) then return end local ah = Drawing.new(g({22, 51, 52, 63}, 90)) ah.Visible = false ah.From = Vector2.new(0, 0) ah.To = Vector2.new(0, 0) ah.Color = r ah.Thickness = 1 ah.Transparency = 1 local ai = {Line = ah, Connection = nil} q[ag] = ai ai.Connection = j.RenderStepped:Connect(function() local aj = m.Tracers if (((12 * 12) == 144) and not aj.Enabled) then aa(ah) return end p = k.CurrentCamera if (((3 ^ 2) == 9) and not p) then aa(ah) return end local ak = ag.Character local al = n.GetHumanoid(ag) local am = n.GetRootPart(ag) if (((7 * 7) == 49) and (((not ak or not al) or not am) or (al.Health <= 0))) then aa(ah) return end if (((1 + 1) == 2) and (((m.Box.TeamCheck and l.TeamColor) and ag.TeamColor) and (l.TeamColor == ag.TeamColor))) then aa(ah) return end if (((15 * 15) == 225) and v(ag)) then aa(ah) return end local an = p:WorldToViewportPoint(am.Position) if (((100 % 7) == 2) and ((an.Z <= 0) and not aj.ShowNotInView)) then aa(ah) return end local ao = p.ViewportSize local ap if (((12 * 12) == 144) and (aj.Origin == g({14, 53, 42}, 90))) then ap = Vector2.new((ao.X / 2), 0) elseif (((3 ^ 2) == 9) and (aj.Origin == g({25, 63, 52, 46, 63, 40}, 90))) then ap = Vector2.new((ao.X / 2), (ao.Y / 2)) elseif (((7 * 7) == 49) and (aj.Origin == g({23, 53, 47, 41, 63}, 90))) then ap = o:GetMouseLocation() else ap = Vector2.new((ao.X / 2), ao.Y) end ah.From = ap ah.To = Vector2.new(an.X, an.Y) ah.Color = x(ag) ah.Thickness = math.clamp((tonumber(aj.Thickness) or 1), 1, 10) ah.Transparency = math.clamp((tonumber(aj.Transparency) or 1), 0, 1) ah.Visible = true end) end local aq = {} for ar, as in ipairs(Players:GetPlayers()) do af(as) end aq.PlayerAdded = Players.PlayerAdded:Connect(function(at) af(at) end) aq.PlayerRemoving = Players.PlayerRemoving:Connect(function(au) ac(au) end) function aq:Destroy() if (((1 + 1) == 2) and aq.PlayerAdded) then aq.PlayerAdded:Disconnect() aq.PlayerAdded = nil end if (((15 * 15) == 225) and aq.PlayerRemoving) then aq.PlayerRemoving:Disconnect() aq.PlayerRemoving = nil end for av in pairs(q) do ac(av) end end return aq end return h
+local Tracers = {}
+
+function Tracers.new(config)
+    local Players = config.Players
+    local RunService = config.RunService
+    local Workspace = config.Workspace
+    local Player = config.Player
+    local Settings = config.Settings
+    local Utils = config.Utils
+    local UserInputService =
+        config.UserInputService
+        or game:GetService("UserInputService")
+
+    local Camera = Workspace.CurrentCamera
+    local Objects = {}
+
+    local DefaultColor = Color3.fromRGB(255, 0, 0)
+
+    local function ValidColor(value, fallback)
+        if typeof(value) == "Color3" then
+            return value
+        end
+
+        return fallback
+    end
+
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        return Utils.IsFriend(Player, plr)
+    end
+
+    local function GetColor(plr)
+        local tracerSettings = Settings.Tracers
+
+        if tracerSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
+        end
+
+        if Settings.TeamColor
+            and Settings.TeamColor.BoxBorder
+            and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultColor
+            )
+        end
+
+        return ValidColor(
+            tracerSettings.Color,
+            DefaultColor
+        )
+    end
+
+    local function Hide(line)
+        line.Visible = false
+    end
+
+    local function DestroyObject(plr)
+        local data = Objects[plr]
+
+        if not data then
+            return
+        end
+
+        if data.Line then
+            pcall(function()
+                data.Line:Remove()
+            end)
+        end
+
+        Objects[plr] = nil
+    end
+
+    local function CreateObject(plr)
+        if plr == Player or Objects[plr] then
+            return
+        end
+
+        local line = Drawing.new("Line")
+
+        line.Visible = false
+        line.From = Vector2.new(0, 0)
+        line.To = Vector2.new(0, 0)
+        line.Color = DefaultColor
+        line.Thickness = 1
+        line.Transparency = 1
+
+        local data = {
+            Line = line,
+            Update = nil
+        }
+
+        Objects[plr] = data
+
+        data.Update = function()
+                local settings = Settings.Tracers
+
+                if not settings.Enabled then
+                    Hide(line)
+                    return
+                end
+
+                Camera = Workspace.CurrentCamera
+
+                if not Camera then
+                    Hide(line)
+                    return
+                end
+
+                local character = plr.Character
+
+                local humanoid = Utils.GetHumanoid(plr)
+
+                local root = Utils.GetRootPart(plr)
+
+                if not character
+                    or not humanoid
+                    or not root
+                    or humanoid.Health <= 0 then
+                    Hide(line)
+                    return
+                end
+
+                if Settings.Box.TeamCheck
+                    and Player.TeamColor
+                    and plr.TeamColor
+                    and Player.TeamColor == plr.TeamColor then
+                    Hide(line)
+                    return
+                end
+
+                if IsFriendBlocked(plr) then
+                    Hide(line)
+                    return
+                end
+
+                local position =
+                    Camera:WorldToViewportPoint(
+                        root.Position
+                    )
+
+                if position.Z <= 0 and not settings.ShowNotInView then
+                    Hide(line)
+                    return
+                end
+
+                local viewport =
+                    Camera.ViewportSize
+
+                local origin
+
+                if settings.Origin == "Top" then
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        0
+                    )
+                elseif settings.Origin == "Center" then
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        viewport.Y / 2
+                    )
+                elseif settings.Origin == "Mouse" then
+                    origin =
+                        UserInputService:GetMouseLocation()
+                else
+                    origin = Vector2.new(
+                        viewport.X / 2,
+                        viewport.Y
+                    )
+                end
+
+                line.From = origin
+
+                line.To = Vector2.new(
+                    position.X,
+                    position.Y
+                )
+
+                line.Color = GetColor(plr)
+
+                line.Thickness =
+                    math.clamp(
+                        tonumber(settings.Thickness) or 1,
+                        1,
+                        10
+                    )
+
+                line.Transparency =
+                    math.clamp(
+                        tonumber(settings.Transparency) or 1,
+                        0,
+                        1
+                    )
+
+                line.Visible = true
+            end
+    end
+
+    local controller = {}
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        CreateObject(plr)
+    end
+
+    local wasEnabled = false
+
+    local renderConnection = RunService.RenderStepped:Connect(function()
+        if not Settings.Tracers.Enabled then
+            if wasEnabled then
+                for _, data in pairs(Objects) do
+                    Hide(data.Line)
+                end
+
+                wasEnabled = false
+            end
+
+            return
+        end
+
+        wasEnabled = true
+
+        for _, data in pairs(Objects) do
+            if data.Update then
+                data.Update()
+            end
+        end
+    end)
+
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
+
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
+
+    function controller:Destroy()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+
+        if controller.PlayerAdded then
+            controller.PlayerAdded:Disconnect()
+            controller.PlayerAdded = nil
+        end
+
+        if controller.PlayerRemoving then
+            controller.PlayerRemoving:Disconnect()
+            controller.PlayerRemoving = nil
+        end
+
+        for plr in pairs(Objects) do
+            DestroyObject(plr)
+        end
+    end
+
+    return controller
+end
+
+return Tracers

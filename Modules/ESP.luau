@@ -1,1 +1,779 @@
-local ESP = {} function ESP.new(config) local Players = config.Players local RunService = config.RunService local Workspace = config.Workspace local Player = config.Player local Utils = config.Utils local Settings = config.Settings local Camera = Workspace.CurrentCamera local Objects = {} local Fonts = {UI = 0, System = 1, Plex = 2, Monospace = 3} local DefaultBoxColor = Color3.fromRGB(255, 0, 0) local DefaultTextColor = Color3.fromRGB(255, 255, 255) local DefaultHealthBorder = Color3.fromRGB(0, 0, 0) local DefaultHealthFill = Color3.fromRGB(255, 255, 255) local BoxLineNames = {"TL1", "TL2", "TR1", "TR2", "BL1", "BL2", "BR1", "BR2", "BoxTop", "BoxBottom", "BoxLeft", "BoxRight"} local function ValidColor(value, fallback) if (typeof(value) == "Color3") then return value end return fallback end local function IsFriendBlocked(plr) if not Settings.FriendCheck then return false end return Utils.IsFriend(Player, plr) end local function GetTeamColor(plr, fallback) if plr.TeamColor then return ValidColor(plr.TeamColor.Color, fallback) end return fallback end local function DarkenColor(color) local teamSettings = (Settings.TeamColor or {}) local amount = (math.clamp((tonumber(teamSettings.DarkenAmount) or 0), 0, 100) / 100) return Color3.new((color.R * ((1 - amount))), (color.G * ((1 - amount))), (color.B * ((1 - amount)))) end local function NewLine() local line = Drawing.new("Line") line.Visible = false line.From = Vector2.new(0, 0) line.To = Vector2.new(0, 0) line.Color = DefaultBoxColor line.Thickness = 2 line.Transparency = 1 return line end local function NewSquare(color) local square = Drawing.new("Square") square.Visible = false square.Position = Vector2.new(0, 0) square.Size = Vector2.new(0, 0) square.Thickness = 1 square.Filled = true square.Transparency = 1 square.Color = ValidColor(color, DefaultBoxColor) return square end local function NewText() local text = Drawing.new("Text") text.Visible = false text.Text = "" text.Size = 14 text.Center = true text.Outline = true text.OutlineColor = Color3.fromRGB(0, 0, 0) text.Position = Vector2.new(0, 0) text.Font = Fonts.UI text.Transparency = 1 text.Color = DefaultTextColor return text end local function Hide(object) if object then object.Visible = false end end local function HideLibrary(library) for _, object in pairs(library) do Hide(object) end end local function DestroyDrawing(object) if object then pcall(function() object:Remove() end) end end local function SetThickness(library, thickness) for _, name in ipairs(BoxLineNames) do local object = library[name] if (object and (object.Thickness ~= nil)) then object.Thickness = thickness end end end local function GetColor(plr) local boxSettings = Settings.Box if boxSettings.Rainbow then return Color3.fromHSV((((tick() % 5)) / 5), 0.6, 1) end if (boxSettings.TeamColor and plr.TeamColor) then return ValidColor(plr.TeamColor.Color, DefaultBoxColor) end return ValidColor(boxSettings.Color, DefaultBoxColor) end local function GetElementColor(plr, element, fallback) local teamSettings = (Settings.TeamColor or {}) local color = ValidColor(fallback, DefaultBoxColor) if teamSettings[element] then color = GetTeamColor(plr, color) if ((((element == "BoxBorder") or (element == "HealthBorder"))) and teamSettings.DarkenBorders) then color = DarkenColor(color) end end return color end local function IsTeamBlocked(plr) local boxSettings = Settings.Box if not boxSettings.TeamCheck then return false end if (not plr.TeamColor or not Player.TeamColor) then return false end return (plr.TeamColor == Player.TeamColor) end local function GetTextColor(plr, textType) local infoSettings = Settings.Information if Settings.TeamColor.Text then return GetElementColor(plr, "Text", DefaultTextColor) end if not infoSettings.CustomTextColor then return GetColor(plr) end if (textType == "Name") then return ValidColor(infoSettings.NameColor, DefaultTextColor) end if (textType == "Weapon") then return ValidColor(infoSettings.WeaponColor, DefaultTextColor) end return ValidColor(infoSettings.TeamTextColor, DefaultTextColor) end local function GetBounds(parts) local minX = math.huge local minY = math.huge local maxX = -math.huge local maxY = -math.huge local found = false for _, part in ipairs(parts) do if part.Parent then local half = (part.Size / 2) for x = -1, 1, 2 do for y = -1, 1, 2 do for z = -1, 1, 2 do local position = Camera:WorldToViewportPoint((part.CFrame * Vector3.new((half.X * x), (half.Y * y), (half.Z * z)))) if (position.Z > 0) then found = true minX = math.min(minX, position.X) minY = math.min(minY, position.Y) maxX = math.max(maxX, position.X) maxY = math.max(maxY, position.Y) end end end end end end if not found then return nil end return minX, minY, maxX, maxY end local function DestroyObject(plr) local data = Objects[plr] if not data then return end for _, object in pairs(data.Library) do DestroyDrawing(object) end Objects[plr] = nil end local function CreateObject(plr) if ((plr == Player) or Objects[plr]) then return end local library = {TL1 = NewLine(), TL2 = NewLine(), TR1 = NewLine(), TR2 = NewLine(), BL1 = NewLine(), BL2 = NewLine(), BR1 = NewLine(), BR2 = NewLine(), BoxTop = NewLine(), BoxBottom = NewLine(), BoxLeft = NewLine(), BoxRight = NewLine(), Fill = NewSquare(), Name = NewText(), Team = NewText(), Weapon = NewText(), HealthOutline = NewSquare(DefaultHealthBorder), HealthBar = NewSquare(DefaultHealthFill)} library.HealthOutline.Filled = false local data = {Library = library, Update = nil, Character = nil, Parts = {}, LastBoxColor = nil, LastThickness = nil} Objects[plr] = data data.Update = function() Camera = Workspace.CurrentCamera local boxSettings = Settings.Box local fillSettings = Settings.Fill local infoSettings = Settings.Information local healthSettings = Settings.Health if (not Camera or not boxSettings.Enabled) then HideLibrary(library) return end local character = plr.Character local humanoid = Utils.GetHumanoid(plr) local root = Utils.GetRootPart(plr) if (((not character or not humanoid) or not root) or (humanoid.Health <= 0)) then HideLibrary(library) return end if (data.Character ~= character) then data.Character = character data.Parts = {} for _, part in ipairs(character:GetDescendants()) do if (part:IsA("BasePart") and (part.Name ~= "HumanoidRootPart")) then table.insert(data.Parts, part) end end end if IsTeamBlocked(plr) then HideLibrary(library) return end if IsFriendBlocked(plr) then HideLibrary(library) return end local rootPosition = Camera:WorldToViewportPoint(root.Position) local distance = ((root.Position - Camera.CFrame.Position)).Magnitude if (rootPosition.Z <= 0) then HideLibrary(library) return end local left, top, right, bottom = GetBounds(data.Parts) if not left then HideLibrary(library) return end local width = math.max((right - left), 1) local height = math.max((bottom - top), 1) local color = GetElementColor(plr, "BoxBorder", GetColor(plr)) local cornerLength = (math.min(width, height) * 0.25) cornerLength = math.max(cornerLength, 2) cornerLength = math.min(cornerLength, (width / 2), (height / 2)) if (data.LastBoxColor ~= color) then for _, name in ipairs(BoxLineNames) do library[name].Color = color end data.LastBoxColor = color end library.TL1.From = Vector2.new(left, top) library.TL1.To = Vector2.new((left + cornerLength), top) library.TL2.From = Vector2.new(left, top) library.TL2.To = Vector2.new(left, (top + cornerLength)) library.TR1.From = Vector2.new(right, top) library.TR1.To = Vector2.new((right - cornerLength), top) library.TR2.From = Vector2.new(right, top) library.TR2.To = Vector2.new(right, (top + cornerLength)) library.BL1.From = Vector2.new(left, bottom) library.BL1.To = Vector2.new((left + cornerLength), bottom) library.BL2.From = Vector2.new(left, bottom) library.BL2.To = Vector2.new(left, (bottom - cornerLength)) library.BR1.From = Vector2.new(right, bottom) library.BR1.To = Vector2.new((right - cornerLength), bottom) library.BR2.From = Vector2.new(right, bottom) library.BR2.To = Vector2.new(right, (bottom - cornerLength)) library.BoxTop.From = Vector2.new(left, top) library.BoxTop.To = Vector2.new(right, top) library.BoxBottom.From = Vector2.new(left, bottom) library.BoxBottom.To = Vector2.new(right, bottom) library.BoxLeft.From = Vector2.new(left, top) library.BoxLeft.To = Vector2.new(left, bottom) library.BoxRight.From = Vector2.new(right, top) library.BoxRight.To = Vector2.new(right, bottom) local isCorner = (boxSettings.Style == "Corner") library.TL1.Visible = isCorner library.TL2.Visible = isCorner library.TR1.Visible = isCorner library.TR2.Visible = isCorner library.BL1.Visible = isCorner library.BL2.Visible = isCorner library.BR1.Visible = isCorner library.BR2.Visible = isCorner library.BoxTop.Visible = not isCorner library.BoxBottom.Visible = not isCorner library.BoxLeft.Visible = not isCorner library.BoxRight.Visible = not isCorner if fillSettings.Enabled then library.Fill.Visible = true library.Fill.Color = GetElementColor(plr, "BoxFill", ValidColor(fillSettings.Color, DefaultBoxColor)) library.Fill.Transparency = math.clamp(fillSettings.Opacity, 0, 1) library.Fill.Position = Vector2.new(left, top) library.Fill.Size = Vector2.new(width, height) else library.Fill.Visible = false end local nameScale = math.clamp((tonumber(infoSettings.NameScale) or 14), 1, 100) library.Name.Visible = infoSettings.ShowName library.Name.Text = tostring(((infoSettings.ShowDisplayName and plr.DisplayName) or plr.Name)) library.Name.Color = GetTextColor(plr, "Name") library.Name.Size = nameScale library.Name.Font = (Fonts[infoSettings.Font] or Fonts.UI) library.Name.Position = Vector2.new((((left + right)) / 2), ((top - nameScale) - 5)) library.Team.Visible = infoSettings.ShowTeam library.Team.Text = ((plr.Team and tostring(plr.Team.Name)) or "Neutral") library.Team.Color = GetTextColor(plr, "Team") library.Team.Size = math.max((nameScale - 1), 10) library.Team.Font = (Fonts[infoSettings.Font] or Fonts.UI) library.Team.Position = Vector2.new((((left + right)) / 2), (top - (((infoSettings.ShowName and (nameScale + 19)) or 18)))) local weaponName = Utils.GetEquippedToolName(plr) library.Weapon.Visible = (infoSettings.ShowWeapon and (weaponName ~= nil)) library.Weapon.Text = (weaponName or "") library.Weapon.Color = GetTextColor(plr, "Weapon") library.Weapon.Size = math.max((nameScale - 1), 10) library.Weapon.Font = (Fonts[infoSettings.Font] or Fonts.UI) library.Weapon.Position = Vector2.new((((left + right)) / 2), (bottom + 5)) local healthRatio = 0 if (humanoid.MaxHealth > 0) then healthRatio = math.clamp((humanoid.Health / humanoid.MaxHealth), 0, 1) end library.HealthOutline.Visible = healthSettings.Enabled library.HealthOutline.Color = GetElementColor(plr, "HealthBorder", healthSettings.BorderColor) library.HealthOutline.Position = Vector2.new((right + 5), top) library.HealthOutline.Size = Vector2.new(5, height) library.HealthBar.Visible = healthSettings.Enabled library.HealthBar.Color = GetElementColor(plr, "HealthFill", healthSettings.FillColor) library.HealthBar.Position = Vector2.new((right + 6), ((bottom - ((((height - 2)) * healthRatio))) - 1)) library.HealthBar.Size = Vector2.new(3, math.max((((height - 2)) * healthRatio), 0)) local thickness if boxSettings.AutoThickness then thickness = math.clamp((100 / math.max((distance or 1), 1)), 1, 4) else thickness = math.clamp((tonumber(boxSettings.Thickness) or 2), 1, 20) end if (data.LastThickness ~= thickness) then SetThickness(library, thickness) data.LastThickness = thickness end end end local controller = {} for _, plr in ipairs(Players:GetPlayers()) do CreateObject(plr) end local wasEnabled = false local renderConnection = RunService.RenderStepped:Connect(function() if not Settings.Box.Enabled then if wasEnabled then for _, data in pairs(Objects) do HideLibrary(data.Library) end wasEnabled = false end return end wasEnabled = true for _, data in pairs(Objects) do if data.Update then data.Update() end end end) controller.PlayerAdded = Players.PlayerAdded:Connect(function(plr) CreateObject(plr) end) controller.PlayerRemoving = Players.PlayerRemoving:Connect(function(plr) DestroyObject(plr) end) function controller:Destroy() if renderConnection then renderConnection:Disconnect() renderConnection = nil end if controller.PlayerAdded then controller.PlayerAdded:Disconnect() controller.PlayerAdded = nil end if controller.PlayerRemoving then controller.PlayerRemoving:Disconnect() controller.PlayerRemoving = nil end for plr in pairs(Objects) do DestroyObject(plr) end end return controller end return ESP
+local ESP = {}
+
+function ESP.new(config)
+    local Players = config.Players
+    local RunService = config.RunService
+    local Workspace = config.Workspace
+    local Player = config.Player
+    local Utils = config.Utils
+
+    local Settings = config.Settings
+    local Camera = Workspace.CurrentCamera
+    local Objects = {}
+
+    local Fonts = {
+        UI = 0,
+        System = 1,
+        Plex = 2,
+        Monospace = 3
+    }
+
+    local DefaultBoxColor = Color3.fromRGB(255, 0, 0)
+    local DefaultTextColor = Color3.fromRGB(255, 255, 255)
+    local DefaultHealthBorder = Color3.fromRGB(0, 0, 0)
+    local DefaultHealthFill = Color3.fromRGB(255, 255, 255)
+    local BoxLineNames = {
+        "TL1",
+        "TL2",
+        "TR1",
+        "TR2",
+        "BL1",
+        "BL2",
+        "BR1",
+        "BR2",
+        "BoxTop",
+        "BoxBottom",
+        "BoxLeft",
+        "BoxRight"
+    }
+
+    local function ValidColor(value, fallback)
+        if typeof(value) == "Color3" then
+            return value
+        end
+
+        return fallback
+    end
+
+    local function IsFriendBlocked(plr)
+        if not Settings.FriendCheck then
+            return false
+        end
+
+        return Utils.IsFriend(Player, plr)
+    end
+
+    local function GetTeamColor(plr, fallback)
+        if plr.TeamColor then
+            return ValidColor(plr.TeamColor.Color, fallback)
+        end
+
+        return fallback
+    end
+
+    local function DarkenColor(color)
+        local teamSettings = Settings.TeamColor or {}
+        local amount = math.clamp(
+            tonumber(teamSettings.DarkenAmount) or 0,
+            0,
+            100
+        ) / 100
+
+        return Color3.new(
+            color.R * (1 - amount),
+            color.G * (1 - amount),
+            color.B * (1 - amount)
+        )
+    end
+
+    local function NewLine()
+        local line = Drawing.new("Line")
+
+        line.Visible = false
+        line.From = Vector2.new(0, 0)
+        line.To = Vector2.new(0, 0)
+        line.Color = DefaultBoxColor
+        line.Thickness = 2
+        line.Transparency = 1
+
+        return line
+    end
+
+    local function NewSquare(color)
+        local square = Drawing.new("Square")
+
+        square.Visible = false
+        square.Position = Vector2.new(0, 0)
+        square.Size = Vector2.new(0, 0)
+        square.Thickness = 1
+        square.Filled = true
+        square.Transparency = 1
+        square.Color = ValidColor(color, DefaultBoxColor)
+
+        return square
+    end
+
+    local function NewText()
+        local text = Drawing.new("Text")
+
+        text.Visible = false
+        text.Text = ""
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.OutlineColor = Color3.fromRGB(0, 0, 0)
+        text.Position = Vector2.new(0, 0)
+        text.Font = Fonts.UI
+        text.Transparency = 1
+        text.Color = DefaultTextColor
+
+        return text
+    end
+
+    local function Hide(object)
+        if object then
+            object.Visible = false
+        end
+    end
+
+    local function HideLibrary(library)
+        for _, object in pairs(library) do
+            Hide(object)
+        end
+    end
+
+    local function DestroyDrawing(object)
+        if object then
+            pcall(function()
+                object:Remove()
+            end)
+        end
+    end
+
+    local function SetThickness(library, thickness)
+        for _, name in ipairs(BoxLineNames) do
+            local object = library[name]
+
+            if object and object.Thickness ~= nil then
+                object.Thickness = thickness
+            end
+        end
+    end
+
+    local function GetColor(plr)
+        local boxSettings = Settings.Box
+
+        if boxSettings.Rainbow then
+            return Color3.fromHSV(
+                (tick() % 5) / 5,
+                0.6,
+                1
+            )
+        end
+
+        if boxSettings.TeamColor and plr.TeamColor then
+            return ValidColor(
+                plr.TeamColor.Color,
+                DefaultBoxColor
+            )
+        end
+
+        return ValidColor(
+            boxSettings.Color,
+            DefaultBoxColor
+        )
+    end
+
+    local function GetElementColor(plr, element, fallback)
+        local teamSettings = Settings.TeamColor or {}
+        local color = ValidColor(fallback, DefaultBoxColor)
+
+        if teamSettings[element] then
+            color = GetTeamColor(plr, color)
+
+            if (element == "BoxBorder" or element == "HealthBorder")
+                and teamSettings.DarkenBorders then
+                color = DarkenColor(color)
+            end
+        end
+
+        return color
+    end
+
+    local function IsTeamBlocked(plr)
+        local boxSettings = Settings.Box
+
+        if not boxSettings.TeamCheck then
+            return false
+        end
+
+        if not plr.TeamColor or not Player.TeamColor then
+            return false
+        end
+
+        return plr.TeamColor == Player.TeamColor
+    end
+
+    local function GetTextColor(plr, textType)
+        local infoSettings = Settings.Information
+
+            if Settings.TeamColor.Text then
+                return GetElementColor(plr, "Text", DefaultTextColor)
+        end
+
+        if not infoSettings.CustomTextColor then
+            return GetColor(plr)
+        end
+
+        if textType == "Name" then
+            return ValidColor(
+                infoSettings.NameColor,
+                DefaultTextColor
+            )
+        end
+
+        if textType == "Weapon" then
+            return ValidColor(
+                infoSettings.WeaponColor,
+                DefaultTextColor
+            )
+        end
+
+        return ValidColor(
+            infoSettings.TeamTextColor,
+            DefaultTextColor
+        )
+    end
+
+    local function GetBounds(parts)
+        local minX = math.huge
+        local minY = math.huge
+        local maxX = -math.huge
+        local maxY = -math.huge
+        local found = false
+
+        for _, part in ipairs(parts) do
+            if part.Parent then
+                local half = part.Size / 2
+
+                for x = -1, 1, 2 do
+                    for y = -1, 1, 2 do
+                        for z = -1, 1, 2 do
+                            local position = Camera:WorldToViewportPoint(
+                                part.CFrame * Vector3.new(
+                                    half.X * x,
+                                    half.Y * y,
+                                    half.Z * z
+                                )
+                            )
+
+                            if position.Z > 0 then
+                                found = true
+                                minX = math.min(minX, position.X)
+                                minY = math.min(minY, position.Y)
+                                maxX = math.max(maxX, position.X)
+                                maxY = math.max(maxY, position.Y)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if not found then
+            return nil
+        end
+
+        return minX, minY, maxX, maxY
+    end
+
+    local function DestroyObject(plr)
+        local data = Objects[plr]
+
+        if not data then
+            return
+        end
+
+        for _, object in pairs(data.Library) do
+            DestroyDrawing(object)
+        end
+
+        Objects[plr] = nil
+    end
+
+    local function CreateObject(plr)
+        if plr == Player or Objects[plr] then
+            return
+        end
+
+        local library = {
+            TL1 = NewLine(),
+            TL2 = NewLine(),
+            TR1 = NewLine(),
+            TR2 = NewLine(),
+            BL1 = NewLine(),
+            BL2 = NewLine(),
+            BR1 = NewLine(),
+            BR2 = NewLine(),
+            BoxTop = NewLine(),
+            BoxBottom = NewLine(),
+            BoxLeft = NewLine(),
+            BoxRight = NewLine(),
+            Fill = NewSquare(),
+            Name = NewText(),
+            Team = NewText(),
+            Weapon = NewText(),
+            HealthOutline = NewSquare(DefaultHealthBorder),
+            HealthBar = NewSquare(DefaultHealthFill)
+        }
+
+        library.HealthOutline.Filled = false
+
+        local data = {
+            Library = library,
+            Update = nil,
+            Character = nil,
+            Parts = {},
+            LastBoxColor = nil,
+            LastThickness = nil
+        }
+
+        Objects[plr] = data
+
+        data.Update = function()
+            local boxSettings = Settings.Box
+            local fillSettings = Settings.Fill
+            local infoSettings = Settings.Information
+            local healthSettings = Settings.Health
+
+            if not boxSettings.Enabled then
+                HideLibrary(library)
+                return
+            end
+
+            local character = plr.Character
+
+                local humanoid = Utils.GetHumanoid(plr)
+
+                local root = Utils.GetRootPart(plr)
+
+            if not character
+                or not humanoid
+                or not root
+                or humanoid.Health <= 0 then
+                HideLibrary(library)
+                return
+            end
+
+            if data.Character ~= character then
+                data.Character = character
+                data.Parts = {}
+
+                for _, part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart")
+                        and part.Name ~= "HumanoidRootPart"
+                        and not part:FindFirstAncestorWhichIsA("Accessory")
+                        and not part:FindFirstAncestorWhichIsA("Tool") then
+                        table.insert(data.Parts, part)
+                    end
+                end
+            end
+
+            if IsTeamBlocked(plr) then
+                HideLibrary(library)
+                return
+            end
+
+            if IsFriendBlocked(plr) then
+                HideLibrary(library)
+                return
+            end
+
+            local rootPosition = Camera:WorldToViewportPoint(
+                root.Position
+            )
+
+            local distance = (
+                root.Position - Camera.CFrame.Position
+            ).Magnitude
+
+            if rootPosition.Z <= 0 then
+                HideLibrary(library)
+                return
+            end
+
+            local left, top, right, bottom = GetBounds(data.Parts)
+
+            if not left then
+                HideLibrary(library)
+                return
+            end
+
+            local width = math.max(right - left, 1)
+            local height = math.max(bottom - top, 1)
+            local color = GetElementColor(
+                plr,
+                "BoxBorder",
+                GetColor(plr)
+            )
+
+            local cornerLength =
+                math.min(width, height) * 0.25
+
+            cornerLength = math.max(
+                cornerLength,
+                2
+            )
+
+            cornerLength = math.min(
+                cornerLength,
+                width / 2,
+                height / 2
+            )
+
+            if data.LastBoxColor ~= color then
+                for _, name in ipairs(BoxLineNames) do
+                    library[name].Color = color
+                end
+
+                data.LastBoxColor = color
+            end
+
+            library.TL1.From = Vector2.new(left, top)
+            library.TL1.To = Vector2.new(
+                left + cornerLength,
+                top
+            )
+
+            library.TL2.From = Vector2.new(left, top)
+            library.TL2.To = Vector2.new(
+                left,
+                top + cornerLength
+            )
+
+            library.TR1.From = Vector2.new(right, top)
+            library.TR1.To = Vector2.new(
+                right - cornerLength,
+                top
+            )
+
+            library.TR2.From = Vector2.new(right, top)
+            library.TR2.To = Vector2.new(
+                right,
+                top + cornerLength
+            )
+
+            library.BL1.From = Vector2.new(left, bottom)
+            library.BL1.To = Vector2.new(
+                left + cornerLength,
+                bottom
+            )
+
+            library.BL2.From = Vector2.new(left, bottom)
+            library.BL2.To = Vector2.new(
+                left,
+                bottom - cornerLength
+            )
+
+            library.BR1.From = Vector2.new(right, bottom)
+            library.BR1.To = Vector2.new(
+                right - cornerLength,
+                bottom
+            )
+
+            library.BR2.From = Vector2.new(right, bottom)
+            library.BR2.To = Vector2.new(
+                right,
+                bottom - cornerLength
+            )
+
+            library.BoxTop.From = Vector2.new(left, top)
+            library.BoxTop.To = Vector2.new(right, top)
+
+            library.BoxBottom.From = Vector2.new(left, bottom)
+            library.BoxBottom.To = Vector2.new(right, bottom)
+
+            library.BoxLeft.From = Vector2.new(left, top)
+            library.BoxLeft.To = Vector2.new(left, bottom)
+
+            library.BoxRight.From = Vector2.new(right, top)
+            library.BoxRight.To = Vector2.new(right, bottom)
+
+            local isCorner = boxSettings.Style == "Corner"
+
+            library.TL1.Visible = isCorner
+            library.TL2.Visible = isCorner
+            library.TR1.Visible = isCorner
+            library.TR2.Visible = isCorner
+            library.BL1.Visible = isCorner
+            library.BL2.Visible = isCorner
+            library.BR1.Visible = isCorner
+            library.BR2.Visible = isCorner
+
+            library.BoxTop.Visible = not isCorner
+            library.BoxBottom.Visible = not isCorner
+            library.BoxLeft.Visible = not isCorner
+            library.BoxRight.Visible = not isCorner
+
+            if fillSettings.Enabled then
+                library.Fill.Visible = true
+                library.Fill.Color = GetElementColor(
+                    plr,
+                    "BoxFill",
+                    ValidColor(
+                        fillSettings.Color,
+                        DefaultBoxColor
+                    )
+                )
+                library.Fill.Transparency =
+                    math.clamp(
+                        fillSettings.Opacity,
+                        0,
+                        1
+                    )
+                library.Fill.Position = Vector2.new(
+                    left,
+                    top
+                )
+                library.Fill.Size = Vector2.new(
+                    width,
+                    height
+                )
+            else
+                library.Fill.Visible = false
+            end
+
+            local nameScale = math.clamp(
+                tonumber(infoSettings.NameScale) or 14,
+                1,
+                100
+            )
+
+            library.Name.Visible =
+                infoSettings.ShowName
+
+            library.Name.Text =
+                tostring(
+                    infoSettings.ShowDisplayName
+                    and plr.DisplayName
+                    or plr.Name
+                )
+
+            library.Name.Color =
+                GetTextColor(
+                    plr,
+                    "Name"
+                )
+
+            library.Name.Size =
+                nameScale
+
+            library.Name.Font =
+                Fonts[infoSettings.Font] or Fonts.UI
+
+            library.Name.Position =
+                Vector2.new(
+                    (left + right) / 2,
+                    top - nameScale - 5
+                )
+
+            library.Team.Visible =
+                infoSettings.ShowTeam
+
+            library.Team.Text =
+                plr.Team
+                and tostring(plr.Team.Name)
+                or "Neutral"
+
+            library.Team.Color =
+                GetTextColor(
+                    plr,
+                    "Team"
+                )
+
+            library.Team.Size =
+                math.max(
+                    nameScale - 1,
+                    10
+                )
+
+            library.Team.Font =
+                Fonts[infoSettings.Font] or Fonts.UI
+
+            library.Team.Position =
+                Vector2.new(
+                    (left + right) / 2,
+                    top - (
+                        infoSettings.ShowName
+                        and nameScale + 19
+                        or 18
+                    )
+                )
+
+            local weaponName = Utils.GetEquippedToolName(plr)
+
+            library.Weapon.Visible =
+                infoSettings.ShowWeapon
+                and weaponName ~= nil
+
+            library.Weapon.Text = weaponName or ""
+            library.Weapon.Color = GetTextColor(plr, "Weapon")
+            library.Weapon.Size = math.max(nameScale - 1, 10)
+            library.Weapon.Font = Fonts[infoSettings.Font] or Fonts.UI
+            library.Weapon.Position = Vector2.new(
+                (left + right) / 2,
+                bottom + 5
+            )
+
+            local healthRatio = 0
+
+            if humanoid.MaxHealth > 0 then
+                healthRatio = math.clamp(
+                    humanoid.Health /
+                        humanoid.MaxHealth,
+                    0,
+                    1
+                )
+            end
+
+            library.HealthOutline.Visible =
+                healthSettings.Enabled
+
+            library.HealthOutline.Color =
+                GetElementColor(
+                    plr,
+                    "HealthBorder",
+                    healthSettings.BorderColor
+                )
+
+            library.HealthOutline.Position =
+                Vector2.new(
+                    right + 5,
+                    top
+                )
+
+            library.HealthOutline.Size =
+                Vector2.new(
+                    5,
+                    height
+                )
+
+            library.HealthBar.Visible =
+                healthSettings.Enabled
+
+            library.HealthBar.Color =
+                GetElementColor(
+                    plr,
+                    "HealthFill",
+                    healthSettings.FillColor
+                )
+
+            library.HealthBar.Position =
+                Vector2.new(
+                    right + 6,
+                    bottom -
+                        ((height - 2) * healthRatio) -
+                        1
+                )
+
+            library.HealthBar.Size =
+                Vector2.new(
+                    3,
+                    math.max(
+                        (height - 2) * healthRatio,
+                        0
+                    )
+                )
+
+            local thickness
+
+            if boxSettings.AutoThickness then
+                thickness = math.clamp(
+                    100 /
+                        math.max(
+                            distance or 1,
+                            1
+                        ),
+                    1,
+                    4
+                )
+            else
+                thickness = math.clamp(
+                    tonumber(boxSettings.Thickness) or 2,
+                    1,
+                    20
+                )
+            end
+
+            if data.LastThickness ~= thickness then
+                SetThickness(library, thickness)
+                data.LastThickness = thickness
+            end
+        end
+    end
+
+    local controller = {}
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        CreateObject(plr)
+    end
+
+    local wasEnabled = false
+
+    local renderConnection = RunService.RenderStepped:Connect(function()
+        Camera = Workspace.CurrentCamera
+
+        if not Camera then
+            for _, data in pairs(Objects) do
+                HideLibrary(data.Library)
+            end
+
+            return
+        end
+
+        if not Settings.Box.Enabled then
+            if wasEnabled then
+                for _, data in pairs(Objects) do
+                    HideLibrary(data.Library)
+                end
+
+                wasEnabled = false
+            end
+
+            return
+        end
+
+        wasEnabled = true
+
+        for _, data in pairs(Objects) do
+            if data.Update then
+                data.Update()
+            end
+        end
+    end)
+
+    controller.PlayerAdded =
+        Players.PlayerAdded:Connect(function(plr)
+            CreateObject(plr)
+        end)
+
+    controller.PlayerRemoving =
+        Players.PlayerRemoving:Connect(function(plr)
+            DestroyObject(plr)
+        end)
+
+    function controller:Destroy()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+
+        if controller.PlayerAdded then
+            controller.PlayerAdded:Disconnect()
+            controller.PlayerAdded = nil
+        end
+
+        if controller.PlayerRemoving then
+            controller.PlayerRemoving:Disconnect()
+            controller.PlayerRemoving = nil
+        end
+
+        for plr in pairs(Objects) do
+            DestroyObject(plr)
+        end
+    end
+
+    return controller
+end
+
+return ESP
