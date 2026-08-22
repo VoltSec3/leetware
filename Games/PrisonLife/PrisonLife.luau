@@ -175,10 +175,6 @@ local AimbotController=AimbotModule.new({
     Utils=Utils
 })
 
-local RainbowTools=false
-local RainbowHue=0
-local RainbowObjects={}
-local RainbowToolObjects={}
 local GunTransparency=0
 local GunTransparencyObjects={}
 
@@ -287,7 +283,7 @@ end
 
 local DoorCollision=false
 local DoorParts={}
-local DoorScanInterval=0.25
+local DoorScanInterval=0.5
 local DoorScanTimer=0
 
 local BlatantToolValues={}
@@ -308,6 +304,8 @@ local AntiAimPreviewRainbow=false
 local AntiAimPreviewHue=0
 local AntiAimRandom=Random.new()
 local AntiAimOverlapParams=OverlapParams.new()
+local AntiAimCollisionTimer=0
+local AntiAimCollisionBlocked=false
 AntiAimOverlapParams.FilterType=Enum.RaycastFilterType.Include
 AntiAimOverlapParams.FilterDescendantsInstances={Workspace}
 
@@ -324,6 +322,8 @@ end
 
 local function SetupAntiAimCharacter(character)
     AntiAimCharacter=character
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
     AntiAimRotation=GetAntiAimRotation()
     AntiAimNextRotation=GetAntiAimRotation()
     AntiAimNextChange=os.clock()+AntiAimRotationTime
@@ -412,12 +412,20 @@ local function IsAntiAimBlocked(character,root,humanoid)
         return true
     end
 
+    if AntiAimCollisionTimer>0 then
+        return AntiAimCollisionBlocked
+    end
+
+    AntiAimCollisionTimer=0.15
+    AntiAimCollisionBlocked=false
+
     for _,part in ipairs(Workspace:GetPartBoundsInRadius(
         root.Position,
         1,
         AntiAimOverlapParams
     )) do
         if part:IsA('TrussPart') then
+            AntiAimCollisionBlocked=true
             return true
         end
     end
@@ -436,6 +444,8 @@ local function RestoreAntiAimCharacter()
 
     AntiAimCharacter=nil
     AntiAimOriginalAutoRotate=nil
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
 end
 
 local function SetAntiAimEnabled(enabled)
@@ -449,7 +459,7 @@ local function SetAntiAimEnabled(enabled)
     end
 end
 
-local function ApplyAntiAim()
+local function ApplyAntiAim(deltaTime)
     if not AntiAimEnabled then
         return
     end
@@ -470,6 +480,8 @@ local function ApplyAntiAim()
     if not humanoid or not root then
         return
     end
+
+    AntiAimCollisionTimer-=deltaTime
 
     if IsAntiAimBlocked(character,root,humanoid) then
         humanoid.AutoRotate=AntiAimOriginalAutoRotate
@@ -636,116 +648,6 @@ local function RefreshBlatantToolMods()
     end
 end
 
-local function GetRainbowColor(offset)
-    return Color3.fromHSV((RainbowHue+offset)%1,1,1)
-end
-
-local function SaveRainbowObject(object)
-    if RainbowObjects[object] then
-        return
-    end
-
-    local data={
-        Instance=object,
-        CFrame=nil,
-        Color=nil,
-        BrickColor=nil,
-        TextureID=nil,
-        TextureContent=nil,
-        Texture=nil,
-        VertexColor=nil
-    }
-
-    if object:IsA("BasePart") then
-        data.CFrame=object.CFrame
-        data.Color=object.Color
-        data.BrickColor=object.BrickColor
-    end
-
-    if object:IsA("MeshPart") then
-        data.TextureID=object.TextureID
-
-        pcall(function()
-            data.TextureContent=object.TextureContent
-        end)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        data.TextureID=object.TextureId
-        data.VertexColor=object.VertexColor
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        data.Texture=object.Texture
-    end
-
-    RainbowObjects[object]=data
-end
-
-local function ProcessRainbowObject(object,offset)
-    if object:IsA("BasePart") then
-        SaveRainbowObject(object)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    end
-
-    if object:IsA("MeshPart") then
-        SaveRainbowObject(object)
-
-        object.TextureID=""
-
-        pcall(function()
-            object.TextureContent=Content.none
-        end)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        SaveRainbowObject(object)
-
-        object.TextureId=""
-        object.VertexColor=Vector3.new(1,1,1)
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        SaveRainbowObject(object)
-
-        object.Texture=""
-    end
-end
-
-local function ProcessRainbowTool(tool)
-    if not tool:IsA("Tool") then
-        return
-    end
-
-    local objects=RainbowToolObjects[tool]
-
-    if not objects then
-        objects=tool:GetDescendants()
-        RainbowToolObjects[tool]=objects
-    end
-
-    local count=math.max(#objects,1)
-
-    for index,object in ipairs(objects) do
-        ProcessRainbowObject(object,index/count)
-    end
-end
-
-local function ProcessRainbowContainer(container)
-    for _,object in ipairs(container:GetChildren()) do
-        if object:IsA("Tool") then
-            ProcessRainbowTool(object)
-        end
-    end
-end
-
-local function ProcessRainbowTools(tools)
-    for _,tool in ipairs(tools) do
-        ProcessRainbowTool(tool)
-    end
-end
-
 local function SaveGunTransparency(object)
     if GunTransparencyObjects[object]~=nil then
         return
@@ -794,45 +696,6 @@ local function RestoreGunTransparency()
     table.clear(GunTransparencyObjects)
 end
 
-local function RestoreRainbowObjects()
-    for object,data in pairs(RainbowObjects) do
-        if object and object.Parent then
-            if data.CFrame then
-                object.CFrame=data.CFrame
-            end
-
-            if data.Color then
-                object.Color=data.Color
-            end
-
-            if data.BrickColor then
-                object.BrickColor=data.BrickColor
-            end
-
-            if object:IsA("MeshPart") then
-                pcall(function()
-                    object.TextureID=data.TextureID or ""
-                end)
-
-                pcall(function()
-                    object.TextureContent=data.TextureContent
-                end)
-            elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-                object.TextureId=data.TextureID or ""
-
-                if data.VertexColor then
-                    object.VertexColor=data.VertexColor
-                end
-            elseif object:IsA("Texture") or object:IsA("Decal") then
-                object.Texture=data.Texture or ""
-            end
-        end
-    end
-
-    table.clear(RainbowObjects)
-    table.clear(RainbowToolObjects)
-end
-
 local function GetDoorContainers()
     return {
         Workspace:FindFirstChild("Doors"),
@@ -860,8 +723,13 @@ local function ProcessDoorPart(part)
 
     SaveDoorPart(part)
 
-    part.CanCollide=false
-    part.Transparency=0.5
+    if part.CanCollide then
+        part.CanCollide=false
+    end
+
+    if part.Transparency~=0.5 then
+        part.Transparency=0.5
+    end
 end
 
 local function ScanDoors()
@@ -923,19 +791,6 @@ local Tabs={
 
 local MainVisualsGroupBox=Tabs.Main:AddLeftGroupbox('Visuals')
 local BlatantGroupBox=Tabs.Main:AddRightGroupbox('Blatant')
-MainVisualsGroupBox:AddToggle('RainbowTools',{
-    Text='Rainbow Tools',
-    Default=false
-})
-
-Toggles.RainbowTools:OnChanged(function()
-    RainbowTools=Toggles.RainbowTools.Value
-
-    if not RainbowTools then
-        RestoreRainbowObjects()
-    end
-end)
-
 MainVisualsGroupBox:AddSlider('GunTransparency',{
     Text='Gun Transparency',
     Default=0,
@@ -1855,7 +1710,6 @@ local frames=0
 local last=os.clock()
 local ToolRefreshTimer=0
 local PlayerToolsTimer=0
-local RainbowToolTimer=0
 local GunTransparencyTimer=0
 local CustomSoundTimer=0
 local DoorVisualTimer=0
@@ -1864,9 +1718,17 @@ Library:SetWatermark("leetware | loading")
 
 local FrameContext={
     Camera=nil,
-    Players=nil,
+    Players=Players:GetPlayers(),
     Tools=nil
 }
+
+local PlayerAddedConnection=Players.PlayerAdded:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
+
+local PlayerRemovingConnection=Players.PlayerRemoving:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
 
 local function UpdateController(controller,deltaTime)
     if controller and type(controller.Update)=='function' then
@@ -1876,7 +1738,6 @@ end
 
 RunService.RenderStepped:Connect(function(deltaTime)
     FrameContext.Camera=Workspace.CurrentCamera
-    FrameContext.Players=Players:GetPlayers()
 
     PlayerToolsTimer+=deltaTime
 
@@ -1905,14 +1766,12 @@ RunService.RenderStepped:Connect(function(deltaTime)
         )
     end
 
-    RainbowHue=(RainbowHue+deltaTime*0.5)%1
-
     UpdateController(AimbotController,deltaTime)
     UpdateController(ESPController,deltaTime)
     UpdateController(ChamsController,deltaTime)
     UpdateController(TracersController,deltaTime)
 
-    ApplyAntiAim()
+    ApplyAntiAim(deltaTime)
 
     local blatantToolsEnabled=(Toggles.NoSpread and Toggles.NoSpread.Value)
         or (Toggles.InfiniteRange and Toggles.InfiniteRange.Value)
@@ -1927,18 +1786,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     else
         ToolRefreshTimer=0
-    end
-
-    if RainbowTools then
-        RainbowToolTimer+=deltaTime
-
-        if RainbowToolTimer>=0.05 then
-            RainbowToolTimer=0
-
-            ProcessRainbowTools(FrameContext.Tools)
-        end
-    else
-        RainbowToolTimer=0
     end
 
     if GunTransparency>0 then
@@ -1978,14 +1825,21 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
         if DoorVisualTimer>=0.05 then
             DoorVisualTimer=0
-            local doorColor=GetRainbowColor(0)
+            local doorColor=Color3.fromRGB(255,80,80)
 
             for part in pairs(DoorParts) do
                 if part and part.Parent then
-                    part.Color=doorColor
-                    part.BrickColor=BrickColor.new(doorColor)
-                    part.Transparency=0.5
-                    part.CanCollide=false
+                    if part.Color~=doorColor then
+                        part.Color=doorColor
+                    end
+
+                    if part.Transparency~=0.5 then
+                        part.Transparency=0.5
+                    end
+
+                    if part.CanCollide then
+                        part.CanCollide=false
+                    end
                 end
             end
         end
@@ -1996,11 +1850,9 @@ RunService.RenderStepped:Connect(function(deltaTime)
 end)
 
 Library:OnUnload(function()
-    RainbowTools=false
     DoorCollision=false
     AntiAimEnabled=false
 
-    RestoreRainbowObjects()
     RestoreGunTransparency()
     RestoreDoorParts()
     RestoreCustomGunSounds()
@@ -2026,6 +1878,16 @@ Library:OnUnload(function()
     if AimbotController then
         AimbotController:Destroy()
         AimbotController=nil
+    end
+
+    if PlayerAddedConnection then
+        PlayerAddedConnection:Disconnect()
+        PlayerAddedConnection=nil
+    end
+
+    if PlayerRemovingConnection then
+        PlayerRemovingConnection:Disconnect()
+        PlayerRemovingConnection=nil
     end
 
     Library.Unloaded=true
