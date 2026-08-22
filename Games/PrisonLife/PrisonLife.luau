@@ -27,7 +27,6 @@ local ESPSettings={
         Thickness=2,
         TeamCheck=false,
         TeamColor=false,
-        Rainbow=false,
         AutoThickness=false
     },
 
@@ -68,7 +67,6 @@ local ESPSettings={
 
     Chams={
         Enabled=false,
-        Rainbow=false,
         Color=Color3.fromRGB(255,0,0),
         Transparency=0.5,
         Outline=true,
@@ -79,7 +77,6 @@ local ESPSettings={
 
     Tracers={
         Enabled=false,
-        Rainbow=false,
         ShowNotInView=false,
         Color=Color3.fromRGB(255,0,0),
         Thickness=1,
@@ -103,8 +100,6 @@ local ESPSettings={
         MinHealth=0,
         FovColor=Color3.fromRGB(255,0,0),
         TargetedFovColor=Color3.fromRGB(0,255,0),
-        RainbowFov=false,
-        RainbowSpeed=0.005,
         Triggerbot=false,
         TriggerbotDelay=0,
         ExcludeTeams={},
@@ -300,8 +295,6 @@ local AntiAimCharacter=nil
 local AntiAimOriginalAutoRotate=nil
 local AntiAimPreview=nil
 local AntiAimShowPreview=false
-local AntiAimPreviewRainbow=false
-local AntiAimPreviewHue=0
 local AntiAimRandom=Random.new()
 local AntiAimOverlapParams=OverlapParams.new()
 local AntiAimCollisionTimer=0
@@ -392,10 +385,7 @@ local function UpdateAntiAimPreview(character,rotation)
         AntiAimPreview:PivotTo(delta*AntiAimPreview:GetPivot())
     end
 
-    AntiAimPreviewHue=(AntiAimPreviewHue+0.01)%1
-    local color=AntiAimPreviewRainbow
-        and Color3.fromHSV(AntiAimPreviewHue,1,1)
-        or Color3.fromRGB(150,150,150)
+    local color=Color3.fromRGB(150,150,150)
 
     for _,object in ipairs(AntiAimPreview:GetDescendants()) do
         if object:IsA('BasePart') then
@@ -908,15 +898,6 @@ Toggles.AntiAimShowPreview:OnChanged(function()
     end
 end)
 
-AntiAimGroupBox:AddToggle('AntiAimPreviewRainbow',{
-    Text='SNR Rainbow',
-    Default=false
-})
-
-Toggles.AntiAimPreviewRainbow:OnChanged(function()
-    AntiAimPreviewRainbow=Toggles.AntiAimPreviewRainbow.Value
-end)
-
 BlatantGroupBox:AddToggle('DoorCollision',{
     Text='Door Collision',
     Default=false
@@ -996,15 +977,6 @@ BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor',{
 
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box.Color=Options.ESPBoxColor.Value
-end)
-
-BoxGroupBox:AddToggle('ESPRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Box.Rainbow
-})
-
-Toggles.ESPRainbow:OnChanged(function()
-    ESPSettings.Box.Rainbow=Toggles.ESPRainbow.Value
 end)
 
 BoxGroupBox:AddToggle('ESPTeamCheck',{
@@ -1151,15 +1123,6 @@ ChamsToggle:OnChanged(function()
     ESPSettings.Chams.Enabled=ChamsToggle.Value
 end)
 
-ChamsGroupBox:AddToggle('ESPChamsRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Chams.Rainbow
-})
-
-Toggles.ESPChamsRainbow:OnChanged(function()
-    ESPSettings.Chams.Rainbow=Toggles.ESPChamsRainbow.Value
-end)
-
 ChamsGroupBox:AddSlider('ESPChamsTransparency',{
     Text='Transparency',
     Default=math.floor(ESPSettings.Chams.Transparency*100),
@@ -1239,15 +1202,6 @@ TracerToggle:AddColorPicker('ESPTracerColor',{
 
 TracerToggle:OnChanged(function()
     ESPSettings.Tracers.Enabled=TracerToggle.Value
-end)
-
-TracerGroupBox:AddToggle('ESPTracersRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Tracers.Rainbow
-})
-
-Toggles.ESPTracersRainbow:OnChanged(function()
-    ESPSettings.Tracers.Rainbow=Toggles.ESPTracersRainbow.Value
 end)
 
 TracerGroupBox:AddToggle('ESPTracersShowNotInView',{
@@ -1518,15 +1472,6 @@ Options.AimbotTargetedFovColor:OnChanged(function()
     ESPSettings.Aimbot.TargetedFovColor=Options.AimbotTargetedFovColor.Value
 end)
 
-AimbotSettingsGroupBox:AddToggle('AimbotRainbowFov',{
-    Text='Rainbow FOV',
-    Default=ESPSettings.Aimbot.RainbowFov
-})
-
-Toggles.AimbotRainbowFov:OnChanged(function()
-    ESPSettings.Aimbot.RainbowFov=Toggles.AimbotRainbowFov.Value
-end)
-
 local InfoGroupBox=Tabs.Visuals:AddLeftGroupbox('Information')
 
 local ShowNameToggle=InfoGroupBox:AddToggle('ESPShowName',{
@@ -1712,7 +1657,6 @@ local ToolRefreshTimer=0
 local PlayerToolsTimer=0
 local GunTransparencyTimer=0
 local CustomSoundTimer=0
-local DoorVisualTimer=0
 
 Library:SetWatermark("leetware | loading")
 
@@ -1816,36 +1760,31 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     if DoorCollision then
         DoorScanTimer+=deltaTime
-        DoorVisualTimer+=deltaTime
 
         if DoorScanTimer>=DoorScanInterval then
             DoorScanTimer=0
             ScanDoors()
         end
 
-        if DoorVisualTimer>=0.05 then
-            DoorVisualTimer=0
-            local doorColor=Color3.fromRGB(255,80,80)
+        local doorColor=Color3.fromRGB(150,150,150)
 
-            for part in pairs(DoorParts) do
-                if part and part.Parent then
-                    if part.Color~=doorColor then
-                        part.Color=doorColor
-                    end
+        for part in pairs(DoorParts) do
+            if part and part.Parent then
+                if part.Color~=doorColor then
+                    part.Color=doorColor
+                end
 
-                    if part.Transparency~=0.5 then
-                        part.Transparency=0.5
-                    end
+                if part.Transparency~=0.5 then
+                    part.Transparency=0.5
+                end
 
-                    if part.CanCollide then
-                        part.CanCollide=false
-                    end
+                if part.CanCollide then
+                    part.CanCollide=false
                 end
             end
         end
     else
         DoorScanTimer=0
-        DoorVisualTimer=0
     end
 end)
 

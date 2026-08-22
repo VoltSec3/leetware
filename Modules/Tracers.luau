@@ -35,14 +35,6 @@ function Tracers.new(config)
     local function GetColor(plr)
         local tracerSettings = Settings.Tracers
 
-        if tracerSettings.Rainbow then
-            return Color3.fromHSV(
-                (tick() % 5) / 5,
-                0.6,
-                1
-            )
-        end
-
         if Settings.TeamColor
             and Settings.TeamColor.BoxBorder
             and plr.TeamColor then

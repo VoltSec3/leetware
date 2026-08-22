@@ -158,14 +158,6 @@ function ESP.new(config)
     local function GetColor(plr)
         local boxSettings = Settings.Box
 
-        if boxSettings.Rainbow then
-            return Color3.fromHSV(
-                (tick() % 5) / 5,
-                0.6,
-                1
-            )
-        end
-
         if boxSettings.TeamColor and plr.TeamColor then
             return ValidColor(
                 plr.TeamColor.Color,

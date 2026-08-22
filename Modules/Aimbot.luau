@@ -12,7 +12,6 @@ function Aimbot.new(config)
     local Camera = Workspace.CurrentCamera
     local CurrentTarget = nil
     local Aiming = false
-    local Hue = 0
     local AimStartMouseBehavior = nil
     local OriginalMouseBehavior = nil
     local MouseLockedByAimbot = false
@@ -567,10 +566,7 @@ function Aimbot.new(config)
         FovCircle.Radius = settings.Fov
         FovCircle.Visible = settings.Enabled
 
-        if settings.RainbowFov then
-            Hue = (Hue + settings.RainbowSpeed) % 1
-            FovCircle.Color = Color3.fromHSV(Hue, 1, 1)
-        elseif CurrentTarget and Aiming then
+        if CurrentTarget and Aiming then
             FovCircle.Color = settings.TargetedFovColor
         else
             FovCircle.Color = settings.FovColor
