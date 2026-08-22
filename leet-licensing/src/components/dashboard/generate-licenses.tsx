@@ -14,6 +14,7 @@ function getCookie(name: string) {
 export function GenerateLicensesPanel() {
   const [count, setCount] = useState(1);
   const [note, setNote] = useState("");
+  const [alias, setAlias] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [generated, setGenerated] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,12 @@ export function GenerateLicensesPanel() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (alias.trim().length < 2) {
+      setError("Alias is required (min 2 characters).");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -35,6 +42,7 @@ export function GenerateLicensesPanel() {
       body: JSON.stringify({
         count,
         note: note || undefined,
+        alias: alias.trim(),
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       }),
     });
@@ -79,7 +87,21 @@ export function GenerateLicensesPanel() {
           />
         </label>
 
-        <label className="space-y-2 md:col-span-2">
+        <label className="space-y-2">
+          <span className="text-sm text-zinc-300">Alias (username)</span>
+          <input
+            type="text"
+            required
+            minLength={2}
+            maxLength={64}
+            value={alias}
+            onChange={(event) => setAlias(event.target.value)}
+            placeholder="Who is this license for?"
+            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          />
+        </label>
+
+        <label className="space-y-2">
           <span className="text-sm text-zinc-300">Note (optional)</span>
           <input
             type="text"

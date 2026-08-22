@@ -40,6 +40,7 @@ model License {
   keyCipher   String?
   status      LicenseStatus @default(UNUSED)
   note        String?
+  alias       String?
   createdAt   DateTime      @default(now())
   expiresAt   DateTime?
   activatedAt DateTime?

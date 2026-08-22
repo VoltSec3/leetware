@@ -3,6 +3,7 @@ import { decryptLicenseKey, displayHwidHash } from "@/lib/crypto";
 import { errorResponse, jsonResponse } from "@/lib/http";
 import { markExpiredLicenses } from "@/lib/license-service";
 import { prisma } from "@/lib/prisma";
+import { resolveRobloxUser } from "@/lib/roblox";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -19,24 +20,52 @@ export async function GET(_request: Request, context: RouteContext) {
 
   await markExpiredLicenses(id);
 
-  const license = await prisma.license.findUnique({
-    where: { id },
-    include: {
-      activation: true,
-      sessions: {
-        orderBy: { createdAt: "desc" },
-        take: 50,
+  const [license, totalSessions] = await Promise.all([
+    prisma.license.findUnique({
+      where: { id },
+      include: {
+        activation: true,
+        sessions: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        },
+        auditLogs: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        },
       },
-      auditLogs: {
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
-    },
-  });
+    }),
+    prisma.loaderSession.count({ where: { licenseId: id } }),
+  ]);
 
   if (!license) {
     return errorResponse("License not found", 404);
   }
+
+  let robloxUserId: number | string | null = null;
+  let robloxUsername: string | null = null;
+  const metadata = license.activation?.metadata as Record<
+    string,
+    unknown
+  > | null;
+
+  if (metadata && typeof metadata === "object") {
+    if (
+      typeof metadata.robloxUserId === "number"
+      || typeof metadata.robloxUserId === "string"
+    ) {
+      robloxUserId = metadata.robloxUserId;
+    }
+
+    if (typeof metadata.robloxUsername === "string") {
+      robloxUsername = metadata.robloxUsername;
+    }
+  }
+
+  const robloxUser = await resolveRobloxUser({
+    userId: robloxUserId,
+    username: robloxUsername,
+  });
 
   return jsonResponse({
     license: {
@@ -44,6 +73,7 @@ export async function GET(_request: Request, context: RouteContext) {
       key: decryptLicenseKey(license.keyCipher),
       status: license.status,
       note: license.note,
+      alias: license.alias,
       createdAt: license.createdAt.toISOString(),
       expiresAt: license.expiresAt?.toISOString() ?? null,
       activatedAt: license.activatedAt?.toISOString() ?? null,
@@ -76,5 +106,7 @@ export async function GET(_request: Request, context: RouteContext) {
         createdAt: log.createdAt.toISOString(),
       })),
     },
+    totalSessions,
+    robloxUser,
   });
 }

@@ -36,6 +36,11 @@ export const generateLicensesSchema = z.object({
   count: z.number().int().min(1).max(100).default(1),
   expiresAt: z.string().datetime().optional(),
   note: z.string().max(256).optional(),
+  alias: z
+    .string()
+    .trim()
+    .min(2, "Alias must be at least 2 characters")
+    .max(64, "Alias must be at most 64 characters"),
 });
 
 export const loginSchema = z.object({

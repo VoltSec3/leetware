@@ -10,6 +10,7 @@ type LicenseRow = {
   key: string | null;
   status: string;
   note: string | null;
+  alias: string | null;
   createdAt: string;
   expiresAt: string | null;
   activatedAt: string | null;
@@ -100,7 +101,7 @@ export function LicensesTable() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Note or ID"
+            placeholder="Alias, note or ID"
             className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
           />
         </label>
@@ -139,6 +140,7 @@ export function LicensesTable() {
             <thead className="border-b border-zinc-800 text-zinc-400">
               <tr>
                 <th className="px-4 py-3 font-medium">License</th>
+                <th className="px-4 py-3 font-medium">Alias</th>
                 <th className="px-4 py-3 font-medium">ID</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">HWID</th>
@@ -159,6 +161,9 @@ export function LicensesTable() {
                     ) : (
                       <span className="text-zinc-600">—</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {license.alias ?? <span className="text-zinc-600">—</span>}
                   </td>
                   <td className="px-4 py-3 font-mono text-zinc-300">
                     <Link

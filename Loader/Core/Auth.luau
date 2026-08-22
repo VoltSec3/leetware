@@ -187,10 +187,17 @@ function Auth.authenticate(license, hwid)
 		end
 	end
 
+	local player = game:GetService("Players").LocalPlayer
+
 	local ok, data = request("POST", "/auth/activate", withGameContext({
 		license = license,
 		hwid = hwid,
 		clientVersion = Config.CLIENT_VERSION,
+		metadata = {
+			robloxUsername = (player and player.Name) or nil,
+			robloxDisplayName = (player and player.DisplayName) or nil,
+			robloxUserId = (player and player.UserId) or nil,
+		},
 	}))
 
 	if ok then

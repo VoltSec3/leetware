@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       ? {
           OR: [
             { note: { contains: q, mode: "insensitive" as const } },
+            { alias: { contains: q, mode: "insensitive" as const } },
             { id: { contains: q } },
           ],
         }
@@ -42,6 +43,9 @@ export async function GET(request: Request) {
       where,
       include: {
         activation: true,
+        _count: {
+          select: { sessions: true },
+        },
         sessions: {
           where: {
             revoked: false,
@@ -62,6 +66,7 @@ export async function GET(request: Request) {
       key: decryptLicenseKey(license.keyCipher),
       status: license.status,
       note: license.note,
+      alias: license.alias,
       createdAt: license.createdAt.toISOString(),
       expiresAt: license.expiresAt?.toISOString() ?? null,
       activatedAt: license.activatedAt?.toISOString() ?? null,
@@ -75,6 +80,7 @@ export async function GET(request: Request) {
           }
         : null,
       activeSessions: license.sessions.length,
+      totalSessions: license._count.sessions,
     })),
     pagination: {
       page,

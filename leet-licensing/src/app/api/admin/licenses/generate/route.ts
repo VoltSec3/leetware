@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return errorResponse(parsed.error.issues[0]?.message ?? "Invalid request", 400);
   }
 
-  const { count, expiresAt, note } = parsed.data;
+  const { count, expiresAt, note, alias } = parsed.data;
   const ip = await getClientIp();
   const generated: string[] = [];
 
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         licenseHash,
         keyCipher: encryptLicenseKey(licenseKey),
         note,
+        alias,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       },
     });
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   await writeAuditLog({
     event: "admin.licenses_generated",
     ip,
-    metadata: { count: generated.length },
+    metadata: { count: generated.length, alias },
   });
 
   return jsonResponse({

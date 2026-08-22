@@ -21,6 +21,7 @@ function Aimbot.new(config)
     local MouseLockDisabled = false
     local TriggerbotTarget = nil
     local TriggerbotNextFire = nil
+    local MotorSim = nil
 
     local function GetGlobalFunction(name)
         local environment = type(getgenv) == "function"
@@ -393,6 +394,11 @@ function Aimbot.new(config)
         TriggerbotTarget = nil
         TriggerbotNextFire = nil
         MouseLockDisabled = false
+
+        if MotorSim then
+            MotorSim:Reset()
+        end
+
         UnlockMouse()
         AimStartMouseBehavior = nil
     end
@@ -511,6 +517,345 @@ function Aimbot.new(config)
         end
     end
 
+    MotorSim = (function()
+        local seed = tonumber(Settings.RngSeed) or 0
+        local rng = seed > 0 and Random.new(math.floor(seed)) or Random.new()
+
+        local TelemetryBuffer = {}
+        local TelemetryIndex = 0
+        local TelemetryCount = 0
+        local TelemetryCapacity = 6000
+
+        local function Gauss(mean, sd)
+            local u1 = rng:NextNumber()
+            local u2 = rng:NextNumber()
+            local magnitude = math.sqrt(
+                -2 * math.log(math.max(u1, 1e-9))
+            )
+
+            return mean + sd * magnitude * math.cos(2 * math.pi * u2)
+        end
+
+        local function Number(name, default)
+            local value = tonumber(Settings[name])
+
+            return value or default
+        end
+
+        local state = {
+            readyAt = nil,
+            active = false,
+            startRotationInverse = nil,
+            x = 0,
+            y = 0,
+            vx = 0,
+            vy = 0,
+            prevX = 0,
+            prevY = 0,
+            omega = 6,
+            zeta = 0.92,
+            tracking = false,
+            biasX = 0,
+            biasY = 0,
+            localOffX = 0,
+            localOffY = 0,
+            noiseX = 0,
+            noiseY = 0,
+            curveSign = 1,
+            curveAmp = 0,
+            unitYaw = 0,
+            unitPitch = 0,
+            distance0 = 0,
+            nextLocalRefresh = 0,
+            nextKick = nil
+        }
+
+        local function SampleTrial(distance0)
+            local durationScale = math.max(Number("DurationScale", 1), 0.1)
+            local variability = math.clamp(
+                Number("DurationVariability", 0.15),
+                0,
+                0.5
+            )
+            local movementTime = (
+                0.08 + 0.13 * math.log(distance0 / 3 + 1)
+            ) * durationScale * math.exp(Gauss(0, variability))
+
+            state.omega = math.clamp(5.8 / math.max(movementTime, 0.06), 1.5, 14)
+
+            local overshootChance = math.clamp(
+                Number("OvershootProbability", 0.35),
+                0,
+                1
+            )
+            local baseZeta = math.clamp(Number("Damping", 0.92), 0.5, 1.1)
+
+            if rng:NextNumber() < overshootChance then
+                local ratio = math.clamp(
+                    Number("OvershootMagnitude", 5),
+                    0.5,
+                    40
+                ) / 100
+                local logarithm = math.log(ratio)
+
+                state.zeta = math.clamp(
+                    -logarithm / math.sqrt(math.pi ^ 2 + logarithm ^ 2),
+                    0.45,
+                    0.85
+                )
+            else
+                state.zeta = math.min(baseZeta + 0.06, 1.1)
+            end
+
+            local biasScale = math.max(Number("FinalBiasDegrees", 0.35), 0)
+
+            state.biasX = Gauss(0, biasScale)
+            state.biasY = Gauss(0, biasScale)
+            state.localOffX = state.biasX
+            state.localOffY = state.biasY
+            state.curveAmp = math.max(Number("CurvatureDegrees", 1.5), 0)
+                * math.clamp(distance0 / 45, 0, 1)
+            state.curveSign = rng:NextInteger(0, 1) == 0 and 1 or -1
+            state.nextKick = os.clock()
+                + math.exp(1) / math.max(Number("MicroCorrectionRate", 2.5), 0.01)
+            state.nextLocalRefresh = 0
+        end
+
+        local function RecordTelemetry(clock, setErrorX, setErrorY, speed, accel, phase)
+            if not Settings.Telemetry then
+                return
+            end
+
+            local sample = {
+                clock,
+                setErrorX,
+                setErrorY,
+                speed,
+                accel,
+                phase
+            }
+
+            TelemetryIndex = TelemetryIndex % TelemetryCapacity + 1
+            TelemetryBuffer[TelemetryIndex] = sample
+            TelemetryCount = math.min(TelemetryCount + 1, TelemetryCapacity)
+        end
+
+        local methods = {}
+
+        function methods:OnEngage()
+            local mean = math.max(Number("ReactionMean", 0.18), 0)
+            local sd = math.clamp(Number("ReactionSd", 0.05), 0, 0.3)
+
+            state.readyAt = os.clock() + math.max(Gauss(mean, sd), 0)
+            state.active = false
+            state.tracking = false
+            state.x = 0
+            state.y = 0
+            state.vx = 0
+            state.vy = 0
+            state.noiseX = 0
+            state.noiseY = 0
+        end
+
+        function methods:Reset()
+            state.readyAt = nil
+            state.active = false
+            state.tracking = false
+            state.startRotationInverse = nil
+            state.x = 0
+            state.y = 0
+            state.vx = 0
+            state.vy = 0
+            state.prevX = 0
+            state.prevY = 0
+            state.noiseX = 0
+            state.noiseY = 0
+        end
+
+        function methods:GetTelemetry()
+            local samples = table.create(TelemetryCount)
+
+            for index = 1, TelemetryCount do
+                local readIndex = (TelemetryIndex - TelemetryCount + index - 1)
+                    % TelemetryCapacity + 1
+
+                samples[index] = TelemetryBuffer[readIndex]
+            end
+
+            return samples
+        end
+
+        function methods:Step(deltaTime, target, aimPosition)
+            if not Settings.HumanizedAim then
+                return false
+            end
+
+            local now = os.clock()
+
+            if not state.active then
+                if not state.readyAt or now < state.readyAt then
+                    return true
+                end
+
+                local startRotation = Camera.CFrame.Rotation
+
+                state.startRotationInverse = startRotation:Inverse()
+
+                local relative = (
+                    CFrame.new(Camera.CFrame.Position, aimPosition)
+                    * state.startRotationInverse
+                ).Rotation
+                local pitch, yaw = relative:ToEulerAnglesYXZ()
+
+                state.distance0 = math.max(math.sqrt(
+                    math.deg(yaw) ^ 2 + math.deg(pitch) ^ 2
+                ), 0.5)
+                state.unitYaw = math.deg(yaw) / state.distance0
+                state.unitPitch = math.deg(pitch) / state.distance0
+
+                SampleTrial(state.distance0)
+
+                state.x = 0
+                state.y = 0
+                state.vx = 0
+                state.vy = 0
+                state.prevX = 0
+                state.prevY = 0
+                state.tracking = false
+                state.active = true
+            end
+
+            local step = math.clamp(deltaTime, 0.0005, 0.05)
+            local relative = (
+                CFrame.new(Camera.CFrame.Position, aimPosition)
+                * state.startRotationInverse
+            ).Rotation
+            local pitch, yaw = relative:ToEulerAnglesYXZ()
+            local setErrorX = math.deg(yaw)
+            local setErrorY = math.deg(pitch)
+
+            if not state.tracking then
+                local traveled = math.clamp(
+                    math.sqrt(state.x ^ 2 + state.y ^ 2)
+                        / state.distance0,
+                    0,
+                    1
+                )
+                local bow = state.curveSign * state.curveAmp
+                    * math.sin(math.pi * traveled)
+
+                setErrorX = setErrorX
+                    + (-state.unitPitch) * bow
+                    + state.biasX
+                setErrorY = setErrorY
+                    + state.unitYaw * bow
+                    + state.biasY
+            else
+                if now >= state.nextLocalRefresh then
+                    local spread = math.max(
+                        Number("FinalBiasDegrees", 0.35),
+                        0
+                    ) * 0.7
+
+                    state.localOffX = Gauss(state.biasX, spread)
+                    state.localOffY = Gauss(state.biasY, spread)
+                    state.nextLocalRefresh = now
+                        + math.exp(1)
+                            / math.max(Number("MicroCorrectionRate", 2.5), 0.01)
+                end
+
+                setErrorX = setErrorX + state.localOffX
+                setErrorY = setErrorY + state.localOffY
+
+                if state.nextKick and now >= state.nextKick then
+                    local kick = 6 * math.max(Number("NoiseScale", 1), 0)
+
+                    state.vx = state.vx + Gauss(0, kick) * 0.12
+                    state.vy = state.vy + Gauss(0, kick) * 0.12
+                    state.nextKick = now
+                        + math.exp(1)
+                            / math.max(Number("MicroCorrectionRate", 2.5), 0.01)
+                        * rng:NextNumber(0.6, 1.6)
+                end
+            end
+
+            local noiseScale = math.max(Number("NoiseScale", 1), 0)
+            local noiseDrive = 14 * noiseScale
+            local omegaSquared = state.omega ^ 2
+            local accelX = omegaSquared * (setErrorX - state.x)
+                - 2 * state.zeta * state.omega * state.vx
+                + noiseDrive * state.noiseX
+            local accelY = omegaSquared * (setErrorY - state.y)
+                - 2 * state.zeta * state.omega * state.vy
+                + noiseDrive * state.noiseY
+
+            state.noiseX = math.clamp(
+                state.noiseX
+                    + (-3 * state.noiseX * step + math.sqrt(step) * Gauss(0, 1)),
+                -1,
+                1
+            )
+            state.noiseY = math.clamp(
+                state.noiseY
+                    + (-3 * state.noiseY * step + math.sqrt(step) * Gauss(0, 1)),
+                -1,
+                1
+            )
+
+            state.vx = state.vx + accelX * step
+            state.vy = state.vy + accelY * step
+
+            local maxSpeed = math.max(Number("MaxSpeedDegPerSec", 340), 30)
+            local speed = math.sqrt(state.vx ^ 2 + state.vy ^ 2)
+
+            if speed > maxSpeed then
+                state.vx = state.vx * maxSpeed / speed
+                state.vy = state.vy * maxSpeed / speed
+                speed = maxSpeed
+            end
+
+            state.x = state.x + state.vx * step
+            state.y = state.y + state.vy * step
+
+            if not state.tracking then
+                local residual = math.sqrt(
+                    (setErrorX - state.x) ^ 2 + (setErrorY - state.y) ^ 2
+                )
+
+                if residual < 0.8 and speed < 25 then
+                    state.tracking = true
+                    state.nextLocalRefresh = 0
+                end
+            end
+
+            RecordTelemetry(
+                now,
+                setErrorX - state.x,
+                setErrorY - state.y,
+                speed,
+                math.sqrt(accelX ^ 2 + accelY ^ 2),
+                state.tracking and 2 or 1
+            )
+
+            local deltaX = state.x - state.prevX
+            local deltaY = state.y - state.prevY
+
+            state.prevX = state.x
+            state.prevY = state.y
+
+            Camera.CFrame = Camera.CFrame
+                * CFrame.fromEulerAnglesYXZ(
+                    math.rad(deltaY),
+                    math.rad(deltaX),
+                    0
+                )
+
+            return true
+        end
+
+        return methods
+    end)()
+
     local function LockMouse()
         if MouseLockedByAimbot or MouseLockDisabled then
             return
@@ -571,6 +916,10 @@ function Aimbot.new(config)
         end
 
         MouseLockDisabled = false
+
+        if MotorSim then
+            MotorSim:OnEngage()
+        end
     end)
 
     local inputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -618,20 +967,22 @@ function Aimbot.new(config)
             if aimPosition then
                 LockMouse()
 
-                local smoothing = math.clamp(
-                    tonumber(Settings.Smoothing) or 5,
-                    1,
-                    100
-                ) / 100
-                local targetCFrame = CFrame.new(
-                    Camera.CFrame.Position,
-                    aimPosition
-                )
+                if not MotorSim:Step(deltaTime, target, aimPosition) then
+                    local smoothing = math.clamp(
+                        tonumber(Settings.Smoothing) or 5,
+                        1,
+                        100
+                    ) / 100
+                    local targetCFrame = CFrame.new(
+                        Camera.CFrame.Position,
+                        aimPosition
+                    )
 
-                Camera.CFrame = Camera.CFrame:Lerp(
-                    targetCFrame,
-                    smoothing
-                )
+                    Camera.CFrame = Camera.CFrame:Lerp(
+                        targetCFrame,
+                        smoothing
+                    )
+                end
             else
                 CurrentTarget = nil
                 UnlockMouse()
@@ -651,6 +1002,14 @@ function Aimbot.new(config)
         FovCircle.Visible = false
         FovCircle:Remove()
         StopAiming()
+    end
+
+    function controller:GetTelemetry()
+        if MotorSim then
+            return MotorSim:GetTelemetry()
+        end
+
+        return {}
     end
 
     return controller

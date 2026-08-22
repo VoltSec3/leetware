@@ -128,6 +128,16 @@ function Aimbot.new(config)
             return false
         end
 
+        local range = math.clamp(
+            tonumber(Settings.Range) or 500,
+            1,
+            1500
+        )
+
+        if (head.Position - Camera.CFrame.Position).Magnitude > range then
+            return false
+        end
+
         if IsTeamBlocked(target) then
             return false
         end
@@ -388,17 +398,11 @@ function Aimbot.new(config)
     end
 
     local function GetTriggerbotDelay()
-        local delay = math.clamp(
+        return math.clamp(
             tonumber(Settings.TriggerbotDelay) or 0,
             0,
             0.3
         )
-
-        if delay <= 0 then
-            return 0
-        end
-
-        return math.random() * delay
     end
 
     local function ResetTriggerbot()
@@ -503,7 +507,7 @@ function Aimbot.new(config)
                 return
             end
 
-            TriggerbotNextFire = now + GetTriggerbotDelay()
+            TriggerbotNextFire = now
         end
     end
 
