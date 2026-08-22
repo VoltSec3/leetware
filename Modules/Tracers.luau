@@ -99,7 +99,7 @@ function Tracers.new(config)
 
         Objects[plr] = data
 
-        data.Update = function()
+        data.Update = function(context)
                 local settings = Settings.Tracers
 
                 if not settings.Enabled then
@@ -107,7 +107,7 @@ function Tracers.new(config)
                     return
                 end
 
-                Camera = Workspace.CurrentCamera
+                Camera = context and context.Camera or Workspace.CurrentCamera
 
                 if not Camera then
                     Hide(line)
@@ -211,7 +211,7 @@ function Tracers.new(config)
 
     local wasEnabled = false
 
-    local renderConnection = RunService.RenderStepped:Connect(function()
+    function controller:Update(context)
         if not Settings.Tracers.Enabled then
             if wasEnabled then
                 for _, data in pairs(Objects) do
@@ -228,10 +228,10 @@ function Tracers.new(config)
 
         for _, data in pairs(Objects) do
             if data.Update then
-                data.Update()
+                data.Update(context)
             end
         end
-    end)
+    end
 
     controller.PlayerAdded =
         Players.PlayerAdded:Connect(function(plr)
@@ -244,11 +244,6 @@ function Tracers.new(config)
         end)
 
     function controller:Destroy()
-        if renderConnection then
-            renderConnection:Disconnect()
-            renderConnection = nil
-        end
-
         if controller.PlayerAdded then
             controller.PlayerAdded:Disconnect()
             controller.PlayerAdded = nil

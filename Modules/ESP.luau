@@ -10,6 +10,7 @@ function ESP.new(config)
     local Settings = config.Settings
     local Camera = Workspace.CurrentCamera
     local Objects = {}
+    local FriendCache = {}
 
     local Fonts = {
         UI = 0,
@@ -50,7 +51,11 @@ function ESP.new(config)
             return false
         end
 
-        return Utils.IsFriend(Player, plr)
+        if FriendCache[plr] == nil then
+            FriendCache[plr] = Utils.IsFriend(Player, plr)
+        end
+
+        return FriendCache[plr]
     end
 
     local function GetTeamColor(plr, fallback)
@@ -235,36 +240,33 @@ function ESP.new(config)
         )
     end
 
-    local function GetBounds(parts)
+    local function GetBounds(character)
+        local boundingCFrame,boundingSize=character:GetBoundingBox()
         local minX = math.huge
         local minY = math.huge
         local maxX = -math.huge
         local maxY = -math.huge
         local found = false
 
-        for _, part in ipairs(parts) do
-            if part.Parent then
-                local half = part.Size / 2
+        local half=boundingSize/2
 
-                for x = -1, 1, 2 do
-                    for y = -1, 1, 2 do
-                        for z = -1, 1, 2 do
-                            local position = Camera:WorldToViewportPoint(
-                                part.CFrame * Vector3.new(
-                                    half.X * x,
-                                    half.Y * y,
-                                    half.Z * z
-                                )
-                            )
+        for x = -1, 1, 2 do
+            for y = -1, 1, 2 do
+                for z = -1, 1, 2 do
+                    local position = Camera:WorldToViewportPoint(
+                        boundingCFrame * Vector3.new(
+                            half.X * x,
+                            half.Y * y,
+                            half.Z * z
+                        )
+                    )
 
-                            if position.Z > 0 then
-                                found = true
-                                minX = math.min(minX, position.X)
-                                minY = math.min(minY, position.Y)
-                                maxX = math.max(maxX, position.X)
-                                maxY = math.max(maxY, position.Y)
-                            end
-                        end
+                    if position.Z > 0 then
+                        found = true
+                        minX = math.min(minX, position.X)
+                        minY = math.min(minY, position.Y)
+                        maxX = math.max(maxX, position.X)
+                        maxY = math.max(maxY, position.Y)
                     end
                 end
             end
@@ -322,8 +324,6 @@ function ESP.new(config)
         local data = {
             Library = library,
             Update = nil,
-            Character = nil,
-            Parts = {},
             LastBoxColor = nil,
             LastThickness = nil
         }
@@ -357,16 +357,6 @@ function ESP.new(config)
 
             if data.Character ~= character then
                 data.Character = character
-                data.Parts = {}
-
-                for _, part in ipairs(character:GetDescendants()) do
-                    if part:IsA("BasePart")
-                        and part.Name ~= "HumanoidRootPart"
-                        and not part:FindFirstAncestorWhichIsA("Accessory")
-                        and not part:FindFirstAncestorWhichIsA("Tool") then
-                        table.insert(data.Parts, part)
-                    end
-                end
             end
 
             if IsTeamBlocked(plr) then
@@ -392,7 +382,7 @@ function ESP.new(config)
                 return
             end
 
-            local left, top, right, bottom = GetBounds(data.Parts)
+            local left, top, right, bottom = GetBounds(character)
 
             if not left then
                 HideLibrary(library)
@@ -710,8 +700,8 @@ function ESP.new(config)
 
     local wasEnabled = false
 
-    local renderConnection = RunService.RenderStepped:Connect(function()
-        Camera = Workspace.CurrentCamera
+    function controller:Update(context)
+        Camera = context and context.Camera or Workspace.CurrentCamera
 
         if not Camera then
             for _, data in pairs(Objects) do
@@ -740,7 +730,7 @@ function ESP.new(config)
                 data.Update()
             end
         end
-    end)
+    end
 
     controller.PlayerAdded =
         Players.PlayerAdded:Connect(function(plr)
@@ -753,11 +743,6 @@ function ESP.new(config)
         end)
 
     function controller:Destroy()
-        if renderConnection then
-            renderConnection:Disconnect()
-            renderConnection = nil
-        end
-
         if controller.PlayerAdded then
             controller.PlayerAdded:Disconnect()
             controller.PlayerAdded = nil
@@ -771,6 +756,8 @@ function ESP.new(config)
         for plr in pairs(Objects) do
             DestroyObject(plr)
         end
+
+        table.clear(FriendCache)
     end
 
     return controller

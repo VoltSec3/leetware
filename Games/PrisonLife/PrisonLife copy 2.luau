@@ -178,7 +178,6 @@ local AimbotController=AimbotModule.new({
 local RainbowTools=false
 local RainbowHue=0
 local RainbowObjects={}
-local RainbowToolObjects={}
 local GunTransparency=0
 local GunTransparencyObjects={}
 
@@ -291,7 +290,6 @@ local DoorScanInterval=0.25
 local DoorScanTimer=0
 
 local BlatantToolValues={}
-local PlayerToolsCache=nil
 
 local AntiAimEnabled=false
 local AntiAimRotationTime=0.18
@@ -307,9 +305,6 @@ local AntiAimShowPreview=false
 local AntiAimPreviewRainbow=false
 local AntiAimPreviewHue=0
 local AntiAimRandom=Random.new()
-local AntiAimOverlapParams=OverlapParams.new()
-AntiAimOverlapParams.FilterType=Enum.RaycastFilterType.Include
-AntiAimOverlapParams.FilterDescendantsInstances={Workspace}
 
 local function GetAntiAimRotation()
     return math.rad(AntiAimRandom:NextInteger(0,math.floor(AntiAimRandomization)))
@@ -412,11 +407,11 @@ local function IsAntiAimBlocked(character,root,humanoid)
         return true
     end
 
-    for _,part in ipairs(Workspace:GetPartBoundsInRadius(
-        root.Position,
-        1,
-        AntiAimOverlapParams
-    )) do
+    local overlapParams=OverlapParams.new()
+    overlapParams.FilterType=Enum.RaycastFilterType.Include
+    overlapParams.FilterDescendantsInstances={Workspace}
+
+    for _,part in ipairs(Workspace:GetPartBoundsInRadius(root.Position,1,overlapParams)) do
         if part:IsA('TrussPart') then
             return true
         end
@@ -500,10 +495,6 @@ local function ApplyAntiAim()
 end
 
 local function GetPlayerTools()
-    if PlayerToolsCache then
-        return PlayerToolsCache
-    end
-
     local tools={}
     local backpack=Player:FindFirstChildOfClass('Backpack')
     local character=Player.Character
@@ -524,13 +515,7 @@ local function GetPlayerTools()
         end
     end
 
-    PlayerToolsCache=tools
-    return PlayerToolsCache
-end
-
-local function RefreshPlayerTools()
-    PlayerToolsCache=nil
-    return GetPlayerTools()
+    return tools
 end
 
 local function GetToolValue(tool,name)
@@ -718,13 +703,7 @@ local function ProcessRainbowTool(tool)
         return
     end
 
-    local objects=RainbowToolObjects[tool]
-
-    if not objects then
-        objects=tool:GetDescendants()
-        RainbowToolObjects[tool]=objects
-    end
-
+    local objects=tool:GetDescendants()
     local count=math.max(#objects,1)
 
     for index,object in ipairs(objects) do
@@ -740,18 +719,12 @@ local function ProcessRainbowContainer(container)
     end
 end
 
-local function ProcessRainbowTools(tools)
-    for _,tool in ipairs(tools) do
-        ProcessRainbowTool(tool)
-    end
-end
-
 local function SaveGunTransparency(object)
     if GunTransparencyObjects[object]~=nil then
         return
     end
 
-    GunTransparencyObjects[object]=object.LocalTransparencyModifier
+    GunTransparencyObjects[object]=object.Transparency
 end
 
 local function ProcessGunTransparencyTool(tool)
@@ -762,10 +735,7 @@ local function ProcessGunTransparencyTool(tool)
     for _,object in ipairs(tool:GetDescendants()) do
         if object:IsA('BasePart') then
             SaveGunTransparency(object)
-
-            if object.LocalTransparencyModifier~=GunTransparency then
-                object.LocalTransparencyModifier=GunTransparency
-            end
+            object.Transparency=GunTransparency
         end
     end
 end
@@ -778,16 +748,10 @@ local function ProcessGunTransparencyContainer(container)
     end
 end
 
-local function ProcessGunTransparencyTools(tools)
-    for _,tool in ipairs(tools) do
-        ProcessGunTransparencyTool(tool)
-    end
-end
-
 local function RestoreGunTransparency()
     for object,transparency in pairs(GunTransparencyObjects) do
         if object and object.Parent then
-            object.LocalTransparencyModifier=transparency
+            object.Transparency=transparency
         end
     end
 
@@ -830,7 +794,6 @@ local function RestoreRainbowObjects()
     end
 
     table.clear(RainbowObjects)
-    table.clear(RainbowToolObjects)
 end
 
 local function GetDoorContainers()
@@ -950,18 +913,6 @@ Options.GunTransparency:OnChanged(function()
 
     if GunTransparency<=0 then
         RestoreGunTransparency()
-    else
-        local backpack=Player:FindFirstChildOfClass('Backpack')
-
-        if backpack then
-            ProcessGunTransparencyContainer(backpack)
-        end
-
-        local character=Player.Character
-
-        if character then
-            ProcessGunTransparencyContainer(character)
-        end
     end
 end)
 
@@ -1854,7 +1805,6 @@ local fps=0
 local frames=0
 local last=os.clock()
 local ToolRefreshTimer=0
-local PlayerToolsTimer=0
 local RainbowToolTimer=0
 local GunTransparencyTimer=0
 local CustomSoundTimer=0
@@ -1862,29 +1812,7 @@ local DoorVisualTimer=0
 
 Library:SetWatermark("leetware | loading")
 
-local FrameContext={
-    Camera=nil,
-    Players=nil,
-    Tools=nil
-}
-
-local function UpdateController(controller,deltaTime)
-    if controller and type(controller.Update)=='function' then
-        controller:Update(deltaTime,FrameContext)
-    end
-end
-
-RunService.RenderStepped:Connect(function(deltaTime)
-    FrameContext.Camera=Workspace.CurrentCamera
-    FrameContext.Players=Players:GetPlayers()
-
-    PlayerToolsTimer+=deltaTime
-
-    if not FrameContext.Tools or PlayerToolsTimer>=0.25 then
-        PlayerToolsTimer=0
-        FrameContext.Tools=RefreshPlayerTools()
-    end
-
+RunService.Heartbeat:Connect(function()
     frames+=1
 
     local now=os.clock()
@@ -1904,13 +1832,10 @@ RunService.RenderStepped:Connect(function(deltaTime)
             )
         )
     end
+end)
 
+RunService.RenderStepped:Connect(function(deltaTime)
     RainbowHue=(RainbowHue+deltaTime*0.5)%1
-
-    UpdateController(AimbotController,deltaTime)
-    UpdateController(ESPController,deltaTime)
-    UpdateController(ChamsController,deltaTime)
-    UpdateController(TracersController,deltaTime)
 
     ApplyAntiAim()
 
@@ -1935,7 +1860,17 @@ RunService.RenderStepped:Connect(function(deltaTime)
         if RainbowToolTimer>=0.05 then
             RainbowToolTimer=0
 
-            ProcessRainbowTools(FrameContext.Tools)
+            local backpack=Player:FindFirstChildOfClass("Backpack")
+
+            if backpack then
+                ProcessRainbowContainer(backpack)
+            end
+
+            local character=Player.Character
+
+            if character then
+                ProcessRainbowContainer(character)
+            end
         end
     else
         RainbowToolTimer=0
@@ -1944,10 +1879,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
     if GunTransparency>0 then
         GunTransparencyTimer+=deltaTime
 
-        if GunTransparencyTimer>=0.25 then
+        if GunTransparencyTimer>=0.1 then
             GunTransparencyTimer=0
 
-            ProcessGunTransparencyTools(FrameContext.Tools)
+            local backpack=Player:FindFirstChildOfClass('Backpack')
+
+            if backpack then
+                ProcessGunTransparencyContainer(backpack)
+            end
+
+            local character=Player.Character
+
+            if character then
+                ProcessGunTransparencyContainer(character)
+            end
         end
     else
         GunTransparencyTimer=0
@@ -1959,7 +1904,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         if CustomSoundTimer>=0.25 then
             CustomSoundTimer=0
 
-            for _,tool in ipairs(FrameContext.Tools) do
+            for _,tool in ipairs(GetPlayerTools()) do
                 UpdateCustomGunSound(tool)
             end
         end

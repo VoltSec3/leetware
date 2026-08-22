@@ -21,6 +21,8 @@ function Aimbot.new(config)
     local MouseLockDisabled = false
     local TriggerbotTarget = nil
     local TriggerbotNextFire = nil
+    local TriggerbotRaycastParams = RaycastParams.new()
+    local TriggerbotFilter = {}
 
     local function GetGlobalFunction(name)
         local environment = type(getgenv) == "function"
@@ -78,7 +80,7 @@ function Aimbot.new(config)
 
     local IsBlocked
 
-    IsBlocked = function(character, ignorePlayers)
+    IsBlocked = function(character, ignorePlayers, sharedRaycastParams, playerList)
         local head = Utils.GetCharacterPart(character, "Head")
 
         if not head then
@@ -87,18 +89,21 @@ function Aimbot.new(config)
 
         local origin = Camera.CFrame.Position
         local direction = head.Position - origin
-        local raycastParams = RaycastParams.new()
+        local raycastParams = sharedRaycastParams
+            or RaycastParams.new()
         local filter = { Player.Character }
 
-        if ignorePlayers then
-            for _, target in ipairs(Players:GetPlayers()) do
+        if ignorePlayers and not sharedRaycastParams then
+            for _, target in ipairs(playerList or Players:GetPlayers()) do
                 if target ~= Player and target.Character then
                     table.insert(filter, target.Character)
                 end
             end
         end
 
-        raycastParams.FilterDescendantsInstances = filter
+        if not sharedRaycastParams then
+            raycastParams.FilterDescendantsInstances = filter
+        end
         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
         local result = Workspace:Raycast(
@@ -115,7 +120,9 @@ function Aimbot.new(config)
         target,
         requireFov,
         maintainLock,
-        ignorePlayers
+        ignorePlayers,
+        sharedRaycastParams,
+        playerList
     )
         if not target or target == Player then
             return false
@@ -174,19 +181,24 @@ function Aimbot.new(config)
 
         if not maintainLock
             and Settings.WallCheck
-            and IsBlocked(character, ignorePlayers) then
+            and IsBlocked(
+                character,
+                ignorePlayers,
+                sharedRaycastParams,
+                playerList
+            ) then
             return false
         end
 
         return true
     end
 
-    local function GetTarget()
+    local function GetTarget(playerList)
         local candidates = {}
         local cursorPosition = UserInputService:GetMouseLocation()
         local cameraPosition = Camera.CFrame.Position
 
-        for _, target in ipairs(Players:GetPlayers()) do
+        for _, target in ipairs(playerList or Players:GetPlayers()) do
             if IsTargetValid(target, true) then
                 local head = target.Character.Head
                 local screenPosition = Camera:WorldToViewportPoint(
@@ -256,9 +268,9 @@ function Aimbot.new(config)
         return selected.target
     end
 
-    local function GetLockedTarget()
+    local function GetLockedTarget(playerList)
         if not Settings.LockAim then
-            CurrentTarget = GetTarget()
+            CurrentTarget = GetTarget(playerList)
             return CurrentTarget
         end
 
@@ -267,7 +279,7 @@ function Aimbot.new(config)
             return CurrentTarget
         end
 
-        CurrentTarget = GetTarget()
+        CurrentTarget = GetTarget(playerList)
         return CurrentTarget
     end
 
@@ -444,15 +456,35 @@ function Aimbot.new(config)
         return math.max(radius * 1.25, 6)
     end
 
-    local function GetTriggerbotTarget()
+    local function GetTriggerbotTarget(playerList)
         local cursorPosition = UserInputService:GetMouseLocation()
         local nearestTarget = nil
         local nearestDistance = math.huge
+        local raycastParams = TriggerbotRaycastParams
+        local filter = TriggerbotFilter
 
-        for _, target in ipairs(Players:GetPlayers()) do
+        table.clear(filter)
+        table.insert(filter, Player.Character)
+
+        for _, target in ipairs(playerList or Players:GetPlayers()) do
+            if target ~= Player and target.Character then
+                table.insert(filter, target.Character)
+            end
+        end
+
+        raycastParams.FilterDescendantsInstances = filter
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        for _, target in ipairs(playerList or Players:GetPlayers()) do
             local head = Utils.GetHead(target)
 
-            if head and IsTargetValid(target, false, false, true) then
+            if head and IsTargetValid(
+                target,
+                false,
+                false,
+                true,
+                raycastParams
+            ) then
                 local screenPosition, visible = Camera:WorldToViewportPoint(
                     head.Position
                 )
@@ -477,19 +509,15 @@ function Aimbot.new(config)
         return nearestTarget
     end
 
-    local function UpdateTriggerbot()
-        if not Settings.Triggerbot
-            or not Aiming then
+    local function UpdateTriggerbot(playerList)
+        if not Settings.Triggerbot then
             ResetTriggerbot()
             return
         end
 
-        local targetPlayer = GetTriggerbotTarget()
-        local isValidHead = targetPlayer
-            and targetPlayer ~= Player
-            and IsTargetValid(targetPlayer, false, false, true)
+        local targetPlayer = GetTriggerbotTarget(playerList)
 
-        if not isValidHead then
+        if not targetPlayer then
             ResetTriggerbot()
             return
         end
@@ -581,8 +609,11 @@ function Aimbot.new(config)
         StopAiming()
     end)
 
-    local renderConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        Camera = Workspace.CurrentCamera
+    local controller = {}
+
+    function controller:Update(deltaTime,context)
+        Camera = context and context.Camera or Workspace.CurrentCamera
+        local playerList=context and context.Players
 
         if not Camera then
             return
@@ -612,7 +643,7 @@ function Aimbot.new(config)
                 return
             end
 
-            local target = GetLockedTarget()
+            local target = GetLockedTarget(playerList)
             local aimPosition = GetAimPosition(target)
 
             if aimPosition then
@@ -637,17 +668,14 @@ function Aimbot.new(config)
                 UnlockMouse()
             end
 
-            UpdateTriggerbot()
         end
 
-    end)
-
-    local controller = {}
+        UpdateTriggerbot(playerList)
+    end
 
     function controller:Destroy()
         inputBegan:Disconnect()
         inputEnded:Disconnect()
-        renderConnection:Disconnect()
         FovCircle.Visible = false
         FovCircle:Remove()
         StopAiming()

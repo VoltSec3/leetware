@@ -94,7 +94,7 @@ function Chams.new(config)
 
         Objects[plr] = data
 
-        data.Update = function()
+        data.Update = function(camera)
                 local settings = Settings.Chams
 
                 if not settings.Enabled then
@@ -117,8 +117,6 @@ function Chams.new(config)
                     highlight.Adornee = nil
                     return
                 end
-
-                local camera = Workspace.CurrentCamera
 
                 if not camera then
                     highlight.Enabled = false
@@ -198,7 +196,9 @@ function Chams.new(config)
 
     local wasEnabled = false
 
-    local renderConnection = RunService.RenderStepped:Connect(function()
+    function controller:Update(context)
+        local camera=context and context.Camera or Workspace.CurrentCamera
+
         if not Settings.Chams.Enabled then
             if wasEnabled then
                 for _, data in pairs(Objects) do
@@ -216,10 +216,10 @@ function Chams.new(config)
 
         for _, data in pairs(Objects) do
             if data.Update then
-                data.Update()
+                data.Update(camera)
             end
         end
-    end)
+    end
 
     controller.PlayerAdded =
         Players.PlayerAdded:Connect(function(plr)
@@ -232,11 +232,6 @@ function Chams.new(config)
         end)
 
     function controller:Destroy()
-        if renderConnection then
-            renderConnection:Disconnect()
-            renderConnection = nil
-        end
-
         if controller.PlayerAdded then
             controller.PlayerAdded:Disconnect()
             controller.PlayerAdded = nil
