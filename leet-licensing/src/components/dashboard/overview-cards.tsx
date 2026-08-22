@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Panel } from "@/components/site/panel";
+
 type Overview = {
   totalLicenses: number;
   unusedLicenses: number;
@@ -33,33 +35,32 @@ export function OverviewCards() {
   }, []);
 
   if (error) {
-    return <p className="text-sm text-red-300">{error}</p>;
+    return <p className="lw-error">{error}</p>;
   }
 
   if (!overview) {
-    return <p className="text-sm text-zinc-400">Loading overview...</p>;
+    return <p className="lw-muted">loading overview...</p>;
   }
 
   const cards = [
-    { label: "Total licenses", value: overview.totalLicenses },
-    { label: "Unused", value: overview.unusedLicenses },
-    { label: "Activated", value: overview.activatedLicenses },
-    { label: "Revoked", value: overview.revokedLicenses },
-    { label: "Expired", value: overview.expiredLicenses },
-    { label: "Active sessions", value: overview.activeSessions },
-    { label: "Seen last 24h", value: overview.seenLast24h },
+    { label: "total licenses", value: overview.totalLicenses },
+    { label: "unused", value: overview.unusedLicenses },
+    { label: "activated", value: overview.activatedLicenses },
+    { label: "revoked", value: overview.revokedLicenses },
+    { label: "expired", value: overview.expiredLicenses },
+    { label: "active sessions", value: overview.activeSessions },
+    { label: "seen last 24h", value: overview.seenLast24h },
   ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="rounded-xl border border-zinc-800 bg-zinc-950 p-5"
-        >
-          <p className="text-sm text-zinc-400">{card.label}</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{card.value}</p>
-        </div>
+        <Panel key={card.label}>
+          <div className="p-3">
+            <p className="lw-muted text-[12px]">{card.label}</p>
+            <p className="lw-title mt-1 text-xl">{card.value}</p>
+          </div>
+        </Panel>
       ))}
     </div>
   );

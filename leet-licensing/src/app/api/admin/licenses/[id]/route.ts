@@ -25,6 +25,15 @@ export async function GET(_request: Request, context: RouteContext) {
       where: { id },
       include: {
         activation: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            robloxAccounts: {
+              orderBy: { addedAt: "desc" },
+            },
+          },
+        },
         sessions: {
           orderBy: { createdAt: "desc" },
           take: 50,
@@ -74,9 +83,24 @@ export async function GET(_request: Request, context: RouteContext) {
       status: license.status,
       note: license.note,
       alias: license.alias,
+      tier: license.tier,
+      userId: license.userId,
+      user: license.user
+        ? { id: license.user.id, username: license.user.username }
+        : null,
       createdAt: license.createdAt.toISOString(),
       expiresAt: license.expiresAt?.toISOString() ?? null,
       activatedAt: license.activatedAt?.toISOString() ?? null,
+      robloxAccounts: (license.user?.robloxAccounts ?? []).map((account) => ({
+        id: account.id,
+        robloxUserId: account.robloxUserId,
+        username: account.username,
+        displayName: account.displayName,
+        avatarUrl: account.avatarUrl,
+        verification: account.verification,
+        addedAt: account.addedAt.toISOString(),
+        lastSeen: account.lastSeen?.toISOString() ?? null,
+      })),
       activation: license.activation
         ? {
             hwidDisplay: displayHwidHash(license.activation.hwidHash),

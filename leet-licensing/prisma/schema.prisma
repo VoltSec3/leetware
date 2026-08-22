@@ -9,6 +9,7 @@ datasource db {
 enum LicenseStatus {
   UNUSED
   ACTIVATED
+  SUSPENDED
   REVOKED
   EXPIRED
 }
@@ -35,21 +36,88 @@ model AdminSession {
 }
 
 model License {
-  id          String        @id @default(cuid())
-  licenseHash String        @unique
+  id          String          @id @default(cuid())
+  licenseHash String          @unique
   keyCipher   String?
-  status      LicenseStatus @default(UNUSED)
+  status      LicenseStatus   @default(UNUSED)
   note        String?
   alias       String?
-  createdAt   DateTime      @default(now())
+  tier        String          @default("standard")
+  userId      String?
+  createdAt   DateTime        @default(now())
   expiresAt   DateTime?
   activatedAt DateTime?
   activation  Activation?
   sessions    LoaderSession[]
   auditLogs   AuditLog[]
+  user        User?
 
   @@index([status])
   @@index([createdAt])
+  @@index([userId])
+}
+
+model User {
+  id                  String          @id @default(cuid())
+  username            String          @unique
+  email               String?         @unique
+  emailVerifiedAt     DateTime?
+  passwordHash        String
+  licenseId           String?         @unique
+  failedLoginAttempts Int             @default(0)
+  lockedUntil         DateTime?
+  lastHwidResetAt     DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  license             License?        @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+  sessions            UserSession[]
+  robloxAccounts      RobloxAccount[]
+  emailTokens         EmailToken[]
+
+  @@index([username])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  lastSeen  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model RobloxAccount {
+  id           String    @id @default(cuid())
+  userId       String
+  robloxUserId String    @unique
+  username     String
+  displayName  String?
+  avatarUrl    String?
+  verification String    @default("PENDING")
+  addedAt      DateTime  @default(now())
+  lastSeen     DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Activation {
@@ -69,14 +137,16 @@ model Activation {
 }
 
 model LoaderSession {
-  id        String   @id @default(cuid())
-  licenseId String
-  tokenHash String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  lastSeen  DateTime @default(now())
-  revoked   Boolean  @default(false)
-  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  licenseId     String
+  tokenHash     String   @unique
+  robloxUserId  String?
+  clientVersion String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  lastSeen      DateTime @default(now())
+  revoked       Boolean  @default(false)
+  license       License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@index([licenseId])
   @@index([expiresAt])
@@ -87,6 +157,8 @@ model AuditLog {
   id        String   @id @default(cuid())
   licenseId String?
   event     String
+  actorType String?
+  actorName String?
   ip        String?
   metadata  Json?
   createdAt DateTime @default(now())
@@ -95,6 +167,7 @@ model AuditLog {
   @@index([licenseId])
   @@index([event])
   @@index([createdAt])
+  @@index([actorName])
 }
 
 model SupportedGame {

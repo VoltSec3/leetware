@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Panel } from "@/components/site/panel";
+
 type GameRow = {
   id: string;
   gameId: string;
@@ -173,133 +175,126 @@ export function GamesManager() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-        <h2 className="text-lg font-medium text-white">Register a game</h2>
-        <p className="mt-1 text-sm text-zinc-400">
-          Registration is optional — games also self-register the first time a
-          loader runs them. Use this to control delivery mode or upload gated
-          payloads.
-        </p>
+    <div className="space-y-5">
+      <Panel>
+        <div className="p-4">
+          <h2 className="lw-title">register a game</h2>
+          <p className="lw-muted mt-1 text-[12px]">
+            registration is optional — games also self-register the first time a
+            loader runs them. use this to control delivery mode or upload gated
+            payloads.
+          </p>
 
-        <form onSubmit={registerGame} className="mt-4 grid gap-4 md:grid-cols-6">
-          <label className="space-y-2">
-            <span className="text-sm text-zinc-300">GameId</span>
-            <input
-              required
-              value={form.gameId}
-              onChange={(event) => setForm({ ...form, gameId: event.target.value })}
-              placeholder="155615604"
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-            />
-          </label>
+          <form onSubmit={registerGame} className="mt-3 grid gap-3 md:grid-cols-6">
+            <label className="space-y-1">
+              <span className="lw-label">gameid</span>
+              <input
+                required
+                value={form.gameId}
+                onChange={(event) => setForm({ ...form, gameId: event.target.value })}
+                placeholder="155615604"
+                className="lw-input"
+              />
+            </label>
 
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-sm text-zinc-300">Name</span>
-            <input
-              required
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="Prison Life"
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-            />
-          </label>
+            <label className="space-y-1 md:col-span-2">
+              <span className="lw-label">name</span>
+              <input
+                required
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                placeholder="Prison Life"
+                className="lw-input"
+              />
+            </label>
 
-          <label className="space-y-2">
-            <span className="text-sm text-zinc-300">Delivery</span>
-            <select
-              value={form.delivery}
-              onChange={(event) => setForm({ ...form, delivery: event.target.value })}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-            >
-              <option value="direct">direct</option>
-              <option value="api">api</option>
-            </select>
-          </label>
+            <label className="space-y-1">
+              <span className="lw-label">delivery</span>
+              <select
+                value={form.delivery}
+                onChange={(event) => setForm({ ...form, delivery: event.target.value })}
+                className="lw-select"
+              >
+                <option value="direct">direct</option>
+                <option value="api">api</option>
+              </select>
+            </label>
 
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-sm text-zinc-300">Script URL (direct mode)</span>
-            <input
-              value={form.scriptUrl}
-              onChange={(event) => setForm({ ...form, scriptUrl: event.target.value })}
-              placeholder="https://raw.githubusercontent.com/..."
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-            />
-          </label>
+            <label className="space-y-1 md:col-span-2">
+              <span className="lw-label">script url (direct mode)</span>
+              <input
+                value={form.scriptUrl}
+                onChange={(event) => setForm({ ...form, scriptUrl: event.target.value })}
+                placeholder="https://raw.githubusercontent.com/..."
+                className="lw-input"
+              />
+            </label>
 
-          <div className="md:col-span-6">
-            <button
-              type="submit"
-              className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
-            >
-              Save game
-            </button>
-          </div>
-        </form>
+            <div className="md:col-span-6">
+              <button type="submit" className="lw-btn lw-btn-accent">
+                save game
+              </button>
+            </div>
+          </form>
 
-        {formError ? (
-          <p className="mt-4 text-sm text-red-300">{formError}</p>
-        ) : null}
-      </div>
+          {formError ? (
+            <p className="lw-error mt-3 text-[12px]">{formError}</p>
+          ) : null}
+        </div>
+      </Panel>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="lw-error">{error}</p> : null}
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950">
+      <Panel>
         {loading ? (
-          <p className="p-4 text-sm text-zinc-400">Loading games...</p>
+          <p className="lw-muted p-4 text-[12px]">loading games...</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-800 text-zinc-400">
+          <div className="overflow-x-auto p-2">
+            <table className="lw-table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">GameId</th>
-                  <th className="px-4 py-3 font-medium">Module key</th>
-                  <th className="px-4 py-3 font-medium">Delivery</th>
-                  <th className="px-4 py-3 font-medium">Flags</th>
-                  <th className="px-4 py-3 font-medium">Last seen</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  <th>name</th>
+                  <th>gameid</th>
+                  <th>module key</th>
+                  <th>delivery</th>
+                  <th>flags</th>
+                  <th>last seen</th>
+                  <th>actions</th>
                 </tr>
               </thead>
               <tbody>
                 {games.map((game) => (
-                  <tr key={game.id} className="border-b border-zinc-900/80">
-                    <td className="px-4 py-3 text-zinc-200">{game.name}</td>
-                    <td className="px-4 py-3 font-mono text-zinc-400">{game.gameId}</td>
-                    <td className="px-4 py-3 font-mono text-zinc-400">{game.moduleKey}</td>
-                    <td className="px-4 py-3 text-zinc-300">{game.delivery}</td>
-                    <td className="px-4 py-3">
+                  <tr key={game.id}>
+                    <td>{game.name}</td>
+                    <td className="lw-mono">{game.gameId}</td>
+                    <td className="lw-mono">{game.moduleKey}</td>
+                    <td>{game.delivery}</td>
+                    <td>
                       <div className="flex flex-wrap gap-1">
                         {!game.enabled ? (
-                          <span className="rounded-full bg-red-950/60 px-2 py-0.5 text-xs text-red-300">
-                            disabled
-                          </span>
+                          <span className="lw-pill lw-pill-red">disabled</span>
                         ) : null}
                         {game.autoRegistered ? (
-                          <span className="rounded-full bg-sky-950/60 px-2 py-0.5 text-xs text-sky-300">
-                            auto
-                          </span>
+                          <span className="lw-pill lw-pill-blue">auto</span>
                         ) : null}
                         {game.hasPayloadSource ? (
-                          <span className="rounded-full bg-emerald-950/60 px-2 py-0.5 text-xs text-emerald-300">
-                            payload
-                          </span>
+                          <span className="lw-pill lw-pill-green">payload</span>
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">
+                    <td>
                       {game.lastSeenAt
                         ? new Date(game.lastSeenAt).toLocaleString()
                         : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => openEditor(game)}
-                          className="text-violet-400 hover:text-violet-300"
+                          className="hover:text-[#cce335]"
                         >
-                          Payload
+                          payload
                         </button>
                         <button
                           type="button"
@@ -308,18 +303,18 @@ export function GamesManager() {
                           }
                           className={
                             game.enabled
-                              ? "text-red-400 hover:text-red-300"
-                              : "text-emerald-400 hover:text-emerald-300"
+                              ? "text-[#e05555] hover:text-[#ff7777]"
+                              : "text-[#57d977] hover:text-[#7de895]"
                           }
                         >
-                          {game.enabled ? "Disable" : "Enable"}
+                          {game.enabled ? "disable" : "enable"}
                         </button>
                         <button
                           type="button"
                           onClick={() => void deleteGame(game.id)}
-                          className="text-zinc-500 hover:text-red-400"
+                          className="lw-dim hover:text-[#e05555]"
                         >
-                          Delete
+                          delete
                         </button>
                       </div>
                     </td>
@@ -327,9 +322,8 @@ export function GamesManager() {
                 ))}
                 {games.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
-                      No games registered yet. They will appear automatically when
-                      loaders report their GameId.
+                    <td colSpan={7} className="lw-dim py-4 text-center">
+                      no games registered yet.
                     </td>
                   </tr>
                 ) : null}
@@ -337,60 +331,57 @@ export function GamesManager() {
             </table>
           </div>
         )}
-      </div>
+      </Panel>
 
       {editing ? (
-        <div className="rounded-xl border border-violet-900/50 bg-zinc-950 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-medium text-white">
-                Payload source — {editing.name}
-              </h2>
-              <p className="mt-1 text-sm text-zinc-400">
-                Served as plain Lua source by{" "}
-                <code className="text-violet-300">/api/payload/{editing.moduleKey}</code>{" "}
-                to authenticated sessions only. Leave delivery on{" "}
-                <code>api</code> for this to be used.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="text-sm text-zinc-400 hover:text-zinc-200"
-            >
-              Close
-            </button>
-          </div>
-
-          <textarea
-            value={payloadDraft}
-            onChange={(event) => setPayloadDraft(event.target.value)}
-            rows={14}
-            spellCheck={false}
-            placeholder="-- Paste obfuscated or plain Lua source here..."
-            className="mt-4 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-sm text-white"
-          />
-
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => void savePayloadSource(false)}
-              disabled={!payloadDraft.trim()}
-              className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-60"
-            >
-              Save payload
-            </button>
-            {editing.hasPayloadSource ? (
+        <Panel>
+          <div className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="lw-title">payload source — {editing.name}</h2>
               <button
                 type="button"
-                onClick={() => void savePayloadSource(true)}
-                className="rounded-md border border-red-900 px-4 py-2 text-sm text-red-300 hover:bg-red-950/30"
+                onClick={() => setEditing(null)}
+                className="lw-muted hover:text-[#cccccc]"
               >
-                Remove payload
+                close
               </button>
-            ) : null}
+            </div>
+            <p className="lw-muted mt-1 text-[12px]">
+              served as plain lua source by{" "}
+              <code className="lw-mono">/api/payload/{editing.moduleKey}</code>{" "}
+              to authenticated sessions only.
+            </p>
+
+            <textarea
+              value={payloadDraft}
+              onChange={(event) => setPayloadDraft(event.target.value)}
+              rows={14}
+              spellCheck={false}
+              placeholder="-- paste obfuscated or plain lua source here..."
+              className="lw-input lw-mono mt-3"
+            />
+
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void savePayloadSource(false)}
+                disabled={!payloadDraft.trim()}
+                className="lw-btn lw-btn-accent"
+              >
+                save payload
+              </button>
+              {editing.hasPayloadSource ? (
+                <button
+                  type="button"
+                  onClick={() => void savePayloadSource(true)}
+                  className="lw-btn lw-btn-danger"
+                >
+                  remove payload
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </Panel>
       ) : null}
     </div>
   );

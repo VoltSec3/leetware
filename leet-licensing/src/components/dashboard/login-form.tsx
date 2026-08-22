@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Panel } from "@/components/site/panel";
+
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -34,52 +36,49 @@ export function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="w-full max-w-md space-y-4 rounded-xl border border-zinc-800 bg-zinc-950 p-8 shadow-xl"
-    >
-      <div>
-        <h1 className="text-2xl font-semibold text-white">Admin sign in</h1>
-        <p className="mt-2 text-sm text-zinc-400">
-          Manage licenses for leet.voltsec.xyz
-        </p>
-      </div>
-
-      {error ? (
-        <div className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
+    <Panel className="w-full max-w-sm">
+      <form onSubmit={handleSubmit} className="p-5">
+        <div className="mb-4 text-center">
+          <span className="lw-title">admin sign in</span>
+          <p className="lw-muted mt-1">leetware licensing</p>
         </div>
-      ) : null}
 
-      <label className="block space-y-2">
-        <span className="text-sm text-zinc-300">Email</span>
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white outline-none ring-violet-500 focus:ring-2"
-          required
-        />
-      </label>
+        {error ? (
+          <p className="lw-error mb-3 text-[12px]" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      <label className="block space-y-2">
-        <span className="text-sm text-zinc-300">Password</span>
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white outline-none ring-violet-500 focus:ring-2"
-          required
-        />
-      </label>
+        <label className="block space-y-1">
+          <span className="lw-label">email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="lw-input"
+            required
+          />
+        </label>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-md bg-violet-600 px-4 py-2 font-medium text-white transition hover:bg-violet-500 disabled:opacity-60"
-      >
-        {loading ? "Signing in..." : "Sign in"}
-      </button>
-    </form>
+        <label className="mt-3 block space-y-1">
+          <span className="lw-label">password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="lw-input"
+            required
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="lw-btn mt-4 w-full"
+        >
+          {loading ? "signing in..." : "sign in"}
+        </button>
+      </form>
+    </Panel>
   );
 }

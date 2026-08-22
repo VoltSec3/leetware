@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { CopyButton } from "@/components/dashboard/copy-button";
+import { Panel, StatusPill } from "@/components/site/panel";
 
 type LicenseRow = {
   id: string;
@@ -24,7 +25,7 @@ type LicenseRow = {
   activeSessions: number;
 };
 
-const statuses = ["", "UNUSED", "ACTIVATED", "REVOKED", "EXPIRED"];
+const statuses = ["", "UNUSED", "ACTIVATED", "SUSPENDED", "REVOKED", "EXPIRED"];
 
 function getCookie(name: string) {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -94,28 +95,28 @@ export function LicensesTable() {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950">
-      <div className="flex flex-wrap items-end gap-4 border-b border-zinc-800 p-4">
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Search</span>
+    <Panel>
+      <div className="flex flex-wrap items-end gap-3 border-b border-[#282828] p-4">
+        <label className="space-y-1">
+          <span className="lw-label">search</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Alias, note or ID"
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+            placeholder="alias, note or id"
+            className="lw-input max-w-[200px]"
           />
         </label>
 
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Status</span>
+        <label className="space-y-1">
+          <span className="lw-label">status</span>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+            className="lw-select max-w-[140px]"
           >
             {statuses.map((value) => (
               <option key={value || "all"} value={value}>
-                {value || "All"}
+                {value || "all"}
               </option>
             ))}
           </select>
@@ -124,86 +125,80 @@ export function LicensesTable() {
         <button
           type="button"
           onClick={() => setReloadKey((key) => key + 1)}
-          className="rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
+          className="lw-btn"
         >
-          Refresh
+          refresh
         </button>
       </div>
 
       {error ? (
-        <p className="p-4 text-sm text-red-300">{error}</p>
+        <p className="lw-error p-4 text-[12px]">{error}</p>
       ) : loading ? (
-        <p className="p-4 text-sm text-zinc-400">Loading licenses...</p>
+        <p className="lw-muted p-4 text-[12px]">loading licenses...</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-800 text-zinc-400">
+        <div className="overflow-x-auto p-2">
+          <table className="lw-table">
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-medium">License</th>
-                <th className="px-4 py-3 font-medium">Alias</th>
-                <th className="px-4 py-3 font-medium">ID</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">HWID</th>
-                <th className="px-4 py-3 font-medium">Last seen</th>
-                <th className="px-4 py-3 font-medium">Sessions</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th>license</th>
+                <th>alias</th>
+                <th>id</th>
+                <th>status</th>
+                <th>hwid</th>
+                <th>last seen</th>
+                <th>sessions</th>
+                <th>actions</th>
               </tr>
             </thead>
             <tbody>
               {licenses.map((license) => (
-                <tr key={license.id} className="border-b border-zinc-900/80">
-                  <td className="px-4 py-3">
+                <tr key={license.id}>
+                  <td>
                     {license.key ? (
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-zinc-200">{license.key}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="lw-mono">{license.key}</span>
                         <CopyButton value={license.key} />
-                      </div>
+                      </span>
                     ) : (
-                      <span className="text-zinc-600">—</span>
+                      <span className="lw-dim">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">
-                    {license.alias ?? <span className="text-zinc-600">—</span>}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-zinc-300">
+                  <td>{license.alias ?? <span className="lw-dim">—</span>}</td>
+                  <td className="lw-mono">
                     <Link
                       href={`/dashboard/licenses/${license.id}`}
-                      className="hover:text-white"
+                      className="hover:text-[#cce335]"
                     >
                       {license.id.slice(0, 10)}…
                     </Link>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-200">
-                      {license.status}
-                    </span>
+                  <td>
+                    <StatusPill value={license.status} />
                   </td>
-                  <td className="px-4 py-3 font-mono text-zinc-400">
+                  <td className="lw-mono">
                     {license.activation?.hwidDisplay ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">
+                  <td>
                     {license.activation?.lastSeen
                       ? new Date(license.activation.lastSeen).toLocaleString()
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">
-                    {license.activeSessions}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td>{license.activeSessions}</td>
+                  <td>
                     <div className="flex gap-2">
                       <Link
                         href={`/dashboard/licenses/${license.id}`}
-                        className="text-violet-400 hover:text-violet-300"
+                        className="hover:text-[#cce335]"
                       >
-                        View
+                        view
                       </Link>
                       {license.status !== "REVOKED" ? (
                         <button
                           type="button"
                           onClick={() => void revokeLicense(license.id)}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-[#e05555] hover:text-[#ff7777]"
                         >
-                          Revoke
+                          revoke
                         </button>
                       ) : null}
                     </div>
@@ -214,6 +209,6 @@ export function LicensesTable() {
           </table>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -78,7 +78,13 @@ export async function verifyHwidForLicense(
   return safeEqual(activation.hwidHash, hwidHash);
 }
 
-export async function createLoaderSession(licenseId: string) {
+export async function createLoaderSession(
+  licenseId: string,
+  options?: {
+    robloxUserId?: string | null;
+    clientVersion?: string | null;
+  },
+) {
   const { generateSessionToken, hashToken: hashSessionToken } = await import(
     "@/lib/crypto"
   );
@@ -93,6 +99,8 @@ export async function createLoaderSession(licenseId: string) {
     data: {
       licenseId,
       tokenHash,
+      robloxUserId: options?.robloxUserId ?? undefined,
+      clientVersion: options?.clientVersion ?? undefined,
       expiresAt,
     },
   });
@@ -102,6 +110,91 @@ export async function createLoaderSession(licenseId: string) {
     token,
     expiresAt,
   };
+}
+
+export async function getLicenseUserWithAllowlist(licenseId: string) {
+  const license = await prisma.license.findUnique({
+    where: { id: licenseId },
+    select: {
+      userId: true,
+      user: {
+        include: {
+          robloxAccounts: {
+            orderBy: { addedAt: "desc" },
+          },
+        },
+      },
+    },
+  });
+
+  return license?.user ?? null;
+}
+
+export async function touchRobloxAccount(
+  userId: string,
+  robloxUserId: string | null,
+) {
+  if (!robloxUserId) {
+    return;
+  }
+
+  const account = await prisma.robloxAccount.findUnique({
+    where: { robloxUserId },
+    select: { id: true, userId: true },
+  });
+
+  if (!account || account.userId !== userId) {
+    return;
+  }
+
+  await prisma.robloxAccount.update({
+    where: { id: account.id },
+    data: {
+      lastSeen: new Date(),
+      verification: "VERIFIED",
+    },
+  });
+}
+
+export async function enforceRobloxAllowlist(
+  licenseId: string,
+  robloxUserId: string | null,
+): Promise<{ allowed: boolean; reason?: string }> {
+  const license = await prisma.license.findUnique({
+    where: { id: licenseId },
+    select: { userId: true },
+  });
+
+  if (!license?.userId) {
+    return {
+      allowed: false,
+      reason:
+        "License is not linked to a site account. Register on the website first.",
+    };
+  }
+
+  const user = await getLicenseUserWithAllowlist(licenseId);
+
+  if (!user || user.robloxAccounts.length === 0) {
+    return { allowed: true };
+  }
+
+  await touchRobloxAccount(user.id, robloxUserId);
+
+  if (!robloxUserId) {
+    return {
+      allowed: false,
+      reason: "This license is restricted to specific Roblox accounts",
+    };
+  }
+
+  const allowed = user.robloxAccounts.some(
+    (account) => account.robloxUserId === robloxUserId,
+  );
+
+  return allowed
+    ? { allowed: true }
+    : { allowed: false, reason: "Roblox account is not on this license's allowlist" };
 }
 
 export async function findValidLoaderSession(sessionToken: string) {
@@ -124,7 +217,7 @@ export async function findValidLoaderSession(sessionToken: string) {
 }
 
 export async function revokeLicenseSessions(licenseId: string) {
-  await prisma.loaderSession.updateMany({
+  return prisma.loaderSession.updateMany({
     where: {
       licenseId,
       revoked: false,

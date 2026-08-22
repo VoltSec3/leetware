@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { Panel } from "@/components/site/panel";
+
 function getCookie(name: string) {
   if (typeof document === "undefined") {
     return null;
@@ -68,86 +70,84 @@ export function GenerateLicensesPanel() {
   }, [generated]);
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-      <h2 className="text-lg font-medium text-white">Generate licenses</h2>
-      <p className="mt-1 text-sm text-zinc-400">
-        Plaintext keys are shown once. Only hashes are stored server-side.
-      </p>
+    <Panel>
+      <div className="p-4">
+        <h2 className="lw-title">generate licenses</h2>
+        <p className="lw-muted mt-1 text-[12px]">
+          plaintext keys are shown once. only hashes are stored server-side.
+        </p>
 
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-4 md:grid-cols-4">
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Count</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={count}
-            onChange={(event) => setCount(Number(event.target.value))}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          />
-        </label>
+        <form onSubmit={handleSubmit} className="mt-3 grid gap-3 md:grid-cols-4">
+          <label className="space-y-1">
+            <span className="lw-label">count</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={count}
+              onChange={(event) => setCount(Number(event.target.value))}
+              className="lw-input"
+            />
+          </label>
 
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Alias (username)</span>
-          <input
-            type="text"
-            required
-            minLength={2}
-            maxLength={64}
-            value={alias}
-            onChange={(event) => setAlias(event.target.value)}
-            placeholder="Who is this license for?"
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          />
-        </label>
+          <label className="space-y-1">
+            <span className="lw-label">alias (username)</span>
+            <input
+              type="text"
+              required
+              minLength={2}
+              maxLength={64}
+              value={alias}
+              onChange={(event) => setAlias(event.target.value)}
+              placeholder="who is this for?"
+              className="lw-input"
+            />
+          </label>
 
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Note (optional)</span>
-          <input
-            type="text"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          />
-        </label>
+          <label className="space-y-1">
+            <span className="lw-label">note (optional)</span>
+            <input
+              type="text"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              className="lw-input"
+            />
+          </label>
 
-        <label className="space-y-2">
-          <span className="text-sm text-zinc-300">Expires (optional)</span>
-          <input
-            type="datetime-local"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
-          />
-        </label>
+          <label className="space-y-1">
+            <span className="lw-label">expires (optional)</span>
+            <input
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+              className="lw-input"
+            />
+          </label>
 
-        <div className="md:col-span-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-60"
-          >
-            {loading ? "Generating..." : "Generate"}
-          </button>
-        </div>
-      </form>
-
-      {error ? (
-        <p className="mt-4 text-sm text-red-300">{error}</p>
-      ) : null}
-
-      {generated.length > 0 ? (
-        <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4">
-          <p className="text-sm font-medium text-emerald-200">
-            Generated {generated.length} license{generated.length === 1 ? "" : "s"}
-          </p>
-          <div className="mt-3 space-y-2 font-mono text-sm text-emerald-100">
-            {generated.map((license) => (
-              <div key={license}>{license}</div>
-            ))}
+          <div className="md:col-span-4">
+            <button type="submit" disabled={loading} className="lw-btn lw-btn-accent">
+              {loading ? "generating..." : "generate"}
+            </button>
           </div>
-        </div>
-      ) : null}
-    </div>
+        </form>
+
+        {error ? (
+          <p className="lw-error mt-3 text-[12px]">{error}</p>
+        ) : null}
+
+        {generated.length > 0 ? (
+          <div className="mt-3 border border-[#24502e] p-3">
+            <p className="text-[#57d977] text-[12px] font-bold">
+              generated {generated.length} license{generated.length === 1 ? "" : "s"}
+            </p>
+            <div className="lw-mono mt-2 space-y-1 text-[13px]">
+              {generated.map((license) => (
+                <div key={license}>{license}</div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </Panel>
   );
 }

@@ -6,6 +6,7 @@ import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
 import { registerGameFromRequest } from "@/lib/game-service";
 import {
   createLoaderSession,
+  enforceRobloxAllowlist,
   findLicenseByKey,
   markExpiredLicenses,
   resolveLicenseStatus,
@@ -72,6 +73,16 @@ export async function POST(request: Request) {
     return errorResponse("License revoked", 403);
   }
 
+  if (status === LicenseStatus.SUSPENDED) {
+    await writeAuditLog({
+      licenseId: existing.id,
+      event: "activate.suspended",
+      ip,
+    });
+
+    return errorResponse("License suspended", 403);
+  }
+
   if (status === LicenseStatus.EXPIRED) {
     await writeAuditLog({
       licenseId: existing.id,
@@ -80,6 +91,29 @@ export async function POST(request: Request) {
     });
 
     return errorResponse("License expired", 403);
+  }
+
+  const rawMetadata = (metadata ?? {}) as Record<string, unknown>;
+  const robloxUserId =
+    typeof rawMetadata.robloxUserId === "number"
+      ? String(rawMetadata.robloxUserId)
+      : typeof rawMetadata.robloxUserId === "string"
+        ? rawMetadata.robloxUserId
+        : null;
+
+  const allowlist = await enforceRobloxAllowlist(existing.id, robloxUserId);
+
+  if (!allowlist.allowed) {
+    await writeAuditLog({
+      licenseId: existing.id,
+      event: allowlist.reason?.includes("site account")
+        ? "activate.unlinked"
+        : "activate.roblox_blocked",
+      ip,
+      metadata: { robloxUserId, reason: allowlist.reason },
+    });
+
+    return errorResponse(allowlist.reason ?? "Roblox account not allowed", 403);
   }
 
   if (status === LicenseStatus.ACTIVATED) {
@@ -95,7 +129,7 @@ export async function POST(request: Request) {
       return errorResponse("License already activated on another device", 403);
     }
 
-    const sessionResult = await createLoaderSession(existing.id);
+    const sessionResult = await createLoaderSession(existing.id, { robloxUserId, clientVersion });
 
     await prisma.activation.update({
       where: { licenseId: existing.id },
@@ -146,7 +180,7 @@ export async function POST(request: Request) {
     });
   });
 
-  const sessionResult = await createLoaderSession(existing.id);
+  const sessionResult = await createLoaderSession(existing.id, { robloxUserId, clientVersion });
 
   await writeAuditLog({
     licenseId: existing.id,

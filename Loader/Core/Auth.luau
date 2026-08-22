@@ -173,12 +173,21 @@ end
 
 function Auth.authenticate(license, hwid)
 	local savedSession = Auth.loadSession()
+	local player = game:GetService("Players").LocalPlayer
+	local identity = {
+		metadata = {
+			robloxUsername = (player and player.Name) or nil,
+			robloxDisplayName = (player and player.DisplayName) or nil,
+			robloxUserId = (player and player.UserId) or nil,
+		},
+	}
 
 	if savedSession then
 		local ok, data = request("POST", "/auth/session", withGameContext({
 			sessionToken = savedSession,
 			hwid = hwid,
 			clientVersion = Config.CLIENT_VERSION,
+			metadata = identity.metadata,
 		}))
 
 		if ok then
@@ -187,17 +196,11 @@ function Auth.authenticate(license, hwid)
 		end
 	end
 
-	local player = game:GetService("Players").LocalPlayer
-
 	local ok, data = request("POST", "/auth/activate", withGameContext({
 		license = license,
 		hwid = hwid,
 		clientVersion = Config.CLIENT_VERSION,
-		metadata = {
-			robloxUsername = (player and player.Name) or nil,
-			robloxDisplayName = (player and player.DisplayName) or nil,
-			robloxUserId = (player and player.UserId) or nil,
-		},
+		metadata = identity.metadata,
 	}))
 
 	if ok then
@@ -210,6 +213,7 @@ function Auth.authenticate(license, hwid)
 		license = license,
 		hwid = hwid,
 		clientVersion = Config.CLIENT_VERSION,
+		metadata = identity.metadata,
 	}))
 
 	if ok then

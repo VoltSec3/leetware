@@ -12,13 +12,13 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen">
       <DashboardNav />
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-12">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Overview</h1>
-          <p className="mt-2 text-zinc-400">
-            Signed in as {admin.email}
+          <h1 className="lw-title text-[15px]">overview</h1>
+          <p className="lw-muted mt-1 text-[12px]">
+            signed in as {admin.email}
           </p>
         </div>
         <OverviewCards />

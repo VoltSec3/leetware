@@ -24,9 +24,9 @@ export function CopyButton({ value, label = "Copy" }: CopyButtonProps) {
     <button
       type="button"
       onClick={() => void copy()}
-      className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-800"
+      className="lw-btn lw-btn-sm"
     >
-      {copied ? "Copied!" : label}
+      {copied ? "copied!" : label}
     </button>
   );
 }

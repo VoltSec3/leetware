@@ -25,6 +25,10 @@ export function jsonResponse(
   });
 }
 
-export function errorResponse(message: string, status: number) {
-  return jsonResponse({ error: message }, status);
+export function errorResponse(
+  message: string,
+  status: number,
+  extra: Record<string, unknown> = {},
+) {
+  return jsonResponse({ error: message, ...extra }, status);
 }

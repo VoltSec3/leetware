@@ -18,6 +18,7 @@ export const sessionSchema = z.object({
   sessionToken: z.string().min(16).max(256).optional(),
   hwid: z.string().min(8).max(512),
   clientVersion: z.string().max(64).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   ...gameContextSchema,
 }).refine(
   (value) => Boolean(value.license || value.sessionToken),
@@ -46,6 +47,87 @@ export const generateLicensesSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
+});
+
+const emailField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Enter a valid email address")
+  .max(200);
+
+export const userRegisterSchema = z.object({
+  license: z.string().min(10).max(64),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9_]{3,20}$/, "Username must be 3-20 characters (a-z, 0-9, _)"),
+  email: emailField,
+  password: z.string().min(8).max(128),
+});
+
+export const userLoginSchema = z.object({
+  username: z.string().trim().min(1).max(32),
+  password: z.string().min(1).max(128),
+});
+
+export const verifyEmailSchema = z.object({
+  email: emailField,
+  code: z.string().trim().regex(/^\d{6}$/, "Code must be 6 digits"),
+});
+
+export const resendVerificationSchema = z.object({
+  email: emailField,
+});
+
+export const forgotPasswordSchema = z.object({
+  email: emailField,
+});
+
+export const resetPasswordSchema = z.object({
+  email: emailField,
+  code: z.string().trim().regex(/^\d{6}$/, "Code must be 6 digits"),
+  newPassword: z.string().min(8).max(128),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(8).max(128),
+});
+
+export const addRobloxAccountSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(20)
+    .regex(/^[A-Za-z0-9_]+$/, "Invalid Roblox username"),
+  robloxUserId: z.coerce.number().int().positive().optional(),
+});
+
+export const suspendLicenseSchema = z.object({
+  reason: z.string().trim().max(256).optional(),
+});
+
+export const extendLicenseSchema = z.object({
+  days: z.number().int().min(-3650).max(3650).optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
+}).refine(
+  (value) => value.days !== undefined || value.expiresAt !== undefined,
+  { message: "days or expiresAt is required" },
+);
+
+export const tierLicenseSchema = z.object({
+  tier: z.string().trim().min(2).max(32).regex(/^[a-z0-9-]+$/, "lowercase letters, digits, dashes"),
+});
+
+export const assignLicenseSchema = z.object({
+  userId: z.string().min(1).nullable(),
+});
+
+export const transferLicenseSchema = z.object({
+  targetUserId: z.string().min(1),
 });
 
 export const licenseListSchema = z.object({

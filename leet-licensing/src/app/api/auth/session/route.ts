@@ -6,6 +6,7 @@ import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
 import { registerGameFromRequest } from "@/lib/game-service";
 import {
   createLoaderSession,
+  enforceRobloxAllowlist,
   findLicenseByKey,
   findValidLoaderSession,
   markExpiredLicenses,
@@ -42,11 +43,19 @@ export async function POST(request: Request) {
     return errorResponse(parsed.error.issues[0]?.message ?? "Invalid request", 400);
   }
 
-  const { license, sessionToken, hwid, clientVersion } = parsed.data;
+  const { license, sessionToken, hwid, clientVersion, metadata } = parsed.data;
 
   await registerGameFromRequest(parsed.data);
 
   await markExpiredLicenses();
+
+  const rawMetadata = (metadata ?? {}) as Record<string, unknown>;
+  const robloxUserId =
+    typeof rawMetadata.robloxUserId === "number"
+      ? String(rawMetadata.robloxUserId)
+      : typeof rawMetadata.robloxUserId === "string"
+        ? rawMetadata.robloxUserId
+        : null;
 
   if (sessionToken) {
     const existingSession = await findValidLoaderSession(sessionToken);
@@ -76,7 +85,10 @@ export async function POST(request: Request) {
       return errorResponse("HWID mismatch", 403);
     }
 
-    const refreshed = await createLoaderSession(existingSession.licenseId);
+    const refreshed = await createLoaderSession(existingSession.licenseId, {
+      robloxUserId,
+      clientVersion,
+    });
 
     await prisma.activation.update({
       where: { licenseId: existingSession.licenseId },
@@ -86,6 +98,8 @@ export async function POST(request: Request) {
         clientVersion: clientVersion ?? undefined,
       },
     });
+
+    await enforceRobloxAllowlist(existingSession.licenseId, robloxUserId);
 
     await writeAuditLog({
       licenseId: existingSession.licenseId,
@@ -130,7 +144,25 @@ export async function POST(request: Request) {
     return errorResponse("HWID mismatch", 403);
   }
 
-  const sessionResult = await createLoaderSession(existing.id);
+  const allowlist = await enforceRobloxAllowlist(existing.id, robloxUserId);
+
+  if (!allowlist.allowed) {
+    await writeAuditLog({
+      licenseId: existing.id,
+      event: allowlist.reason?.includes("site account")
+        ? "session.unlinked"
+        : "session.roblox_blocked",
+      ip,
+      metadata: { robloxUserId, reason: allowlist.reason },
+    });
+
+    return errorResponse(allowlist.reason ?? "Roblox account not allowed", 403);
+  }
+
+  const sessionResult = await createLoaderSession(existing.id, {
+    robloxUserId,
+    clientVersion,
+  });
 
   await prisma.activation.update({
     where: { licenseId: existing.id },

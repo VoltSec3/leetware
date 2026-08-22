@@ -12,11 +12,11 @@ export default async function GamesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen">
       <DashboardNav />
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-12">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Games</h1>
+          <h1 className="lw-title text-[15px]">Games</h1>
           <p className="mt-2 text-zinc-400">
             Supported games, delivery modes, and gated payload sources.
           </p>

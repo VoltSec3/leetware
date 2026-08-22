@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { CopyButton } from "@/components/dashboard/copy-button";
+import { Panel, Rainbow, StatusPill } from "@/components/site/panel";
+import { api } from "@/lib/client";
 
 type ActivationInfo = {
   hwidDisplay: string;
@@ -28,9 +30,22 @@ type SessionRow = {
 type AuditRow = {
   id: string;
   event: string;
+  actorType?: string | null;
+  actorName?: string | null;
   ip: string | null;
   metadata: unknown;
   createdAt: string;
+};
+
+type RobloxAccountRow = {
+  id: string;
+  robloxUserId: string;
+  username: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  verification: string;
+  addedAt: string;
+  lastSeen: string | null;
 };
 
 type LicenseDetail = {
@@ -39,9 +54,13 @@ type LicenseDetail = {
   status: string;
   note: string | null;
   alias: string | null;
+  tier: string;
+  userId: string | null;
+  user: { id: string; username: string } | null;
   createdAt: string;
   expiresAt: string | null;
   activatedAt: string | null;
+  robloxAccounts: RobloxAccountRow[];
   activation: ActivationInfo | null;
   sessions: SessionRow[];
   auditLogs: AuditRow[];
@@ -54,11 +73,6 @@ type RobloxUserInfo = {
   avatarUrl: string | null;
 };
 
-function getCookie(name: string) {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]!) : null;
-}
-
 type LicenseDetailProps = {
   licenseId: string;
 };
@@ -68,7 +82,12 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
   const [totalSessions, setTotalSessions] = useState(0);
   const [robloxUser, setRobloxUser] = useState<RobloxUserInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [extendDays, setExtendDays] = useState("30");
+  const [tierValue, setTierValue] = useState("");
+  const [assignUsername, setAssignUsername] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +108,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
       setLicense(data.license);
       setTotalSessions(data.totalSessions ?? 0);
       setRobloxUser(data.robloxUser ?? null);
+      setTierValue(data.license?.tier ?? "");
     }
 
     void loadLicense();
@@ -98,299 +118,481 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
     };
   }, [licenseId, reloadKey]);
 
-  async function revokeLicense() {
-    const csrfCookie = getCookie("leet_csrf");
-    await fetch(`/api/admin/licenses/${licenseId}/revoke`, {
+  async function action(path: string, body?: unknown) {
+    setError(null);
+    setNotice(null);
+
+    const result = await api(`/api/admin/licenses/${licenseId}${path}`, {
       method: "POST",
-      headers: {
-        ...(csrfCookie ? { "x-csrf-token": csrfCookie } : {}),
-      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
+
+    if (!result.ok) {
+      setError(
+        typeof result.data.error === "string" ? result.data.error : "Action failed",
+      );
+      return false;
+    }
+
     setReloadKey((key) => key + 1);
+    return true;
   }
 
-  async function reenableLicense() {
-    const csrfCookie = getCookie("leet_csrf");
-    await fetch(`/api/admin/licenses/${licenseId}/reenable`, {
-      method: "POST",
-      headers: {
-        ...(csrfCookie ? { "x-csrf-token": csrfCookie } : {}),
-      },
-    });
-    setReloadKey((key) => key + 1);
-  }
+  async function removeRobloxAccount(accountId: string) {
+    setError(null);
 
-  async function resetHwid() {
-    const csrfCookie = getCookie("leet_csrf");
-    const response = await fetch(`/api/admin/licenses/${licenseId}/reset-hwid`, {
-      method: "POST",
-      headers: {
-        ...(csrfCookie ? { "x-csrf-token": csrfCookie } : {}),
-      },
-    });
+    const result = await api(
+      `/api/admin/licenses/${licenseId}/roblox-accounts/${accountId}`,
+      { method: "DELETE" },
+    );
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "Failed to reset HWID");
+    if (!result.ok) {
+      setError(
+        typeof result.data.error === "string"
+          ? result.data.error
+          : "Failed to remove account",
+      );
+      return;
     }
 
     setReloadKey((key) => key + 1);
   }
 
-  if (error) {
-    return <p className="text-sm text-red-300">{error}</p>;
+  if (error && !license) {
+    return <p className="lw-error">{error}</p>;
   }
 
   if (!license) {
-    return <p className="text-sm text-zinc-400">Loading license...</p>;
+    return <p className="lw-muted">loading license...</p>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/dashboard/licenses" className="text-sm text-zinc-400 hover:text-zinc-200">
-            ← Back to licenses
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-white">License detail</h1>
-        </div>
-        <div className="flex gap-2">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link href="/dashboard/licenses" className="lw-muted hover:text-[#cce335]">
+          ← back to licenses
+        </Link>
+        <div className="flex flex-wrap gap-2">
           {license.activation ? (
             <button
               type="button"
-              onClick={() => void resetHwid()}
-              className="rounded-md border border-amber-800 px-4 py-2 text-sm text-amber-300 hover:bg-amber-950/30"
+              className="lw-btn lw-btn-danger"
+              onClick={() =>
+                void action("/reset-hwid").then((ok) => {
+                  if (ok) setNotice("hwid reset");
+                })
+              }
             >
-              Reset HWID
+              reset hwid
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="lw-btn"
+            onClick={() =>
+              void action("/force-logout").then((ok) => {
+                if (ok) setNotice("loader sessions revoked");
+              })
+            }
+          >
+            force logout loader
+          </button>
+          {license.status !== "REVOKED" ? (
+            <button
+              type="button"
+              className="lw-btn lw-btn-accent"
+              onClick={() =>
+                void action("/suspend", { reason: "suspended via admin panel" }).then(
+                  (ok) => {
+                    if (ok) setNotice("license suspended");
+                  },
+                )
+              }
+            >
+              suspend
             </button>
           ) : null}
           {license.status !== "REVOKED" ? (
             <button
               type="button"
-              onClick={() => void revokeLicense()}
-              className="rounded-md border border-red-900 px-4 py-2 text-sm text-red-300 hover:bg-red-950/30"
+              className="lw-btn lw-btn-danger"
+              onClick={() =>
+                void action("/revoke").then((ok) => {
+                  if (ok) setNotice("license revoked");
+                })
+              }
             >
-              Revoke
+              revoke
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => void reenableLicense()}
-              className="rounded-md border border-emerald-900 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-950/30"
+              className="lw-btn"
+              onClick={() =>
+                void action("/reenable").then((ok) => {
+                  if (ok) setNotice("license re-enabled");
+                })
+              }
             >
-              Re-enable
+              re-enable
             </button>
           )}
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-lg font-medium text-white">License</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div>
-              <dt className="text-zinc-400">License key</dt>
-              <dd className="mt-1">
+      {error && (
+        <p className="lw-error text-[12px]" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && !error && (
+        <p className="lw-success text-[12px]">{notice}</p>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel>
+          <div className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="lw-title">license</h2>
+              <StatusPill value={license.status} />
+            </div>
+            <dl className="space-y-2 text-[12px]">
+              <Row label="key">
                 {license.key ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-base text-emerald-300">{license.key}</span>
-                    <CopyButton value={license.key} label="Copy key" />
-                  </div>
-                ) : (
-                  <span className="text-zinc-500">
-                    Not recoverable (generated before key storage was enabled)
+                  <span className="flex items-center gap-2">
+                    <span className="lw-mono">{license.key}</span>
+                    <CopyButton value={license.key} label="copy" />
                   </span>
+                ) : (
+                  "not recoverable"
                 )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">ID</dt>
-              <dd className="font-mono text-zinc-200">{license.id}</dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Status</dt>
-              <dd className="text-zinc-200">{license.status}</dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Created</dt>
-              <dd className="text-zinc-200">{new Date(license.createdAt).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Activated</dt>
-              <dd className="text-zinc-200">
+              </Row>
+              <Row label="id">
+                <span className="lw-mono">{license.id}</span>
+              </Row>
+              <Row label="alias">{license.alias ?? "—"}</Row>
+              <Row label="note">{license.note ?? "—"}</Row>
+              <Row label="tier">{license.tier ?? "standard"}</Row>
+              <Row label="created">
+                {new Date(license.createdAt).toLocaleString()}
+              </Row>
+              <Row label="activated">
                 {license.activatedAt
                   ? new Date(license.activatedAt).toLocaleString()
                   : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Expires</dt>
-              <dd className="text-zinc-200">
+              </Row>
+              <Row label="expires">
                 {license.expiresAt
                   ? new Date(license.expiresAt).toLocaleString()
-                  : "Never"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Alias</dt>
-              <dd className="text-zinc-200">{license.alias ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-zinc-400">Note</dt>
-              <dd className="text-zinc-200">{license.note ?? "—"}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-lg font-medium text-white">Roblox account</h2>
-          {robloxUser ? (
-            <div className="mt-4 flex items-center gap-4">
-              {robloxUser.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={robloxUser.avatarUrl}
-                  alt={`${robloxUser.username} avatar`}
-                  className="h-16 w-16 rounded-full border border-zinc-800"
-                />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-xl text-zinc-500">
-                  ?
-                </div>
-              )}
-              <div className="space-y-1 text-sm">
-                <p className="font-medium text-white">
-                  {robloxUser.displayName}
-                </p>
-                <a
-                  href={`https://www.roblox.com/users/${robloxUser.userId}/profile`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block font-mono text-violet-400 hover:text-violet-300"
-                >
-                  @{robloxUser.username}
-                </a>
-                <p className="text-zinc-500">ID: {robloxUser.userId}</p>
-              </div>
-            </div>
-          ) : license.activation?.metadata ? (
-            (() => {
-              const metadata = license.activation!.metadata as {
-                robloxUsername?: unknown;
-              } | null;
-
-              return typeof metadata?.robloxUsername === "string" ? (
-                <p className="mt-4 text-sm text-zinc-400">
-                  Roblox user: {metadata.robloxUsername} (profile lookup
-                  unavailable)
-                </p>
-              ) : (
-                <p className="mt-4 text-sm text-zinc-400">
-                  No Roblox account attached.
-                </p>
-              );
-            })()
-          ) : (
-            <p className="mt-4 text-sm text-zinc-400">
-              No Roblox account attached.
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-lg font-medium text-white">Activation</h2>
-          {license.activation ? (
-            <dl className="mt-4 space-y-3 text-sm">
-              <div>
-                <dt className="text-zinc-400">HWID</dt>
-                <dd className="font-mono text-zinc-200">{license.activation.hwidDisplay}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-400">First IP</dt>
-                <dd className="text-zinc-200">{license.activation.firstIp ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-400">Last IP</dt>
-                <dd className="text-zinc-200">{license.activation.lastIp ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-zinc-400">Last seen</dt>
-                <dd className="text-zinc-200">
-                  {new Date(license.activation.lastSeen).toLocaleString()}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-400">Client version</dt>
-                <dd className="text-zinc-200">{license.activation.clientVersion ?? "—"}</dd>
-              </div>
+                  : "never"}
+              </Row>
             </dl>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-400">Not activated yet.</p>
-          )}
-        </div>
-      </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-white">Sessions</h2>
-          <span className="text-sm text-zinc-400">
-            Total sessions: {totalSessions}
-          </span>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="text-zinc-400">
-              <tr>
-                <th className="px-2 py-2">Created</th>
-                <th className="px-2 py-2">Expires</th>
-                <th className="px-2 py-2">Last seen</th>
-                <th className="px-2 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {license.sessions.map((session) => (
-                <tr key={session.id} className="border-t border-zinc-900">
-                  <td className="px-2 py-2 text-zinc-300">
-                    {new Date(session.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-zinc-300">
-                    {new Date(session.expiresAt).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-zinc-300">
-                    {new Date(session.lastSeen).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-zinc-300">
-                    {session.revoked
-                      ? "Revoked"
-                      : session.active
-                        ? "Active"
-                        : "Expired"}
-                  </td>
+            <div className="mt-4 space-y-3 border-t border-[#282828] pt-3">
+              <div className="flex items-center gap-2">
+                <span className="lw-muted w-16 text-[12px]">extend</span>
+                <input
+                  className="lw-input max-w-[90px]"
+                  value={extendDays}
+                  onChange={(event) => setExtendDays(event.target.value)}
+                  inputMode="numeric"
+                />
+                <span className="lw-dim text-[12px]">days</span>
+                <button
+                  type="button"
+                  className="lw-btn lw-btn-sm ml-auto"
+                  onClick={() =>
+                    void action("/extend", { days: Number(extendDays) }).then(
+                      (ok) => {
+                        if (ok) setNotice(`extended by ${extendDays} days`);
+                      },
+                    )
+                  }
+                >
+                  apply
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="lw-muted w-16 text-[12px]">tier</span>
+                <select
+                  className="lw-select max-w-[140px]"
+                  value={tierValue}
+                  onChange={(event) => setTierValue(event.target.value)}
+                >
+                  <option value="standard">standard</option>
+                  <option value="premium">premium</option>
+                  <option value="lifetime">lifetime</option>
+                </select>
+                <button
+                  type="button"
+                  className="lw-btn lw-btn-sm ml-auto"
+                  onClick={() =>
+                    void action("/tier", { tier: tierValue }).then((ok) => {
+                      if (ok) setNotice(`tier set to ${tierValue}`);
+                    })
+                  }
+                >
+                  apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel>
+          <div className="p-4">
+            <h2 className="lw-title mb-3">site account</h2>
+            {license.user ? (
+              <div className="space-y-2 text-[12px]">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/dashboard/users/${license.user.id}`}
+                    className="font-bold hover:text-[#cce335]"
+                  >
+                    {license.user.username}
+                  </Link>
+                  <span className="lw-dim">(linked)</span>
+                </div>
+                <button
+                  type="button"
+                  className="lw-btn lw-btn-sm lw-btn-danger"
+                  onClick={() =>
+                    void action("/assign", { userId: null }).then((ok) => {
+                      if (ok) setNotice("account unassigned");
+                    })
+                  }
+                >
+                  unassign account
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 text-[12px]">
+                <p className="lw-muted">no site account linked.</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="lw-input max-w-[200px]"
+                    placeholder="username to assign"
+                    value={assignUsername}
+                    onChange={(event) => setAssignUsername(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="lw-btn lw-btn-sm"
+                    onClick={async () => {
+                      if (!assignUsername.trim()) {
+                        return;
+                      }
+
+                      setError(null);
+
+                      const searchResult = await api(
+                        `/api/admin/users?search=${encodeURIComponent(assignUsername.trim())}`,
+                      );
+
+                      if (!searchResult.ok) {
+                        setError("user lookup failed");
+                        return;
+                      }
+
+                      const users = (searchResult.data.users ?? []) as Array<{
+                        id: string;
+                        username: string;
+                      }>;
+
+                      const match = users.find(
+                        (candidate) =>
+                          candidate.username.toLowerCase()
+                          === assignUsername.trim().toLowerCase(),
+                      );
+
+                      if (!match) {
+                        setError("no user found by that name");
+                        return;
+                      }
+
+                      const ok = await action("/assign", { userId: match.id });
+
+                      if (ok) {
+                        setNotice(`assigned to ${match.username}`);
+                        setAssignUsername("");
+                      }
+                    }}
+                  >
+                    assign
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <h2 className="lw-title mt-5 mb-2">activation</h2>
+            {license.activation ? (
+              <dl className="space-y-2 text-[12px]">
+                <Row label="hwid">
+                  <span className="lw-mono">{license.activation.hwidDisplay}</span>
+                </Row>
+                <Row label="first ip">{license.activation.firstIp ?? "—"}</Row>
+                <Row label="last ip">{license.activation.lastIp ?? "—"}</Row>
+                <Row label="last seen">
+                  {new Date(license.activation.lastSeen).toLocaleString()}
+                </Row>
+                <Row label="client">{license.activation.clientVersion ?? "—"}</Row>
+              </dl>
+            ) : (
+              <p className="lw-muted text-[12px]">not activated yet.</p>
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <Rainbow />
+          <div className="p-4">
+            <h2 className="lw-title mb-1">roblox accounts</h2>
+            <p className="lw-muted mb-3 text-[12px]">
+              allowlist enforced by the backend on every loader request.
+            </p>
+            {robloxUser && license.robloxAccounts.length === 0 ? (
+              <div className="mb-3 flex items-center gap-3 border border-[#282828] p-2">
+                {robloxUser.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={robloxUser.avatarUrl}
+                    alt={`${robloxUser.username} avatar`}
+                    className="h-10 w-10"
+                  />
+                ) : null}
+                <div className="text-[12px]">
+                  <p>{robloxUser.displayName}</p>
+                  <a
+                    href={`https://www.roblox.com/users/${robloxUser.userId}/profile`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-[#cce335]"
+                  >
+                    @{robloxUser.username} ({robloxUser.userId})
+                  </a>
+                </div>
+              </div>
+            ) : null}
+            {license.robloxAccounts.length > 0 ? (
+              <table className="lw-table">
+                <thead>
+                  <tr>
+                    <th>username</th>
+                    <th>id</th>
+                    <th>status</th>
+                    <th>last seen</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {license.robloxAccounts.map((account) => (
+                    <tr key={account.id}>
+                      <td>{account.displayName ?? account.username ?? "-"}</td>
+                      <td className="lw-mono">{account.robloxUserId}</td>
+                      <td>
+                        <StatusPill value={account.verification} />
+                      </td>
+                      <td>
+                        {account.lastSeen
+                          ? new Date(account.lastSeen).toLocaleString()
+                          : "never"}
+                      </td>
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          className="lw-btn lw-btn-sm lw-btn-danger"
+                          onClick={() => void removeRobloxAccount(account.id)}
+                        >
+                          remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="lw-dim text-[12px]">
+                no allowlisted accounts — unrestricted.
+              </p>
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <div className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="lw-title">loader sessions</h2>
+              <span className="lw-dim text-[12px]">total: {totalSessions}</span>
+            </div>
+            <table className="lw-table">
+              <thead>
+                <tr>
+                  <th>created</th>
+                  <th>expires</th>
+                  <th>last seen</th>
+                  <th>status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {license.sessions.map((session) => (
+                  <tr key={session.id}>
+                    <td>{new Date(session.createdAt).toLocaleString()}</td>
+                    <td>{new Date(session.expiresAt).toLocaleString()}</td>
+                    <td>{new Date(session.lastSeen).toLocaleString()}</td>
+                    <td>
+                      {session.revoked ? (
+                        <StatusPill value="REVOKED" />
+                      ) : session.active ? (
+                        <StatusPill value="ACTIVATED" />
+                      ) : (
+                        <StatusPill value="EXPIRED" />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-        <h2 className="text-lg font-medium text-white">Audit log</h2>
-        <div className="mt-4 space-y-3">
-          {license.auditLogs.map((log) => (
-            <div key={log.id} className="rounded-lg border border-zinc-900 px-4 py-3 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-zinc-200">{log.event}</span>
-                <span className="text-zinc-500">
+      <Panel>
+        <div className="p-4">
+          <h2 className="lw-title mb-3">audit log</h2>
+          <ul className="text-[12px]">
+            {license.auditLogs.map((log) => (
+              <li
+                key={log.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-[#161616] py-1.5 last:border-b-0"
+              >
+                <span className="min-w-[160px]">{log.event}</span>
+                <span className="lw-mono lw-dim">
+                  {[log.actorName, log.ip].filter(Boolean).join(" · ") || "-"}
+                </span>
+                <span className="lw-muted ml-auto whitespace-nowrap">
                   {new Date(log.createdAt).toLocaleString()}
                 </span>
-              </div>
-              {log.ip ? (
-                <p className="mt-1 text-zinc-400">IP: {log.ip}</p>
-              ) : null}
-            </div>
-          ))}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      </Panel>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="lw-muted whitespace-nowrap">{label}</dt>
+      <dd className="text-right break-all">{children}</dd>
     </div>
   );
 }
