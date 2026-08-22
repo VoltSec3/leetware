@@ -211,7 +211,7 @@ function Tracers.new(config)
 
     local wasEnabled = false
 
-    function controller:Update(context)
+    function controller:Update(deltaTime,context)
         if not Settings.Tracers.Enabled then
             if wasEnabled then
                 for _, data in pairs(Objects) do

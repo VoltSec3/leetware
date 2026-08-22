@@ -196,7 +196,7 @@ function Chams.new(config)
 
     local wasEnabled = false
 
-    function controller:Update(context)
+    function controller:Update(deltaTime,context)
         local camera=context and context.Camera or Workspace.CurrentCamera
 
         if not Settings.Chams.Enabled then

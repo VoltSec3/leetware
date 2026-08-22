@@ -700,7 +700,7 @@ function ESP.new(config)
 
     local wasEnabled = false
 
-    function controller:Update(context)
+    function controller:Update(deltaTime,context)
         Camera = context and context.Camera or Workspace.CurrentCamera
 
         if not Camera then
