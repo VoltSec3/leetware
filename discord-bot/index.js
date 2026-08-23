@@ -3,7 +3,7 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import { config } from "./lib/config.js";
 import { data as updaterole, execute as updateroleExecute } from "./commands/updaterole.js";
 import { fetchRoleState } from "./lib/api.js";
-import { applyRoleState } from "./lib/roles.js";
+import { applyTierRole } from "./lib/roles.js";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -52,11 +52,12 @@ async function syncMember(member) {
 
   try {
     const state = await fetchRoleState(member.id);
-    const change = await applyRoleState(member, state.shouldHaveRole);
+    const tier = state.shouldHaveRole ? state.tier ?? "standard" : null;
+    const change = await applyTierRole(member, tier);
 
     if (change !== "unchanged") {
       console.log(
-        `${member.user.tag}: ${state.shouldHaveRole ? "granted" : "removed"} licensed role (${state.reason})`,
+        `${member.user.tag}: ${tier ? `synced to ${tier}` : "removed"} role (${state.reason})`,
       );
     }
   } catch (error) {

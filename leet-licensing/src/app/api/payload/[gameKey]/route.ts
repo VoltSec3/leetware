@@ -1,7 +1,9 @@
 import { LicenseStatus } from "@prisma/client";
 
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 import {
+  enforceRobloxAllowlist,
   findValidLoaderSession,
   markExpiredLicenses,
   resolveLicenseStatus,
@@ -47,6 +49,26 @@ export async function GET(request: Request, context: RouteContext) {
     return errorResponse("HWID mismatch", 403);
   }
 
+  const allowlist = await enforceRobloxAllowlist(
+    session.licenseId,
+    session.robloxUserId,
+  );
+
+  if (!allowlist.allowed) {
+    await writeAuditLog({
+      licenseId: session.licenseId,
+      event: "payload.denied",
+      ip,
+      metadata: {
+        gameKey,
+        reason: allowlist.reason ?? "allowlist check failed",
+        robloxUserId: session.robloxUserId,
+      },
+    });
+
+    return errorResponse(allowlist.reason ?? "Access denied", 403);
+  }
+
   const game = await prisma.supportedGame.findFirst({
     where: {
       moduleKey: gameKey,
@@ -58,7 +80,22 @@ export async function GET(request: Request, context: RouteContext) {
     return errorResponse("Unsupported game module", 404);
   }
 
+  if (game.delivery !== "api") {
+    return errorResponse("This game does not use api delivery", 403);
+  }
+
   if (game.payloadSource) {
+    await writeAuditLog({
+      licenseId: session.licenseId,
+      event: "payload.accessed",
+      ip,
+      metadata: {
+        gameKey,
+        gameId: game.gameId,
+        robloxUserId: session.robloxUserId,
+      },
+    });
+
     return new Response(game.payloadSource, {
       status: 200,
       headers: {

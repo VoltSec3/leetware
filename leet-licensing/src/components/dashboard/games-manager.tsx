@@ -99,7 +99,7 @@ export function GamesManager() {
         name: form.name,
         moduleKey: form.moduleKey || undefined,
         delivery: form.delivery,
-        scriptUrl: form.scriptUrl || "",
+        scriptUrl: form.delivery === "direct" ? form.scriptUrl || "" : "",
       }),
     });
 
@@ -220,15 +220,21 @@ export function GamesManager() {
               </select>
             </label>
 
-            <label className="space-y-1 md:col-span-2">
-              <span className="lw-label">script url (direct mode)</span>
-              <input
-                value={form.scriptUrl}
-                onChange={(event) => setForm({ ...form, scriptUrl: event.target.value })}
-                placeholder="https://raw.githubusercontent.com/..."
-                className="lw-input"
-              />
-            </label>
+            {form.delivery === "direct" ? (
+              <label className="space-y-1 md:col-span-2">
+                <span className="lw-label">script url</span>
+                <input
+                  value={form.scriptUrl}
+                  onChange={(event) => setForm({ ...form, scriptUrl: event.target.value })}
+                  placeholder="https://raw.githubusercontent.com/..."
+                  className="lw-input"
+                />
+              </label>
+            ) : (
+              <p className="lw-muted md:col-span-2 text-[12px]">
+                api delivery — set the script via the payload editor after saving.
+              </p>
+            )}
 
             <div className="md:col-span-6">
               <button type="submit" className="lw-btn lw-btn-accent">
@@ -289,13 +295,17 @@ export function GamesManager() {
                     </td>
                     <td>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEditor(game)}
-                          className="hover:text-[#cce335]"
-                        >
-                          payload
-                        </button>
+                        {game.delivery === "api" ? (
+                          <button
+                            type="button"
+                            onClick={() => openEditor(game)}
+                            className="hover:text-[#cce335]"
+                          >
+                            payload
+                          </button>
+                        ) : (
+                          <span className="lw-dim">direct · script url</span>
+                        )}
                         <button
                           type="button"
                           onClick={() =>

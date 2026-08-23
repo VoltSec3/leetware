@@ -1,5 +1,61 @@
 import { z } from "zod";
 
+// Direct-delivery scripts may only be served from these trusted hosts over
+// HTTPS. This keeps admins from pointing a game at an arbitrary/malicious URL.
+const ALLOWED_SCRIPT_HOSTS = [
+  "raw.githubusercontent.com",
+  "gist.githubusercontent.com",
+  "leet.voltsec.xyz",
+  "api.leet.voltsec.xyz",
+];
+
+function validateScriptUrl(delivery: string | undefined, scriptUrl: unknown, ctx: z.RefinementCtx) {
+  const mode = delivery === "api" ? "api" : "direct";
+
+  if (mode === "api") {
+    if (typeof scriptUrl === "string" && scriptUrl.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scriptUrl"],
+        message: "script url is only used for direct delivery",
+      });
+    }
+    return;
+  }
+
+  if (typeof scriptUrl === "string" && scriptUrl.length > 0) {
+    let parsed: URL;
+
+    try {
+      parsed = new URL(scriptUrl);
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scriptUrl"],
+        message: "script url must be a valid url",
+      });
+      return;
+    }
+
+    if (parsed.protocol !== "https:") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scriptUrl"],
+        message: "script url must use https",
+      });
+      return;
+    }
+
+    if (!ALLOWED_SCRIPT_HOSTS.includes(parsed.hostname)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scriptUrl"],
+        message: `script host not allowed (use ${ALLOWED_SCRIPT_HOSTS.join(", ")})`,
+      });
+    }
+  }
+}
+
 const gameContextSchema = {
   gameId: z.union([z.string(), z.number()]).optional(),
   gameName: z.string().max(128).optional(),
@@ -152,7 +208,7 @@ export const upsertGameSchema = z.object({
   scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
   payloadSource: z.string().max(1_000_000).optional(),
   enabled: z.boolean().optional(),
-});
+}).superRefine((data, ctx) => validateScriptUrl(data.delivery, data.scriptUrl, ctx));
 
 export const updateGameSchema = z.object({
   name: z.string().min(1).max(128).optional(),
@@ -166,7 +222,7 @@ export const updateGameSchema = z.object({
   scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
   payloadSource: z.string().max(1_000_000).optional(),
   enabled: z.boolean().optional(),
-});
+}).superRefine((data, ctx) => validateScriptUrl(data.delivery, data.scriptUrl, ctx));
 
 export const userSuspendSchema = z.object({
   suspendedUntil: z

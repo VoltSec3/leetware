@@ -9,17 +9,43 @@ import { prisma } from "@/lib/prisma";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRING_SOON_MS = 7 * DAY_MS;
 
+const CONFIG_URL =
+  "https://raw.githubusercontent.com/VoltSec3/leetware/main/Loader/Core/Config.luau";
+
+const BUILD_CACHE_TTL = 60 * 1000;
+
+let cachedBuild: string | null = null;
+let cachedBuildAt = 0;
+
+// Reflects the live loader version from the canonical Config.luau on GitHub.
+async function getCurrentBuild(): Promise<string> {
+  const now = Date.now();
+
+  if (cachedBuild && now - cachedBuildAt < BUILD_CACHE_TTL) {
+    return cachedBuild;
+  }
+
+  try {
+    const response = await fetch(CONFIG_URL, { cache: "no-store" });
+
+    if (response.ok) {
+      const text = await response.text();
+      const match = text.match(/CLIENT_VERSION\s*=\s*"([^"]+)"/);
+
+      if (match) {
+        cachedBuild = match[1];
+        cachedBuildAt = now;
+        return cachedBuild;
+      }
+    }
+  } catch {
+    // fall through to cached/last-known value
+  }
+
+  return cachedBuild ?? env.currentBuild;
+}
+
 const AUTH_EVENTS = ["activate.success"];
-const FAILED_AUTH_EVENTS = [
-  "activate.not_found",
-  "activate.revoked",
-  "activate.suspended",
-  "activate.expired",
-  "activate.hwid_mismatch",
-  "session.hwid_mismatch",
-  "session.roblox_blocked",
-  "session.unlinked",
-];
 const HWID_RESET_EVENTS = ["account.hwid_reset", "admin.hwid_reset"];
 
 export async function GET() {
@@ -46,7 +72,6 @@ export async function GET() {
     expiringSoon,
     hwidResetsToday,
     authsToday,
-    failedAuthsToday,
   ] = await Promise.all([
     prisma.license.count(),
     prisma.license.count({ where: { status: LicenseStatus.UNUSED } }),
@@ -72,13 +97,9 @@ export async function GET() {
     prisma.auditLog.count({
       where: { event: { in: AUTH_EVENTS }, createdAt: { gte: startOfToday } },
     }),
-    prisma.auditLog.count({
-      where: {
-        event: { in: FAILED_AUTH_EVENTS },
-        createdAt: { gte: startOfToday },
-      },
-    }),
   ]);
+
+  const currentBuild = await getCurrentBuild();
 
   return jsonResponse({
     overview: {
@@ -92,9 +113,7 @@ export async function GET() {
       expiringSoon,
       hwidResetsToday,
       authsToday,
-      failedAuthsToday,
-      currentBuild: env.currentBuild,
-      oldestSupportedBuild: env.oldestSupportedBuild,
+      currentBuild,
     },
   });
 }

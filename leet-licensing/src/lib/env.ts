@@ -52,7 +52,4 @@ export const env = {
   get currentBuild() {
     return process.env.CURRENT_BUILD ?? "v3.4.2";
   },
-  get oldestSupportedBuild() {
-    return process.env.OLDEST_SUPPORTED_BUILD ?? "v3.2.0";
-  },
 };
