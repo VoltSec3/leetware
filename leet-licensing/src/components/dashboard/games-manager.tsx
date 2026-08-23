@@ -33,7 +33,11 @@ export function GamesManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<GameRow | null>(null);
+  const [editingMode, setEditingMode] = useState<"payload" | "url" | null>(
+    null,
+  );
   const [payloadDraft, setPayloadDraft] = useState("");
+  const [urlDraft, setUrlDraft] = useState("");
 
   const [form, setForm] = useState({
     gameId: "",
@@ -154,9 +158,17 @@ export function GamesManager() {
     await loadGames();
   }
 
-  function openEditor(game: GameRow) {
+  function openPayload(game: GameRow) {
     setEditing(game);
+    setEditingMode("payload");
     setPayloadDraft("");
+    setError(null);
+  }
+
+  function openUrl(game: GameRow) {
+    setEditing(game);
+    setEditingMode("url");
+    setUrlDraft(game.scriptUrl ?? "");
     setError(null);
   }
 
@@ -174,13 +186,27 @@ export function GamesManager() {
     }
   }
 
+  async function saveUrl(clear = false) {
+    if (!editing) {
+      return;
+    }
+
+    const ok = await patchGame(editing.id, {
+      scriptUrl: clear ? "" : urlDraft,
+    });
+
+    if (ok) {
+      setEditing(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <Panel>
         <div className="p-4">
           <h2 className="lw-title">register a game</h2>
           <p className="lw-muted mt-1 text-[12px]">
-            registration is optional — games also self-register the first time a
+            registration is optional - games also self-register the first time a
             loader runs them. use this to control delivery mode or upload gated
             payloads.
           </p>
@@ -231,8 +257,8 @@ export function GamesManager() {
                 />
               </label>
             ) : (
-              <p className="lw-muted md:col-span-2 text-[12px]">
-                api delivery — set the script via the payload editor after saving.
+              <p className="lw-muted md:col-span-2 text-center text-[12px]">
+                api delivery - set the script via the payload editor after saving.
               </p>
             )}
 
@@ -291,20 +317,26 @@ export function GamesManager() {
                     <td>
                       {game.lastSeenAt
                         ? new Date(game.lastSeenAt).toLocaleString()
-                        : "—"}
+                        : "-"}
                     </td>
                     <td>
                       <div className="flex flex-wrap gap-2">
                         {game.delivery === "api" ? (
                           <button
                             type="button"
-                            onClick={() => openEditor(game)}
+                            onClick={() => openPayload(game)}
                             className="hover:text-[#cce335]"
                           >
                             payload
                           </button>
                         ) : (
-                          <span className="lw-dim">direct · script url</span>
+                          <button
+                            type="button"
+                            onClick={() => openUrl(game)}
+                            className="hover:text-[#cce335]"
+                          >
+                            edit url
+                          </button>
                         )}
                         <button
                           type="button"
@@ -347,7 +379,11 @@ export function GamesManager() {
         <Panel>
           <div className="p-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="lw-title">payload source — {editing.name}</h2>
+              <h2 className="lw-title">
+                {editingMode === "url"
+                  ? `script url - ${editing.name}`
+                  : `payload source - ${editing.name}`}
+              </h2>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
@@ -356,40 +392,79 @@ export function GamesManager() {
                 close
               </button>
             </div>
-            <p className="lw-muted mt-1 text-[12px]">
-              served as plain lua source by{" "}
-              <code className="lw-mono">/api/payload/{editing.moduleKey}</code>{" "}
-              to authenticated sessions only.
-            </p>
 
-            <textarea
-              value={payloadDraft}
-              onChange={(event) => setPayloadDraft(event.target.value)}
-              rows={14}
-              spellCheck={false}
-              placeholder="-- paste obfuscated or plain lua source here..."
-              className="lw-input lw-mono mt-3"
-            />
+            {editingMode === "url" ? (
+              <>
+                <p className="lw-muted mt-1 text-[12px]">
+                  served directly by the loader. must be https and hosted on an
+                  allowed domain (github raw, gist, leet.voltsec.xyz).
+                </p>
+                <input
+                  value={urlDraft}
+                  onChange={(event) => setUrlDraft(event.target.value)}
+                  placeholder="https://raw.githubusercontent.com/..."
+                  className="lw-input mt-3"
+                />
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveUrl(false)}
+                    disabled={!urlDraft.trim()}
+                    className="lw-btn lw-btn-accent"
+                  >
+                    save url
+                  </button>
+                  {editing.scriptUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => void saveUrl(true)}
+                      className="lw-btn lw-btn-danger"
+                    >
+                      remove url
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="lw-muted mt-1 text-[12px]">
+                  served as plain lua source by{" "}
+                  <code className="lw-mono">
+                    /api/payload/{editing.moduleKey}
+                  </code>{" "}
+                  to authenticated sessions only.
+                </p>
 
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => void savePayloadSource(false)}
-                disabled={!payloadDraft.trim()}
-                className="lw-btn lw-btn-accent"
-              >
-                save payload
-              </button>
-              {editing.hasPayloadSource ? (
-                <button
-                  type="button"
-                  onClick={() => void savePayloadSource(true)}
-                  className="lw-btn lw-btn-danger"
-                >
-                  remove payload
-                </button>
-              ) : null}
-            </div>
+                <textarea
+                  value={payloadDraft}
+                  onChange={(event) => setPayloadDraft(event.target.value)}
+                  rows={14}
+                  spellCheck={false}
+                  placeholder="-- paste obfuscated or plain lua source here..."
+                  className="lw-input lw-mono mt-3"
+                />
+
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void savePayloadSource(false)}
+                    disabled={!payloadDraft.trim()}
+                    className="lw-btn lw-btn-accent"
+                  >
+                    save payload
+                  </button>
+                  {editing.hasPayloadSource ? (
+                    <button
+                      type="button"
+                      onClick={() => void savePayloadSource(true)}
+                      className="lw-btn lw-btn-danger"
+                    >
+                      remove payload
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
         </Panel>
       ) : null}

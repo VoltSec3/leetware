@@ -24,7 +24,7 @@ export function slugifyModuleKey(name: string): string {
  * Autonomously registers or refreshes a game. Called whenever a loader
  * reports its GameId, so new games appear in the dashboard without any
  * manual seeding. Admin-managed fields (name, moduleKey, delivery,
- * scriptUrl, payloadSource, enabled) are never overwritten once set —
+ * scriptUrl, payloadSource, enabled) are never overwritten once set -
  * only missing values are filled in and lastSeenAt is bumped.
  */
 export async function ensureSupportedGame(input: EnsureGameInput) {

@@ -283,8 +283,8 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
               <Row label="id">
                 <span className="lw-mono">{license.id}</span>
               </Row>
-              <Row label="alias">{license.alias ?? "—"}</Row>
-              <Row label="note">{license.note ?? "—"}</Row>
+              <Row label="alias">{license.alias ?? "-"}</Row>
+              <Row label="note">{license.note ?? "-"}</Row>
               <Row label="tier">{license.tier ?? "standard"}</Row>
               <Row label="created">
                 {new Date(license.createdAt).toLocaleString()}
@@ -292,7 +292,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
               <Row label="activated">
                 {license.activatedAt
                   ? new Date(license.activatedAt).toLocaleString()
-                  : "—"}
+                  : "-"}
               </Row>
               <Row label="expires">
                 {license.expiresAt
@@ -453,12 +453,12 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
                 <Row label="hwid">
                   <span className="lw-mono">{license.activation.hwidDisplay}</span>
                 </Row>
-                <Row label="first ip">{license.activation.firstIp ?? "—"}</Row>
-                <Row label="last ip">{license.activation.lastIp ?? "—"}</Row>
+                <Row label="first ip">{license.activation.firstIp ?? "-"}</Row>
+                <Row label="last ip">{license.activation.lastIp ?? "-"}</Row>
                 <Row label="last seen">
                   {new Date(license.activation.lastSeen).toLocaleString()}
                 </Row>
-                <Row label="client">{license.activation.clientVersion ?? "—"}</Row>
+                <Row label="client">{license.activation.clientVersion ?? "-"}</Row>
               </dl>
             ) : (
               <p className="lw-muted text-[12px]">not activated yet.</p>
@@ -535,7 +535,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
               </table>
             ) : (
               <p className="lw-dim text-[12px]">
-                no allowlisted accounts — unrestricted.
+                no allowlisted accounts - unrestricted.
               </p>
             )}
           </div>

@@ -1,43 +1,38 @@
 local HttpService = game:GetService("HttpService")
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
 
 local HWID = {}
 
-local function getExecutorName()
-	if typeof(identifyexecutor) == "function" then
-		local ok, name = pcall(identifyexecutor)
-		if ok and type(name) == "string" and name ~= "" then
-			return name
-		end
-	end
-
-	return "unknown"
-end
-
+-- The real per-install identifier is the client id exposed by
+-- RbxAnalyticsService. Mixing in executor name / user id / game id made the
+-- value change between sessions and executors, which broke HWID checks. We use
+-- the client id as the canonical HWID and only fall back to an executor's
+-- gethwid() when the analytics service is unavailable.
 function HWID.generate()
-	local parts = {}
+  local clientId = nil
 
-	if typeof(gethwid) == "function" then
-		local ok, hwid = pcall(gethwid)
-		if ok and type(hwid) == "string" and hwid ~= "" then
-			table.insert(parts, hwid)
-		end
-	end
+  local ok, id = pcall(function()
+    return RbxAnalyticsService:GetClientId()
+  end)
 
-	table.insert(parts, tostring(game:GetService("Players").LocalPlayer.UserId))
-	table.insert(parts, getExecutorName())
-	table.insert(parts, tostring(game.GameId))
+  if ok and type(id) == "string" and id ~= "" then
+    clientId = id
+  elseif typeof(gethwid) == "function" then
+    local ok2, hwid = pcall(gethwid)
+    if ok2 and type(hwid) == "string" and hwid ~= "" then
+      clientId = hwid
+    end
+  end
 
-	local fingerprint = table.concat(parts, "|")
+  if not clientId or clientId == "" then
+    clientId = "unknown-hwid"
+  end
 
-	local ok, digest = pcall(function()
-		return HttpService:Base64Encode(fingerprint)
-	end)
+  local okEnc, digest = pcall(function()
+    return HttpService:Base64Encode(clientId)
+  end)
 
-	if ok and type(digest) == "string" then
-		return digest
-	end
-
-	return fingerprint
+  return okEnc and digest or clientId
 end
 
 return HWID

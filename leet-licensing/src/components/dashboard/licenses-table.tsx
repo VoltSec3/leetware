@@ -160,10 +160,10 @@ export function LicensesTable() {
                         <CopyButton value={license.key} />
                       </span>
                     ) : (
-                      <span className="lw-dim">—</span>
+                      <span className="lw-dim">-</span>
                     )}
                   </td>
-                  <td>{license.alias ?? <span className="lw-dim">—</span>}</td>
+                  <td>{license.alias ?? <span className="lw-dim">-</span>}</td>
                   <td className="lw-mono">
                     <Link
                       href={`/dashboard/licenses/${license.id}`}
@@ -176,12 +176,12 @@ export function LicensesTable() {
                     <StatusPill value={license.status} />
                   </td>
                   <td className="lw-mono">
-                    {license.activation?.hwidDisplay ?? "—"}
+                    {license.activation?.hwidDisplay ?? "-"}
                   </td>
                   <td>
                     {license.activation?.lastSeen
                       ? new Date(license.activation.lastSeen).toLocaleString()
-                      : "—"}
+                      : "-"}
                   </td>
                   <td>{license.activeSessions}</td>
                   <td>
