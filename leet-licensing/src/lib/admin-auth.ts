@@ -9,13 +9,18 @@ import { prisma } from "@/lib/prisma";
 export const ADMIN_SESSION_COOKIE = "leet_admin_session";
 export const CSRF_COOKIE = "leet_csrf";
 
-export async function createAdminUser(email: string, password: string) {
+export async function createAdminUser(
+  email: string,
+  password: string,
+  role: string = "ADMIN",
+) {
   const passwordHash = await bcrypt.hash(password, 12);
 
   return prisma.adminUser.create({
     data: {
       email: email.toLowerCase(),
       passwordHash,
+      role,
     },
   });
 }
@@ -129,6 +134,20 @@ export async function requireAdmin() {
 
   if (!admin) {
     throw new Error("UNAUTHORIZED");
+  }
+
+  return admin;
+}
+
+export async function requireRole(roles: string[]) {
+  const admin = await getAuthenticatedAdmin();
+
+  if (!admin) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  if (!roles.includes(admin.role)) {
+    throw new Error("FORBIDDEN");
   }
 
   return admin;

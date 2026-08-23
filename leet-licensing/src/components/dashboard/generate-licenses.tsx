@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { Panel } from "@/components/site/panel";
+import { TIER_NAMES, TIERS, formatCooldown } from "@/lib/tiers";
 
 function getCookie(name: string) {
   if (typeof document === "undefined") {
@@ -17,6 +18,7 @@ export function GenerateLicensesPanel() {
   const [count, setCount] = useState(1);
   const [note, setNote] = useState("");
   const [alias, setAlias] = useState("");
+  const [tier, setTier] = useState("standard");
   const [expiresAt, setExpiresAt] = useState("");
   const [generated, setGenerated] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function GenerateLicensesPanel() {
         count,
         note: note || undefined,
         alias: alias.trim(),
+        tier,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       }),
     });
@@ -77,7 +80,7 @@ export function GenerateLicensesPanel() {
           plaintext keys are shown once. only hashes are stored server-side.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-3 grid gap-3 md:grid-cols-4">
+        <form onSubmit={handleSubmit} className="mt-3 grid gap-3 md:grid-cols-5">
           <label className="space-y-1">
             <span className="lw-label">count</span>
             <input
@@ -105,6 +108,21 @@ export function GenerateLicensesPanel() {
           </label>
 
           <label className="space-y-1">
+            <span className="lw-label">tier</span>
+            <select
+              value={tier}
+              onChange={(event) => setTier(event.target.value)}
+              className="lw-select"
+            >
+              {TIER_NAMES.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
             <span className="lw-label">note (optional)</span>
             <input
               type="text"
@@ -124,10 +142,16 @@ export function GenerateLicensesPanel() {
             />
           </label>
 
-          <div className="md:col-span-4">
+          <div className="md:col-span-5">
             <button type="submit" disabled={loading} className="lw-btn lw-btn-accent">
               {loading ? "generating..." : "generate"}
             </button>
+            <span className="lw-dim ml-3 text-[11px]">
+              {TIER_NAMES.map((name) => {
+                const perks = TIERS[name];
+                return `${name}: /${formatCooldown(perks.hwidResetCooldownSeconds)} hwid, ${perks.maxRobloxAccounts ?? "∞"} roblox`;
+              }).join(" · ")}
+            </span>
           </div>
         </form>
 

@@ -37,6 +37,13 @@ export const generateLicensesSchema = z.object({
   count: z.number().int().min(1).max(100).default(1),
   expiresAt: z.string().datetime().optional(),
   note: z.string().max(256).optional(),
+  tier: z
+    .string()
+    .trim()
+    .min(2)
+    .max(32)
+    .regex(/^[a-z0-9-]+$/, "lowercase letters, digits, dashes")
+    .optional(),
   alias: z
     .string()
     .trim()
@@ -55,17 +62,6 @@ const emailField = z
   .toLowerCase()
   .email("Enter a valid email address")
   .max(200);
-
-export const userRegisterSchema = z.object({
-  license: z.string().min(10).max(64),
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9_]{3,20}$/, "Username must be 3-20 characters (a-z, 0-9, _)"),
-  email: emailField,
-  password: z.string().min(8).max(128),
-});
 
 export const userLoginSchema = z.object({
   username: z.string().trim().min(1).max(32),
@@ -108,6 +104,7 @@ export const addRobloxAccountSchema = z.object({
 
 export const suspendLicenseSchema = z.object({
   reason: z.string().trim().max(256).optional(),
+  lift: z.boolean().optional(),
 });
 
 export const extendLicenseSchema = z.object({
@@ -169,4 +166,20 @@ export const updateGameSchema = z.object({
   scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
   payloadSource: z.string().max(1_000_000).optional(),
   enabled: z.boolean().optional(),
+});
+
+export const userSuspendSchema = z.object({
+  suspendedUntil: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .optional(),
+});
+
+export const userBanSchema = z.object({
+  reason: z.string().trim().min(3).max(256),
+});
+
+export const userUnbanSchema = z.object({
+  liftIpBan: z.boolean().optional(),
 });

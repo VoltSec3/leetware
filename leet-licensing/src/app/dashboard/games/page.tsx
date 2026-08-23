@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 
-import { getAuthenticatedAdmin } from "@/lib/admin-auth";
+import { requireRole } from "@/lib/admin-auth";
 import { DashboardNav } from "@/components/dashboard/nav";
 import { GamesManager } from "@/components/dashboard/games-manager";
 
 export default async function GamesPage() {
-  const admin = await getAuthenticatedAdmin();
+  const admin = await requireRole(["ADMIN"]).catch(() => null);
 
   if (!admin) {
-    redirect("/dashboard/login");
+    redirect("/dashboard");
   }
 
   return (

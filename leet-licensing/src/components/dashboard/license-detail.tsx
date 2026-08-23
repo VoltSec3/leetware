@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CopyButton } from "@/components/dashboard/copy-button";
 import { Panel, Rainbow, StatusPill } from "@/components/site/panel";
 import { api } from "@/lib/client";
+import { TIER_NAMES, TIERS, formatCooldown } from "@/lib/tiers";
 
 type ActivationInfo = {
   hwidDisplay: string;
@@ -197,7 +198,19 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
           >
             force logout loader
           </button>
-          {license.status !== "REVOKED" ? (
+          {license.status === "SUSPENDED" ? (
+            <button
+              type="button"
+              className="lw-btn lw-btn-accent"
+              onClick={() =>
+                void action("/suspend", { lift: true }).then((ok) => {
+                  if (ok) setNotice("suspension lifted");
+                })
+              }
+            >
+              unsuspend
+            </button>
+          ) : license.status !== "REVOKED" ? (
             <button
               type="button"
               className="lw-btn lw-btn-accent"
@@ -320,9 +333,11 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
                   value={tierValue}
                   onChange={(event) => setTierValue(event.target.value)}
                 >
-                  <option value="standard">standard</option>
-                  <option value="premium">premium</option>
-                  <option value="lifetime">lifetime</option>
+                  {TIER_NAMES.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
                 </select>
                 <button
                   type="button"
@@ -336,6 +351,13 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
                   apply
                 </button>
               </div>
+
+              <p className="lw-dim text-[11px]">
+                {TIER_NAMES.map((name) => {
+                  const perks = TIERS[name];
+                  return `${name}: hwid reset /${formatCooldown(perks.hwidResetCooldownSeconds)}, ${perks.maxRobloxAccounts ?? "∞"} roblox slots`;
+                }).join(" · ")}
+              </p>
             </div>
           </div>
         </Panel>

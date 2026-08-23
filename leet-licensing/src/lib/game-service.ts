@@ -88,24 +88,58 @@ export async function listEnabledGames() {
   });
 }
 
+export type GameDeliveryInfo = {
+  supported: boolean;
+  gameId?: string;
+  name?: string;
+  moduleKey?: string;
+  delivery?: GameDelivery;
+  scriptUrl?: string | null;
+  payload?: string | null;
+};
+
 /**
- * Best-effort registration from loader-reported context. Never throws so
- * auth flows are never blocked by catalog bookkeeping.
+ * Read-only lookup of a registered game. Used by the loader on execute - it
+ * MUST never create or mutate a game. Games are created only manually through
+ * the admin panel, so an unknown gameId simply returns `supported: false`.
  */
-export async function registerGameFromRequest(data: {
-  gameId?: string | number;
-  gameName?: string;
-}) {
-  if (data.gameId === undefined || data.gameId === null) {
-    return;
+export async function resolveSupportedGame(
+  gameId: string | number | undefined | null,
+): Promise<GameDeliveryInfo> {
+  if (gameId === undefined || gameId === null) {
+    return { supported: false };
   }
 
-  try {
-    await ensureSupportedGame({
-      gameId: String(data.gameId),
-      name: data.gameName,
-    });
-  } catch {
-    // Intentionally ignored.
+  const id = String(gameId);
+
+  if (!/^\d{1,20}$/.test(id)) {
+    return { supported: false };
   }
+
+  const game = await prisma.supportedGame.findUnique({
+    where: { gameId: id },
+    select: {
+      enabled: true,
+      gameId: true,
+      name: true,
+      moduleKey: true,
+      delivery: true,
+      scriptUrl: true,
+      payloadSource: true,
+    },
+  });
+
+  if (!game || !game.enabled) {
+    return { supported: false };
+  }
+
+  return {
+    supported: true,
+    gameId: game.gameId,
+    name: game.name,
+    moduleKey: game.moduleKey,
+    delivery: game.delivery as GameDelivery,
+    scriptUrl: game.scriptUrl,
+    payload: game.payloadSource,
+  };
 }

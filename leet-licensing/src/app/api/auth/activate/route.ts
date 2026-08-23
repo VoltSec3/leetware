@@ -3,7 +3,7 @@ import { LicenseStatus, Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import { hashHwid, normalizeLicenseKey } from "@/lib/crypto";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
-import { registerGameFromRequest } from "@/lib/game-service";
+import { resolveSupportedGame } from "@/lib/game-service";
 import {
   createLoaderSession,
   enforceRobloxAllowlist,
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const { license, hwid, clientVersion, metadata } = parsed.data;
   const normalizedLicense = normalizeLicenseKey(license);
 
-  await registerGameFromRequest(parsed.data);
+  const game = await resolveSupportedGame(parsed.data.gameId);
 
   await markExpiredLicenses();
 
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     return errorResponse(allowlist.reason ?? "Roblox account not allowed", 403);
   }
 
-  if (status === LicenseStatus.ACTIVATED) {
+  if (status === LicenseStatus.ACTIVATED && existing.activation) {
     const hwidMatches = await verifyHwidForLicense(existing.id, hwid);
 
     if (!hwidMatches) {
@@ -144,7 +144,11 @@ export async function POST(request: Request) {
       licenseId: existing.id,
       event: "session.created_from_activate",
       ip,
-      metadata: { sessionId: sessionResult.session.id },
+      metadata: {
+        sessionId: sessionResult.session.id,
+        robloxUserId,
+        clientVersion,
+      },
     });
 
     return jsonResponse({
@@ -152,6 +156,7 @@ export async function POST(request: Request) {
       sessionToken: sessionResult.token,
       expiresAt: sessionResult.expiresAt.toISOString(),
       sessionId: sessionResult.session.id,
+      game,
     });
   }
 
@@ -188,6 +193,7 @@ export async function POST(request: Request) {
     ip,
     metadata: {
       sessionId: sessionResult.session.id,
+      robloxUserId,
       clientVersion,
     },
   });
@@ -197,5 +203,6 @@ export async function POST(request: Request) {
     sessionToken: sessionResult.token,
     expiresAt: sessionResult.expiresAt.toISOString(),
     sessionId: sessionResult.session.id,
+    game,
   });
 }

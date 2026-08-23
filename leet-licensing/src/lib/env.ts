@@ -31,4 +31,28 @@ export const env = {
   get appUrl() {
     return process.env.APP_URL ?? "https://leet.voltsec.xyz";
   },
+  get discordClientId() {
+    return process.env.DISCORD_CLIENT_ID ?? "";
+  },
+  get discordClientSecret() {
+    return process.env.DISCORD_CLIENT_SECRET ?? "";
+  },
+  get discordBotToken() {
+    return process.env.DISCORD_BOT_TOKEN ?? "";
+  },
+  get discordGuildId() {
+    return process.env.DISCORD_GUILD_ID ?? "";
+  },
+  get discordRoleId() {
+    return process.env.DISCORD_ROLE_ID ?? "1540272873351159888";
+  },
+  get internalApiKey() {
+    return process.env.INTERNAL_API_KEY ?? "";
+  },
+  get currentBuild() {
+    return process.env.CURRENT_BUILD ?? "v3.4.2";
+  },
+  get oldestSupportedBuild() {
+    return process.env.OLDEST_SUPPORTED_BUILD ?? "v3.2.0";
+  },
 };

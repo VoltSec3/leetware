@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getAuthenticatedAdmin } from "@/lib/admin-auth";
+import { requireRole } from "@/lib/admin-auth";
 import { DashboardNav } from "@/components/dashboard/nav";
 import { LicenseDetailPanel } from "@/components/dashboard/license-detail";
 
@@ -9,10 +9,10 @@ type PageProps = {
 };
 
 export default async function LicenseDetailPage({ params }: PageProps) {
-  const admin = await getAuthenticatedAdmin();
+  const admin = await requireRole(["ADMIN"]).catch(() => null);
 
   if (!admin) {
-    redirect("/dashboard/login");
+    redirect("/dashboard");
   }
 
   const { id } = await params;

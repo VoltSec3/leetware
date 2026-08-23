@@ -1,4 +1,4 @@
-import { requireAdmin, requireCsrf } from "@/lib/admin-auth";
+import { requireRole, requireCsrf } from "@/lib/admin-auth";
 import { errorResponse, jsonResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { updateGameSchema } from "@/lib/validation";
@@ -9,7 +9,7 @@ type RouteContext = {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN"]);
   } catch {
     return errorResponse("Unauthorized", 401);
   }
@@ -92,7 +92,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN"]);
   } catch {
     return errorResponse("Unauthorized", 401);
   }

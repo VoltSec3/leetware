@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { DashboardNav } from "@/components/dashboard/nav";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
+import { LiveActivity } from "@/components/dashboard/live-activity";
 
 export default async function DashboardPage() {
   const admin = await getAuthenticatedAdmin();
@@ -22,6 +23,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <OverviewCards />
+        <LiveActivity />
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-import { requireAdmin, requireCsrf } from "@/lib/admin-auth";
+import { requireCsrf, requireRole } from "@/lib/admin-auth";
 import { ensureSupportedGame } from "@/lib/game-service";
 import { errorResponse, jsonResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +6,7 @@ import { upsertGameSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN", "SUPPORT"]);
   } catch {
     return errorResponse("Unauthorized", 401);
   }
@@ -49,7 +49,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN"]);
   } catch {
     return errorResponse("Unauthorized", 401);
   }

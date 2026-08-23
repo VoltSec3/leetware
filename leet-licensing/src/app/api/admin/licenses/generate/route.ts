@@ -1,4 +1,4 @@
-import { requireAdmin, requireCsrf } from "@/lib/admin-auth";
+import { requireRole, requireCsrf } from "@/lib/admin-auth";
 import { writeAuditLog } from "@/lib/audit";
 import {
   encryptLicenseKey,
@@ -7,11 +7,12 @@ import {
 } from "@/lib/crypto";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { TIER_NAMES } from "@/lib/tiers";
 import { generateLicensesSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN"]);
     await requireCsrf(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNAUTHORIZED";
@@ -36,6 +37,10 @@ export async function POST(request: Request) {
   }
 
   const { count, expiresAt, note, alias } = parsed.data;
+  const tier =
+    parsed.data.tier && TIER_NAMES.includes(parsed.data.tier as never)
+      ? parsed.data.tier
+      : "standard";
   const ip = await getClientIp();
   const generated: string[] = [];
 
@@ -54,6 +59,7 @@ export async function POST(request: Request) {
         keyCipher: encryptLicenseKey(licenseKey),
         note,
         alias,
+        tier,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       },
     });
@@ -64,7 +70,7 @@ export async function POST(request: Request) {
   await writeAuditLog({
     event: "admin.licenses_generated",
     ip,
-    metadata: { count: generated.length, alias },
+    metadata: { count: generated.length, alias, tier },
   });
 
   return jsonResponse({

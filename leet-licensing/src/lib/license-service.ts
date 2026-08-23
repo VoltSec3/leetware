@@ -156,6 +156,39 @@ export async function touchRobloxAccount(
   });
 }
 
+export async function enforceUserAccountStatus(
+  userId: string,
+): Promise<{ allowed: boolean; reason?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { bannedAt: true, banReason: true, isSuspended: true, suspendedUntil: true },
+  });
+
+  if (!user) {
+    return { allowed: true };
+  }
+
+  if (user.bannedAt) {
+    return {
+      allowed: false,
+      reason: `You have been banned from the site for ${user.banReason ?? "no reason provided"}`,
+    };
+  }
+
+  if (user.isSuspended) {
+    if (!user.suspendedUntil || user.suspendedUntil.getTime() > Date.now()) {
+      return {
+        allowed: false,
+        reason: user.suspendedUntil
+          ? `Your account is suspended until ${user.suspendedUntil.toLocaleString()}`
+          : "Your account is suspended indefinitely",
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
 export async function enforceRobloxAllowlist(
   licenseId: string,
   robloxUserId: string | null,
@@ -173,10 +206,27 @@ export async function enforceRobloxAllowlist(
     };
   }
 
+  const status = await enforceUserAccountStatus(license.userId);
+
+  if (!status.allowed) {
+    return status;
+  }
+
   const user = await getLicenseUserWithAllowlist(licenseId);
 
-  if (!user || user.robloxAccounts.length === 0) {
-    return { allowed: true };
+  if (!user) {
+    return {
+      allowed: false,
+      reason: "Site account not found for this license",
+    };
+  }
+
+  if (user.robloxAccounts.length === 0) {
+    return {
+      allowed: false,
+      reason:
+        "No Roblox accounts are linked to your license yet. Add your Roblox account on the website dashboard before using the loader.",
+    };
   }
 
   await touchRobloxAccount(user.id, robloxUserId);

@@ -3,7 +3,7 @@ import { LicenseStatus } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import { normalizeLicenseKey } from "@/lib/crypto";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
-import { registerGameFromRequest } from "@/lib/game-service";
+import { resolveSupportedGame } from "@/lib/game-service";
 import {
   createLoaderSession,
   enforceRobloxAllowlist,
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   const { license, sessionToken, hwid, clientVersion, metadata } = parsed.data;
 
-  await registerGameFromRequest(parsed.data);
+  const game = await resolveSupportedGame(parsed.data.gameId);
 
   await markExpiredLicenses();
 
@@ -85,6 +85,24 @@ export async function POST(request: Request) {
       return errorResponse("HWID mismatch", 403);
     }
 
+    const allowlist = await enforceRobloxAllowlist(
+      existingSession.licenseId,
+      robloxUserId ?? existingSession.robloxUserId,
+    );
+
+    if (!allowlist.allowed) {
+      await writeAuditLog({
+        licenseId: existingSession.licenseId,
+        event: allowlist.reason?.includes("site account")
+          ? "session.unlinked"
+          : "session.roblox_blocked",
+        ip,
+        metadata: { robloxUserId, reason: allowlist.reason },
+      });
+
+      return errorResponse(allowlist.reason ?? "Roblox account not allowed", 403);
+    }
+
     const refreshed = await createLoaderSession(existingSession.licenseId, {
       robloxUserId,
       clientVersion,
@@ -99,8 +117,6 @@ export async function POST(request: Request) {
       },
     });
 
-    await enforceRobloxAllowlist(existingSession.licenseId, robloxUserId);
-
     await writeAuditLog({
       licenseId: existingSession.licenseId,
       event: "session.refreshed",
@@ -112,6 +128,7 @@ export async function POST(request: Request) {
       sessionToken: refreshed.token,
       expiresAt: refreshed.expiresAt.toISOString(),
       sessionId: refreshed.session.id,
+      game,
     });
   }
 
@@ -173,16 +190,21 @@ export async function POST(request: Request) {
     },
   });
 
-  await writeAuditLog({
-    licenseId: existing.id,
-    event: "session.created",
-    ip,
-    metadata: { sessionId: sessionResult.session.id },
-  });
+    await writeAuditLog({
+      licenseId: existing.id,
+      event: "session.created",
+      ip,
+      metadata: {
+        sessionId: sessionResult.session.id,
+        robloxUserId,
+        clientVersion,
+      },
+    });
 
   return jsonResponse({
     sessionToken: sessionResult.token,
     expiresAt: sessionResult.expiresAt.toISOString(),
     sessionId: sessionResult.session.id,
+    game,
   });
 }

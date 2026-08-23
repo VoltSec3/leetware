@@ -283,6 +283,28 @@ body * {
   color: var(--lw-muted);
 }
 
+.lw-pill-purple {
+  color: #c084fc;
+  border-color: #5b2d7a;
+}
+
+/* ---- modal ---- */
+
+.lw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 16px;
+}
+
+.lw-modal {
+  width: min(440px, 100%);
+}
+
 /* ---- misc ---- */
 
 .lw-divider {

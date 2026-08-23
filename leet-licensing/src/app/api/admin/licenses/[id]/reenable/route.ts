@@ -1,6 +1,6 @@
 import { LicenseStatus } from "@prisma/client";
 
-import { requireAdmin, requireCsrf } from "@/lib/admin-auth";
+import { requireRole, requireCsrf } from "@/lib/admin-auth";
 import { writeAuditLog } from "@/lib/audit";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
 import { isLicenseExpired } from "@/lib/license-service";
@@ -12,7 +12,7 @@ type RouteContext = {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    await requireRole(["ADMIN"]);
     await requireCsrf(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNAUTHORIZED";
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: RouteContext) {
     return errorResponse("License is expired and cannot be re-enabled", 400);
   }
 
-  const nextStatus = license.activation
+  const nextStatus = license.userId
     ? LicenseStatus.ACTIVATED
     : LicenseStatus.UNUSED;
 

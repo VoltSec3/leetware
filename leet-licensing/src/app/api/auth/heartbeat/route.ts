@@ -3,8 +3,9 @@ import { LicenseStatus } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
-import { registerGameFromRequest } from "@/lib/game-service";
+import { resolveSupportedGame } from "@/lib/game-service";
 import {
+  enforceRobloxAllowlist,
   findValidLoaderSession,
   markExpiredLicenses,
   resolveLicenseStatus,
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
 
   const { sessionToken, hwid } = parsed.data;
 
-  await registerGameFromRequest(parsed.data);
+  const game = await resolveSupportedGame(parsed.data.gameId);
 
   const rateLimit = await checkRateLimit(
     `heartbeat:${sessionToken.slice(0, 16)}`,
@@ -86,6 +87,27 @@ export async function POST(request: Request) {
     });
   }
 
+  const allowlist = await enforceRobloxAllowlist(
+    session.licenseId,
+    session.robloxUserId,
+  );
+
+  if (!allowlist.allowed) {
+    await writeAuditLog({
+      licenseId: session.licenseId,
+      event: "heartbeat.roblox_blocked",
+      ip,
+      metadata: { robloxUserId: session.robloxUserId, reason: allowlist.reason },
+    });
+
+    return jsonResponse({
+      valid: false,
+      licenseStatus: status,
+      reason: "roblox_blocked",
+      message: allowlist.reason ?? "Roblox account not allowed",
+    });
+  }
+
   await touchLoaderSession(session.id, ip);
 
   const extendedExpiresAt = new Date(
@@ -104,5 +126,6 @@ export async function POST(request: Request) {
     licenseStatus: status,
     expiresAt: extendedExpiresAt.toISOString(),
     sessionId: session.id,
+    game,
   });
 }

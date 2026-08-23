@@ -11,7 +11,13 @@ type Overview = {
   revokedLicenses: number;
   expiredLicenses: number;
   activeSessions: number;
-  seenLast24h: number;
+  totalUsers: number;
+  expiringSoon: number;
+  hwidResetsToday: number;
+  authsToday: number;
+  failedAuthsToday: number;
+  currentBuild: string;
+  oldestSupportedBuild: string;
 };
 
 export function OverviewCards() {
@@ -43,17 +49,19 @@ export function OverviewCards() {
   }
 
   const cards = [
-    { label: "total licenses", value: overview.totalLicenses },
-    { label: "unused", value: overview.unusedLicenses },
-    { label: "activated", value: overview.activatedLicenses },
-    { label: "revoked", value: overview.revokedLicenses },
-    { label: "expired", value: overview.expiredLicenses },
-    { label: "active sessions", value: overview.activeSessions },
-    { label: "seen last 24h", value: overview.seenLast24h },
+    { label: "users", value: overview.totalUsers },
+    { label: "online", value: overview.activeSessions },
+    { label: "active licenses", value: overview.activatedLicenses },
+    { label: "expiring soon", value: overview.expiringSoon },
+    { label: "hwid resets today", value: overview.hwidResetsToday },
+    { label: "authentications today", value: overview.authsToday },
+    { label: "failed auths", value: overview.failedAuthsToday },
+    { label: "current build", value: overview.currentBuild },
+    { label: "oldest supported build", value: overview.oldestSupportedBuild },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
         <Panel key={card.label}>
           <div className="p-3">

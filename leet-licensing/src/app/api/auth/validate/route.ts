@@ -2,8 +2,9 @@ import { LicenseStatus } from "@prisma/client";
 
 import { writeAuditLog } from "@/lib/audit";
 import { errorResponse, getClientIp, jsonResponse } from "@/lib/http";
-import { registerGameFromRequest } from "@/lib/game-service";
+import { resolveSupportedGame } from "@/lib/game-service";
 import {
+  enforceRobloxAllowlist,
   findValidLoaderSession,
   markExpiredLicenses,
   resolveLicenseStatus,
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
   const { sessionToken, hwid } = parsed.data;
 
-  await registerGameFromRequest(parsed.data);
+  const game = await resolveSupportedGame(parsed.data.gameId);
 
   const rateLimit = await checkRateLimit(
     `validate:${sessionToken.slice(0, 16)}`,
@@ -83,10 +84,32 @@ export async function POST(request: Request) {
     });
   }
 
+  const allowlist = await enforceRobloxAllowlist(
+    session.licenseId,
+    session.robloxUserId,
+  );
+
+  if (!allowlist.allowed) {
+    await writeAuditLog({
+      licenseId: session.licenseId,
+      event: "validate.roblox_blocked",
+      ip,
+      metadata: { robloxUserId: session.robloxUserId, reason: allowlist.reason },
+    });
+
+    return jsonResponse({
+      valid: false,
+      licenseStatus: status,
+      reason: "roblox_blocked",
+      message: allowlist.reason ?? "Roblox account not allowed",
+    });
+  }
+
   return jsonResponse({
     valid: true,
     licenseStatus: status,
     expiresAt: session.expiresAt.toISOString(),
     sessionId: session.id,
+    game,
   });
 }

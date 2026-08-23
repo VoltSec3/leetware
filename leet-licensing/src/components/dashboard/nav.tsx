@@ -1,21 +1,29 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 
 import { BottomBar } from "@/components/site/bottombar";
 import { Rainbow } from "@/components/site/panel";
+import { SignOutButton } from "@/components/dashboard/signout-button";
+import { NavLinks } from "@/components/dashboard/nav-links";
 
-const links = [
-  { href: "/dashboard", label: "overview" },
-  { href: "/dashboard/licenses", label: "licenses" },
-  { href: "/dashboard/games", label: "games" },
-  { href: "/dashboard/users", label: "users" },
-];
+export async function DashboardNav() {
+  const admin = await getAuthenticatedAdmin();
+  const role = admin?.role ?? "ADMIN";
 
-export function DashboardNav() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const links =
+    role === "SUPPORT"
+      ? [
+          { href: "/dashboard", label: "overview" },
+          { href: "/dashboard/users", label: "users" },
+          { href: "/dashboard/support", label: "support" },
+        ]
+      : [
+          { href: "/dashboard", label: "overview" },
+          { href: "/dashboard/licenses", label: "licenses" },
+          { href: "/dashboard/games", label: "games" },
+          { href: "/dashboard/users", label: "users" },
+          { href: "/dashboard/support", label: "support" },
+        ];
 
   return (
     <>
@@ -27,39 +35,11 @@ export function DashboardNav() {
               leetware admin
             </Link>
             <nav className="flex flex-wrap items-center gap-4">
-              {links.map((link) => {
-                const active =
-                  pathname === link.href ||
-                  (link.href !== "/dashboard" && pathname.startsWith(link.href));
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={
-                      active
-                        ? "font-bold text-[#cce335]"
-                        : "lw-muted hover:text-[#cccccc]"
-                    }
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
+              <NavLinks links={links} />
             </nav>
           </div>
           <div className="flex items-center gap-5 pl-5">
-            <button
-              type="button"
-              onClick={async () => {
-                await fetch("/api/admin/auth/logout", { method: "POST" });
-                router.push("/dashboard/login");
-                router.refresh();
-              }}
-              className="lw-btn lw-btn-sm"
-            >
-              sign out
-            </button>
+            <SignOutButton />
           </div>
         </div>
       </header>
