@@ -28,7 +28,7 @@ local SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
 local function GetModule(key)
 	local module = _G.__leet_modules and _G.__leet_modules[key]
 
-	if not module or type(module.new) ~= "function" then
+	if not module or type(module) ~= "table" then
 		error("leetware: required module '" .. tostring(key) .. "' was not loaded by the loader.", 0)
 	end
 
