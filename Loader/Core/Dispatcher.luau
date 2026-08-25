@@ -145,9 +145,7 @@ function Dispatcher.loadModules(auth, hwid)
 
 	local list = {}
 
-	local ok, data = pcall(function()
-		return auth.get("/modules")
-	end)
+	local ok, data = auth.get("/modules")
 
 	if ok and data and type(data.modules) == "table" then
 		list = data.modules
