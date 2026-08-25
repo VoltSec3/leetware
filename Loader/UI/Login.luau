@@ -3,158 +3,163 @@ local Players = game:GetService("Players")
 local UI = {}
 
 function UI.create(onSubmit)
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
 
-    local existing = playerGui:FindFirstChild("auth")
-    if existing then
-        existing:Destroy()
-    end
+	local existing = playerGui:FindFirstChild("auth")
+	if existing then
+		existing:Destroy()
+	end
 
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "auth"
-    screenGui.ResetOnSpawn = true
-    screenGui.IgnoreGuiInset = false
-    screenGui.DisplayOrder = 0
-    screenGui.Parent = playerGui
+	-- Instances
+	local Loader = Instance.new("ScreenGui")
+	local Frame = Instance.new("Frame")
+	local Frame_2 = Instance.new("Frame")
+	local logo = Instance.new("TextLabel")
+	local loaderorerror = Instance.new("TextLabel")
+	local license = Instance.new("TextBox")
+	local submit = Instance.new("TextButton")
 
-    local frame = Instance.new("Frame")
-    frame.Name = "Frame"
-    frame.ZIndex = -1
-    frame.Position = UDim2.new(0.432031631, 0, 0.412836075, 0)
-    frame.Size = UDim2.new(0, 274, 0, 201)
-    frame.BackgroundColor3 = Color3.fromRGB(44, 13, 52)
-    frame.BackgroundTransparency = 0
-    frame.Visible = true
-    frame.AnchorPoint = Vector2.new(0, 0)
-    frame.ClipsDescendants = false
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
+	-- Properties
+	Loader.Name = "auth"
+	Loader.ResetOnSpawn = true
+	Loader.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	Loader.Parent = playerGui
 
-    local main = Instance.new("Frame")
-    main.Name = "main"
-    main.ZIndex = 1
-    main.Position = UDim2.new(0.0189391635, 0, 0.0250049792, 0)
-    main.Size = UDim2.new(0, 262, 0, 189)
-    main.BackgroundColor3 = Color3.fromRGB(52, 52, 52)
-    main.BackgroundTransparency = 0
-    main.Visible = true
-    main.AnchorPoint = Vector2.new(0, 0)
-    main.ClipsDescendants = false
-    main.BorderSizePixel = 0
-    main.Parent = frame
+	Frame.Parent = Loader
+	Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	Frame.BackgroundColor3 = Color3.fromRGB(86, 86, 86)
+	Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	Frame.BorderSizePixel = 0
+	Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	Frame.Size = UDim2.new(0, 410, 0, 210)
+	Frame.ZIndex = -20
 
-    local input = Instance.new("TextBox")
-    input.Name = "TextBox"
-    input.ZIndex = 1
-    input.Position = UDim2.new(0, 0, 0.370370358, 0)
-    input.Size = UDim2.new(0, 262, 0, 50)
-    input.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    input.BackgroundTransparency = 1
-    input.Text = ""
-    input.TextScaled = true
-    input.TextSize = 14
-    input.Font = Enum.Font.SourceSans
-    input.TextColor3 = Color3.fromRGB(0, 0, 0)
-    input.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    input.TextStrokeTransparency = 1
-    input.TextWrapped = true
-    input.TextXAlignment = Enum.TextXAlignment.Center
-    input.TextYAlignment = Enum.TextYAlignment.Center
-    input.TextTransparency = 0
-    input.ClearTextOnFocus = true
-    input.MultiLine = false
-    input.Visible = true
-    input.AnchorPoint = Vector2.new(0, 0)
-    input.ClipsDescendants = false
-    input.Parent = main
+	Frame_2.Parent = Frame
+	Frame_2.AnchorPoint = Vector2.new(0.5, 0.5)
+	Frame_2.BackgroundColor3 = Color3.fromRGB(49, 49, 49)
+	Frame_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	Frame_2.BorderSizePixel = 0
+	Frame_2.Position = UDim2.new(0.5, 0, 0.5, 0)
+	Frame_2.Size = UDim2.new(0, 400, 0, 200)
 
-    local button = Instance.new("TextButton")
-    button.Name = "TextButton"
-    button.ZIndex = 1
-    button.Position = UDim2.new(0, 0, 0.661375642, 0)
-    button.Size = UDim2.new(0, 262, 0, 64)
-    button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    button.BackgroundTransparency = 1
-    button.Text = "click me to auth!!!1!1!!"
-    button.TextScaled = true
-    button.TextSize = 14
-    button.Font = Enum.Font.SourceSans
-    button.TextColor3 = Color3.fromRGB(104, 104, 104)
-    button.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    button.TextStrokeTransparency = 1
-    button.TextWrapped = true
-    button.TextXAlignment = Enum.TextXAlignment.Center
-    button.TextYAlignment = Enum.TextYAlignment.Center
-    button.TextTransparency = 0
-    button.Visible = true
-    button.AnchorPoint = Vector2.new(0, 0)
-    button.ClipsDescendants = false
-    button.AutoButtonColor = true
-    button.Parent = main
+	logo.Name = "logo"
+	logo.Parent = Frame_2
+	logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	logo.BackgroundTransparency = 1.000
+	logo.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	logo.BorderSizePixel = 0
+	logo.Position = UDim2.new(0.412499994, 0, 0.0350000001, 0)
+	logo.Size = UDim2.new(0, 70, 0, 50)
+	logo.Font = Enum.Font.Unknown
+	logo.Text = "<l>"
+	logo.TextColor3 = Color3.fromRGB(0, 0, 0)
+	logo.TextScaled = true
+	logo.TextSize = 14.000
+	logo.TextWrapped = true
 
-    local status = Instance.new("TextLabel")
-    status.Name = "TextLabel"
-    status.ZIndex = 1
-    status.Position = UDim2.new(0, 0, 0, 0)
-    status.Size = UDim2.new(0, 262, 0, 71)
-    status.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    status.BackgroundTransparency = 1
-    status.Text = "shitty temp auth ui"
-    status.TextScaled = true
-    status.TextSize = 14
-    status.Font = Enum.Font.SourceSans
-    status.TextColor3 = Color3.fromRGB(132, 132, 132)
-    status.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    status.TextStrokeTransparency = 1
-    status.TextWrapped = true
-    status.TextXAlignment = Enum.TextXAlignment.Center
-    status.TextYAlignment = Enum.TextYAlignment.Center
-    status.TextTransparency = 0
-    status.Visible = true
-    status.AnchorPoint = Vector2.new(0, 0)
-    status.ClipsDescendants = false
-    status.Parent = main
+	loaderorerror.Name = "loaderorerror"
+	loaderorerror.Parent = Frame_2
+	loaderorerror.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	loaderorerror.BackgroundTransparency = 1.000
+	loaderorerror.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	loaderorerror.BorderSizePixel = 0
+	loaderorerror.Position = UDim2.new(0.237499997, 0, 0.216071784, 0)
+	loaderorerror.Size = UDim2.new(0, 209, 0, 38)
+	loaderorerror.Font = Enum.Font.Unknown
+	loaderorerror.Text = "leetware loader"
+	loaderorerror.TextColor3 = Color3.fromRGB(0, 0, 0)
+	loaderorerror.TextScaled = true
+	loaderorerror.TextSize = 14.000
+	loaderorerror.TextWrapped = true
 
-    local function setStatus(text, color)
-        status.Text = text
-        status.TextColor3 = color or Color3.fromRGB(132, 132, 132)
-    end
+	license.Name = "license"
+	license.Parent = Frame_2
+	license.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	license.BackgroundTransparency = 1.000
+	license.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	license.BorderSizePixel = 0
+	license.Position = UDim2.new(0, 0, 0.436071783, 0)
+	license.Size = UDim2.new(0, 400, 0, 43)
+	license.Font = Enum.Font.SourceSans
+	license.PlaceholderColor3 = Color3.fromRGB(62, 62, 62)
+	license.PlaceholderText = "license field"
+	license.Text = ""
+	license.TextColor3 = Color3.fromRGB(0, 0, 0)
+	license.TextScaled = true
+	license.TextSize = 14.000
+	license.TextWrapped = true
+	license.ClearTextOnFocus = true
+	license.TextEditable = true
 
-    local function setLoading(loading)
-        button.AutoButtonColor = not loading
-        button.Text = loading and "authenticating..." or "click me to auth!!!1!1!!"
-        input.TextEditable = not loading
-    end
+	submit.Name = "submit"
+	submit.Parent = Frame_2
+	submit.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	submit.BackgroundTransparency = 1.000
+	submit.BorderColor3 = Color3.fromRGB(255, 255, 255)
+	submit.BorderSizePixel = 0
+	submit.Position = UDim2.new(0, 0, 0.685000002, 0)
+	submit.Size = UDim2.new(0, 400, 0, 49)
+	submit.Font = Enum.Font.SourceSans
+	submit.Text = "submit"
+	submit.TextColor3 = Color3.fromRGB(0, 0, 0)
+	submit.TextScaled = true
+	submit.TextSize = 14.000
+	submit.TextWrapped = true
+	submit.AutoButtonColor = true
 
-    button.MouseButton1Click:Connect(function()
-        local license = string.gsub(input.Text, "%s+", "")
-        if license == "" then
-            setStatus("License is required.", Color3.fromRGB(255, 120, 120))
-            return
-        end
+	local function setStatus(text, color)
+		loaderorerror.Text = text
+		loaderorerror.TextColor3 = color or Color3.fromRGB(0, 0, 0)
+	end
 
-        setLoading(true)
-        setStatus("Contacting license server...", Color3.fromRGB(180, 180, 190))
+	local function setLoading(loading)
+		submit.AutoButtonColor = not loading
+		submit.Text = loading and "authenticating..." or "submit"
+		license.TextEditable = not loading
+	end
 
-        task.spawn(function()
-            local ok, err = onSubmit(license, function(message)
-                setStatus(message)
-            end, function()
-                screenGui:Destroy()
-            end)
+	local function attempt()
+		local value = string.gsub(license.Text, "%s+", "")
 
-            if not ok then
-                setLoading(false)
-                setStatus(
-                    tostring(err or "Authentication failed"),
-                    Color3.fromRGB(255, 120, 120)
-                )
-            end
-        end)
-    end)
+		if value == "" then
+			setStatus("License is required.", Color3.fromRGB(255, 120, 120))
+			return
+		end
 
-    return screenGui
+		setLoading(true)
+		setStatus("Contacting license server...", Color3.fromRGB(180, 180, 190))
+
+		task.spawn(function()
+			local ok, err = onSubmit(
+				value,
+				function(message, color)
+					setStatus(message, color)
+				end,
+				function()
+					Loader:Destroy()
+				end
+			)
+
+			if not ok then
+				setLoading(false)
+				setStatus(
+					tostring(err or "Authentication failed"),
+					Color3.fromRGB(255, 120, 120)
+				)
+			end
+		end)
+	end
+
+	submit.MouseButton1Click:Connect(attempt)
+
+	license.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			attempt()
+		end
+	end)
+
+	return Loader
 end
 
 return UI
