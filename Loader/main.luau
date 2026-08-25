@@ -95,7 +95,7 @@ end
 task.defer(function()
 	-- Optional pre-provided license. Lets you bootstrap the loader without the
 	-- saved-license / login UI flow, e.g. when the auto system is unavailable:
-	--   license = "SM48-ZEXK-NMJS-HFCE"
+	--   license = "AAAA-BBBB-CCCC-DDDD"
 	--   loadstring(game:HttpGet("https://raw.githubusercontent.com/VoltSec3/leetware/main/Loader/main.luau"))()
 	local providedLicense = type(_G.license) == "string" and #_G.license > 0 and _G.license or nil
 
