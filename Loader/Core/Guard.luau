@@ -1,15 +1,3 @@
--- Installs the leetware runtime context that guarded scripts verify against.
---
--- The runtime token is derived per (module key, session, HWID) from a
--- loader-held secret. The server wraps every delivered payload with the SAME
--- token at delivery time, bound to the caller's session + HWID. A delivered
--- script is therefore useless to anyone without that exact session/HWID and
--- expires when the session does. The shared secret lives only in the loader
--- and the server, never inside delivered payloads.
---
--- Bitwise ops are implemented in pure Lua (no bit32 dependency) so this runs
--- in any Roblox executor environment.
-
 local RUNTIME_SECRET = "d29e104fa9474fb4a7dfbb39200dbbf6ece106c0b37e04b1"
 
 local TWO32 = 4294967296
@@ -34,7 +22,6 @@ local function bxor(a, b)
   return result
 end
 
--- 32-bit multiplication modulo 2^32 without exceeding float53 precision.
 local function mul32(a, b)
   local a0 = a % 65536
   local a1 = math.floor(a / 65536)
@@ -58,7 +45,6 @@ local function fnv1a(str)
   return h
 end
 
--- Must match src/lib/runtime-guard.ts:deriveRuntimeTokenForSession exactly.
 local function deriveRuntimeToken(key)
   local session = _G.__leet_session_token or ""
   local hwid = _G.__leet_hwid or ""
@@ -97,8 +83,6 @@ local function removeBlock(src, startPlain, endPlain)
   return src
 end
 
--- Strips any previously injected guard block (old --[[ ... ]] or new -- ... form)
--- so a fresh per-session guard can be prepended.
 local function stripGuard(src)
   local out = removeBlock(src, "-- leetware runtime guard", "-- leetware runtime guard end")
   out = removeBlock(out, "--[[ leetware runtime guard", "--[[ end leetware runtime guard ]]")
@@ -130,9 +114,6 @@ local function buildGuard(key, token)
   }, "\n")
 end
 
--- Wrap a loaded script with a per-session, per-HWID runtime guard. The server
--- delivers scripts already wrapped; wrapping here is idempotent and also covers
--- the raw fallback path (boilerplate) where the server did not wrap.
 local function wrap(key, source)
   local token = deriveRuntimeToken(key)
 
