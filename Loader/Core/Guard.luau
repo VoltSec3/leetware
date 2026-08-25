@@ -6,15 +6,53 @@
 -- script is therefore useless to anyone without that exact session/HWID and
 -- expires when the session does. The shared secret lives only in the loader
 -- and the server, never inside delivered payloads.
+--
+-- Bitwise ops are implemented in pure Lua (no bit32 dependency) so this runs
+-- in any Roblox executor environment.
 
 local RUNTIME_SECRET = "d29e104fa9474fb4a7dfbb39200dbbf6ece106c0b37e04b1"
+
+local TWO32 = 4294967296
+
+local function bxor(a, b)
+  local result = 0
+  local bit = 1
+
+  for _ = 1, 32 do
+    local abit = a % 2
+    local bbit = b % 2
+
+    if abit ~= bbit then
+      result = result + bit
+    end
+
+    a = math.floor(a / 2)
+    b = math.floor(b / 2)
+    bit = bit * 2
+  end
+
+  return result
+end
+
+-- 32-bit multiplication modulo 2^32 without exceeding float53 precision.
+local function mul32(a, b)
+  local a0 = a % 65536
+  local a1 = math.floor(a / 65536)
+  local b0 = b % 65536
+  local b1 = math.floor(b / 65536)
+  local p0 = a0 * b0
+  local p1 = a0 * b1 + a1 * b0
+
+  return (p0 + p1 * 65536) % TWO32
+end
 
 local function fnv1a(str)
   local h = 0x811c9dc5
 
   for i = 1, #str do
-    h = bit32.band(bit32.bxor(h, string.byte(str, i)), 0xFFFFFFFF)
-    h = bit32.band(bit32.mul(h, 0x01000193), 0xFFFFFFFF)
+    h = bxor(h, string.byte(str, i))
+    h = mul32(h, 0x01000193)
+    h = h % TWO32
   end
 
   return h
@@ -29,8 +67,8 @@ local function deriveRuntimeToken(key)
   local out = {}
 
   for i = 1, 8 do
-    state = bit32.band((bit32.mul(state, 1103515245) + 12345) % 4294967296, 0xFFFFFFFF)
-    out[i] = string.format("%02x", bit32.band(state, 0xFF))
+    state = (mul32(state, 1103515245) + 12345) % TWO32
+    out[i] = string.format("%02x", state % 256)
   end
 
   return table.concat(out)
