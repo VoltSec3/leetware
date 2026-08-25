@@ -10,6 +10,11 @@ import {
   verifyHwidForLicense,
 } from "@/lib/license-service";
 import { prisma } from "@/lib/prisma";
+import {
+  buildRuntimeGuard,
+  deriveRuntimeTokenForSession,
+  stripRuntimeGuard,
+} from "@/lib/runtime-guard";
 
 type RouteContext = {
   params: Promise<{ gameKey: string }>;
@@ -96,7 +101,15 @@ export async function GET(request: Request, context: RouteContext) {
       },
     });
 
-    return new Response(game.payloadSource, {
+    // Wrap the stored source with a per-session, per-HWID runtime guard so the
+    // delivered script is bound to this exact session and useless elsewhere.
+    const sessionToken = authHeader!.slice(7);
+    const guardToken = deriveRuntimeTokenForSession(gameKey, sessionToken, hwid);
+    const wrapped = `${buildRuntimeGuard(gameKey, guardToken)}\n${stripRuntimeGuard(
+      game.payloadSource,
+    )}`;
+
+    return new Response(wrapped, {
       status: 200,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",

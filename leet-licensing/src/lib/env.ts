@@ -52,4 +52,9 @@ export const env = {
   get currentBuild() {
     return process.env.CURRENT_BUILD ?? "v3.4.2";
   },
+  get loaderRuntimeSecret() {
+    // Shared with the loader to derive per-module runtime tokens. Override in
+    // production via LOADER_RUNTIME_SECRET with a high-entropy value.
+    return process.env.LOADER_RUNTIME_SECRET ?? "leetware-runtime-v1-devsecret-change-me";
+  },
 };

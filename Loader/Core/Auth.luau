@@ -94,6 +94,7 @@ end
 function Auth.saveSession(token, expiresAt)
 	Auth._sessionToken = token
 	Auth._sessionExpiresAt = expiresAt
+	_G.__leet_session_token = token
 
 	if not writefile then
 		return
@@ -132,6 +133,7 @@ function Auth.loadSession()
 
 	Auth._sessionToken = data.token
 	Auth._sessionExpiresAt = data.expiresAt or 0
+	_G.__leet_session_token = data.token
 
 	return Auth._sessionToken
 end

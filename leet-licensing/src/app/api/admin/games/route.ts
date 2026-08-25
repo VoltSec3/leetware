@@ -5,6 +5,7 @@ import {
 } from "@/lib/game-service";
 import { errorResponse, jsonResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { ensureRuntimeGuard } from "@/lib/runtime-guard";
 import { upsertGameSchema } from "@/lib/validation";
 
 export async function GET() {
@@ -106,6 +107,17 @@ export async function POST(request: Request) {
     game.locked ||
     (kind === "module" && PROTECTED_GAMEOBJECTS.includes(data.moduleKey ?? ""));
 
+  // Always bind a runtime guard to the saved payload so it cannot be executed
+  // directly outside the loader. The guard key is the module key (falling back
+  // to the game id) and is what the loader passes to rt.verify.
+  const guardKey = data.moduleKey || data.gameId;
+  const nextPayload =
+    data.payloadSource !== undefined
+      ? data.payloadSource
+        ? ensureRuntimeGuard(guardKey, data.payloadSource)
+        : null
+      : (existing?.payloadSource ?? null);
+
   const updated = await prisma.supportedGame.update({
     where: { id: game.id },
     data: {
@@ -115,10 +127,7 @@ export async function POST(request: Request) {
       kind,
       locked,
       scriptUrl: data.scriptUrl === "" ? null : (data.scriptUrl ?? game.scriptUrl),
-      payloadSource:
-        data.payloadSource !== undefined
-          ? data.payloadSource || null
-          : (existing?.payloadSource ?? null),
+      payloadSource: nextPayload,
       enabled: data.enabled ?? true,
       autoRegistered: false,
     },

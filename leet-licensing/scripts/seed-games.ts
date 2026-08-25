@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { prisma } from "../src/lib/prisma";
 import { ensureModule, PROTECTED_GAMEOBJECTS } from "../src/lib/game-service";
+import { ensureRuntimeGuard } from "../src/lib/runtime-guard";
 
 const REPO_ROOT = join(__dirname, "..", "..");
 
@@ -82,11 +83,12 @@ const protectedEntries = [
   },
 ];
 
-async function main() {
-  for (const game of games) {
-    const source = readSource(game.sourcePath);
+  async function main() {
+    for (const game of games) {
+      const raw = readSource(game.sourcePath);
+      const source = raw ? ensureRuntimeGuard(game.moduleKey, raw) : raw;
 
-    await prisma.supportedGame.upsert({
+      await prisma.supportedGame.upsert({
       where: { gameId: game.gameId },
       create: {
         gameId: game.gameId,
@@ -112,7 +114,8 @@ async function main() {
   }
 
   for (const entry of protectedEntries) {
-    const source = readSource(entry.sourcePath);
+    const raw = readSource(entry.sourcePath);
+    const source = raw ? ensureRuntimeGuard(entry.moduleKey, raw) : raw;
 
     await prisma.supportedGame.upsert({
       where: { gameId: entry.gameId },

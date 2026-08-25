@@ -1,10 +1,14 @@
+local baseUrl = "https://raw.githubusercontent.com/VoltSec3/leetware/main/"
+
 local Config = loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/VoltSec3/leetware/main/Loader/Core/Config.luau"
+	baseUrl .. "Loader/Core/Config.luau"
 ))()
 
 local Registry = loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/VoltSec3/leetware/main/Loader/Games/registry.luau"
+	baseUrl .. "Loader/Games/registry.luau"
 ))()
+
+local Guard = loadstring(game:HttpGet(baseUrl .. "Loader/Core/Guard.luau"))()
 
 local Dispatcher = {}
 Dispatcher._catalog = nil
@@ -114,7 +118,7 @@ function Dispatcher.load(auth, hwid)
 		end
 
 		if source then
-			return compileSource(source, tostring(entry.name)), entry
+			return compileSource(Guard.wrap(entry.moduleKey, source), tostring(entry.name)), entry
 		end
 
 		-- Entry existed but had no usable source; fall through to boilerplate.
@@ -125,7 +129,7 @@ function Dispatcher.load(auth, hwid)
 	-- the authenticated fetch fails (e.g. the API is unreachable).
 	local source = Dispatcher.fetchBoilerplate(auth, hwid)
 
-	return compileSource(source, "boilerplate"), {
+	return compileSource(Guard.wrap("boilerplate", source), "boilerplate"), {
 		name = "Universal Boilerplate",
 		moduleKey = "boilerplate",
 		gameId = gameId,
@@ -155,8 +159,8 @@ function Dispatcher.loadModules(auth, hwid)
 		if key and not modules[key] then
 			local pOk, source = auth.payload(key, hwid)
 
-			if pOk and type(source) == "string" and #source > 0 then
-				local okRun, result = pcall(compileSource, source, "module:" .. tostring(key))
+		if pOk and type(source) == "string" and #source > 0 then
+			local okRun, result = pcall(compileSource, Guard.wrap(key, source), "module:" .. tostring(key))
 
 				if okRun and result then
 					modules[key] = result

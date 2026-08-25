@@ -26,6 +26,7 @@ local Heartbeat = loadModule("Loader/Core/Heartbeat.luau", "Heartbeat")
 local UI = loadModule("Loader/UI/Login.luau", "UI")
 
 local hwid = HWID.generate()
+_G.__leet_hwid = hwid
 local stopHeartbeat = nil
 
 local function startHeartbeat()

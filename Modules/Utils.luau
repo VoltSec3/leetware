@@ -1,26 +1,21 @@
---[[ leetware runtime guard: do not remove. this file only executes inside the official loader. ]]
+-- leetware runtime guard: do not remove. this file only executes inside the official loader.
 do
-	local function __leet_runtime_token()
-		local seed = {0x6C,0x65,0x65,0x74,0x77,0x61,0x72,0x65,0x2D,0x72,0x74,0x2D,0x76,0x31}
-		local key = {0x1F,0x3A,0x9C,0x55,0x7B,0x02,0xC4,0xED,0x36,0x88,0x4D,0x0B,0x91,0x5E}
-		local out = {}
-		for i = 1, #seed do
-			out[i] = string.char(bit32.bxor(seed[i], key[((i - 1) % #key) + 1]))
-		end
-		return table.concat(out)
-	end
-
-	local rt = _G.__leet_rt
-	if type(rt) ~= "table" or rt.active ~= true or type(rt.verify) ~= "function" then
-		error("leetware: this script must be executed through the leetware loader.", 0)
-	end
-
-	local ok, provided = pcall(rt.verify)
-	if not ok or provided ~= __leet_runtime_token() then
-		error("leetware: runtime verification failed.", 0)
-	end
+  local function __leet_expected()
+    return "8293d0c9ceeffc85"
+  end
+  local function __leet_key()
+    return "utils"
+  end
+  local rt = _G.__leet_rt
+  if type(rt) ~= "table" or rt.active ~= true or type(rt.verify) ~= "function" then
+    error("leetware: this script must be executed through the leetware loader.", 0)
+  end
+  local ok, provided = pcall(rt.verify, __leet_key())
+  if not ok or provided ~= __leet_expected() then
+    error("leetware: runtime verification failed.", 0)
+  end
 end
---[[ end leetware runtime guard ]]
+-- leetware runtime guard end
 
 local Utils = {}
 
