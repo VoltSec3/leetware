@@ -196,11 +196,14 @@ model SupportedGame {
   payloadSource  String?
   enabled        Boolean   @default(true)
   autoRegistered Boolean   @default(false)
+  kind           String    @default("game")
+  locked         Boolean   @default(false)
   lastSeenAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([enabled])
+  @@index([kind])
 }
 
 model RateLimitEntry {

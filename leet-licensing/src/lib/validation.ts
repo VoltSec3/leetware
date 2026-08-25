@@ -190,39 +190,64 @@ export const licenseListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-export const upsertGameSchema = z.object({
-  gameId: z
-    .union([z.string(), z.number()])
-    .transform((value) => String(value))
-    .refine((value) => /^\d{1,20}$/.test(value), {
-      message: "gameId must be a Roblox GameId (numeric string)",
-    }),
-  name: z.string().min(1).max(128),
-  moduleKey: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "lowercase letters, digits, dashes")
-    .optional(),
-  delivery: z.enum(["direct", "api"]).optional(),
-  scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
-  payloadSource: z.string().max(1_000_000).optional(),
-  enabled: z.boolean().optional(),
-}).superRefine((data, ctx) => validateScriptUrl(data.delivery, data.scriptUrl, ctx));
+export const upsertGameSchema = z
+  .object({
+    gameId: z
+      .union([z.string(), z.number()])
+      .transform((value) => String(value)),
+    name: z.string().min(1).max(128),
+    moduleKey: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "lowercase letters, digits, dashes")
+      .optional(),
+    delivery: z.enum(["direct", "api"]).optional(),
+    kind: z.enum(["game", "module"]).optional(),
+    scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
+    payloadSource: z.string().max(1_000_000).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const kind = data.kind === "module" ? "module" : "game";
 
-export const updateGameSchema = z.object({
-  name: z.string().min(1).max(128).optional(),
-  moduleKey: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "lowercase letters, digits, dashes")
-    .optional(),
-  delivery: z.enum(["direct", "api"]).optional(),
-  scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
-  payloadSource: z.string().max(1_000_000).optional(),
-  enabled: z.boolean().optional(),
-}).superRefine((data, ctx) => validateScriptUrl(data.delivery, data.scriptUrl, ctx));
+    if (kind === "module") {
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(data.gameId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["gameId"],
+          message: "module id must be a slug (lowercase letters, digits, dashes)",
+        });
+      }
+    } else if (!/^\d{1,20}$/.test(data.gameId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["gameId"],
+        message: "gameId must be a Roblox GameId (numeric string)",
+      });
+    }
+
+    validateScriptUrl(data.delivery, data.scriptUrl, ctx);
+  });
+
+export const updateGameSchema = z
+  .object({
+    name: z.string().min(1).max(128).optional(),
+    moduleKey: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "lowercase letters, digits, dashes")
+      .optional(),
+    delivery: z.enum(["direct", "api"]).optional(),
+    kind: z.enum(["game", "module"]).optional(),
+    scriptUrl: z.string().url().max(512).optional().or(z.literal("")),
+    payloadSource: z.string().max(1_000_000).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    validateScriptUrl(data.delivery, data.scriptUrl, ctx);
+  });
 
 export const userSuspendSchema = z.object({
   suspendedUntil: z

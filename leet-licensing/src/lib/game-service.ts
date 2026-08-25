@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 export type GameDelivery = "direct" | "api";
+export type GameKind = "game" | "module";
 
 export type EnsureGameInput = {
   gameId: string;
@@ -8,7 +9,18 @@ export type EnsureGameInput = {
   moduleKey?: string;
   scriptUrl?: string;
   delivery?: GameDelivery;
+  kind?: GameKind;
 };
+
+export const PROTECTED_GAMEOBJECTS = [
+  "boilerplate",
+  "prison-life",
+  "esp",
+  "aimbot",
+  "chams",
+  "tracers",
+  "utils",
+];
 
 export function slugifyModuleKey(name: string): string {
   return (
@@ -29,8 +41,14 @@ export function slugifyModuleKey(name: string): string {
  */
 export async function ensureSupportedGame(input: EnsureGameInput) {
   const gameId = String(input.gameId);
+  const kind = input.kind ?? "game";
 
-  if (!/^\d{1,20}$/.test(gameId)) {
+  // Modules are not tied to a Roblox GameId; their gameId is a stable slug.
+  if (kind === "module") {
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(gameId)) {
+      return null;
+    }
+  } else if (!/^\d{1,20}$/.test(gameId)) {
     return null;
   }
 
@@ -60,6 +78,7 @@ export async function ensureSupportedGame(input: EnsureGameInput) {
         moduleKey,
         delivery: input.delivery ?? "direct",
         scriptUrl: input.scriptUrl,
+        kind,
         enabled: true,
         autoRegistered: true,
         lastSeenAt: new Date(),
@@ -88,6 +107,72 @@ export async function listEnabledGames() {
   });
 }
 
+// Enabled, non-fallback games for the public loader catalog. The boilerplate
+// entry is intentionally excluded - it is the universal fallback, not a
+// PlaceId-keyed game.
+export async function listGames() {
+  return prisma.supportedGame.findMany({
+    where: {
+      enabled: true,
+      kind: "game",
+      moduleKey: { not: "boilerplate" },
+    },
+    select: {
+      gameId: true,
+      name: true,
+      moduleKey: true,
+      delivery: true,
+      scriptUrl: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+// Enabled API-delivered modules. Only the module key + name are exposed; the
+// payload source is always gated behind an authenticated session.
+export async function listModules() {
+  return prisma.supportedGame.findMany({
+    where: { enabled: true, kind: "module" },
+    select: {
+      gameId: true,
+      name: true,
+      moduleKey: true,
+      delivery: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+// Idempotently register a protected, API-delivered module. Used by the seed
+// script so the 5 built-in modules always exist and cannot be removed.
+export async function ensureModule(input: {
+  moduleKey: string;
+  name: string;
+  locked?: boolean;
+}) {
+  const moduleKey = slugifyModuleKey(input.moduleKey);
+  const existing = await prisma.supportedGame.findUnique({
+    where: { moduleKey },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.supportedGame.create({
+    data: {
+      gameId: moduleKey,
+      name: input.name,
+      moduleKey,
+      delivery: "api",
+      kind: "module",
+      enabled: true,
+      autoRegistered: false,
+      locked: input.locked ?? true,
+    },
+  });
+}
+
 export type GameDeliveryInfo = {
   supported: boolean;
   gameId?: string;
@@ -96,6 +181,8 @@ export type GameDeliveryInfo = {
   delivery?: GameDelivery;
   scriptUrl?: string | null;
   payload?: string | null;
+  kind?: GameKind;
+  locked?: boolean;
 };
 
 /**
@@ -126,6 +213,8 @@ export async function resolveSupportedGame(
       delivery: true,
       scriptUrl: true,
       payloadSource: true,
+      kind: true,
+      locked: true,
     },
   });
 
@@ -141,5 +230,7 @@ export async function resolveSupportedGame(
     delivery: game.delivery as GameDelivery,
     scriptUrl: game.scriptUrl,
     payload: game.payloadSource,
+    kind: game.kind as GameKind,
+    locked: game.locked,
   };
 }

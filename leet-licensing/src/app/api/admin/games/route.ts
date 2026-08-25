@@ -1,5 +1,8 @@
 import { requireCsrf, requireRole } from "@/lib/admin-auth";
-import { ensureSupportedGame } from "@/lib/game-service";
+import {
+  ensureSupportedGame,
+  PROTECTED_GAMEOBJECTS,
+} from "@/lib/game-service";
 import { errorResponse, jsonResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { upsertGameSchema } from "@/lib/validation";
@@ -13,7 +16,7 @@ export async function GET() {
 
   const [games, withPayload] = await Promise.all([
     prisma.supportedGame.findMany({
-      orderBy: [{ enabled: "desc" }, { name: "asc" }],
+      orderBy: [{ kind: "asc" }, { enabled: "desc" }, { name: "asc" }],
       select: {
         id: true,
         gameId: true,
@@ -23,6 +26,8 @@ export async function GET() {
         scriptUrl: true,
         enabled: true,
         autoRegistered: true,
+        kind: true,
+        locked: true,
         lastSeenAt: true,
         createdAt: true,
         updatedAt: true,
@@ -75,6 +80,7 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const kind = data.kind === "module" ? "module" : "game";
 
   // Preserve an existing payloadSource when the field is omitted.
   const existing = await prisma.supportedGame.findUnique({
@@ -87,11 +93,18 @@ export async function POST(request: Request) {
     moduleKey: data.moduleKey,
     scriptUrl: data.scriptUrl || undefined,
     delivery: data.delivery,
+    kind,
   });
 
   if (!game) {
     return errorResponse("Could not register game", 400);
   }
+
+  // Built-in entries (boilerplate + the 5 modules) are locked so they can be
+  // edited but never deleted or renamed.
+  const locked =
+    game.locked ||
+    (kind === "module" && PROTECTED_GAMEOBJECTS.includes(data.moduleKey ?? ""));
 
   const updated = await prisma.supportedGame.update({
     where: { id: game.id },
@@ -99,6 +112,8 @@ export async function POST(request: Request) {
       name: data.name,
       moduleKey: data.moduleKey ?? game.moduleKey,
       delivery: data.delivery ?? game.delivery,
+      kind,
+      locked,
       scriptUrl: data.scriptUrl === "" ? null : (data.scriptUrl ?? game.scriptUrl),
       payloadSource:
         data.payloadSource !== undefined
@@ -116,6 +131,8 @@ export async function POST(request: Request) {
       name: updated.name,
       moduleKey: updated.moduleKey,
       delivery: updated.delivery,
+      kind: updated.kind,
+      locked: updated.locked,
       scriptUrl: updated.scriptUrl,
       enabled: updated.enabled,
       autoRegistered: updated.autoRegistered,

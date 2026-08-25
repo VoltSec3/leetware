@@ -10,6 +10,8 @@ type GameRow = {
   name: string;
   moduleKey: string;
   delivery: string;
+  kind: string;
+  locked: boolean;
   scriptUrl: string | null;
   enabled: boolean;
   autoRegistered: boolean;
@@ -17,6 +19,16 @@ type GameRow = {
   lastSeenAt: string | null;
   updatedAt: string;
 };
+
+type GameKind = "game" | "module";
+
+function draftKey(id: string) {
+  return `leet_payload_draft_${id}`;
+}
+
+function snapshotKey(id: string) {
+  return `leet_payload_snapshot_${id}`;
+}
 
 function getCookie(name: string) {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -29,14 +41,14 @@ function csrfHeaders(): Record<string, string> {
 }
 
 export function GamesManager() {
+  const [kind, setKind] = useState<GameKind>("game");
   const [games, setGames] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<GameRow | null>(null);
-  const [editingMode, setEditingMode] = useState<"payload" | "url" | null>(
-    null,
-  );
+  const [editingMode, setEditingMode] = useState<"payload" | "url" | null>(null);
   const [payloadDraft, setPayloadDraft] = useState("");
+  const [payloadSnapshot, setPayloadSnapshot] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
 
   const [form, setForm] = useState({
@@ -44,6 +56,7 @@ export function GamesManager() {
     name: "",
     moduleKey: "",
     delivery: "direct",
+    kind: "game" as GameKind,
     scriptUrl: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
@@ -92,6 +105,8 @@ export function GamesManager() {
     event.preventDefault();
     setFormError(null);
 
+    const isModule = form.kind === "module";
+
     const response = await fetch("/api/admin/games", {
       method: "POST",
       headers: {
@@ -102,8 +117,9 @@ export function GamesManager() {
         gameId: form.gameId,
         name: form.name,
         moduleKey: form.moduleKey || undefined,
-        delivery: form.delivery,
-        scriptUrl: form.delivery === "direct" ? form.scriptUrl || "" : "",
+        delivery: isModule ? "api" : form.delivery,
+        kind: form.kind,
+        scriptUrl: !isModule && form.delivery === "direct" ? form.scriptUrl || "" : "",
       }),
     });
 
@@ -114,7 +130,7 @@ export function GamesManager() {
       return;
     }
 
-    setForm({ gameId: "", name: "", moduleKey: "", delivery: "direct", scriptUrl: "" });
+    setForm({ gameId: "", name: "", moduleKey: "", delivery: "direct", kind: "game", scriptUrl: "" });
     await loadGames();
   }
 
@@ -158,18 +174,41 @@ export function GamesManager() {
     await loadGames();
   }
 
-  function openPayload(game: GameRow) {
+  async function openPayload(game: GameRow) {
     setEditing(game);
     setEditingMode("payload");
-    setPayloadDraft("");
     setError(null);
+
+    const dKey = draftKey(game.id);
+    const sKey = snapshotKey(game.id);
+    const savedDraft = localStorage.getItem(dKey);
+
+    let current = savedDraft;
+
+    if (current === null) {
+      // Fetch the actual stored payload so the editor opens with the source
+      // that is currently live. Cache it as the "last good" snapshot.
+      try {
+        const res = await fetch(`/api/admin/games/${game.id}`);
+        const data = await res.json();
+        current = data?.game?.payloadSource ?? "";
+      } catch {
+        current = "";
+      }
+
+      localStorage.setItem(sKey, current ?? "");
+    }
+
+    setPayloadDraft(current ?? "");
+    setPayloadSnapshot(localStorage.getItem(sKey) ?? "");
   }
 
-  function openUrl(game: GameRow) {
-    setEditing(game);
-    setEditingMode("url");
-    setUrlDraft(game.scriptUrl ?? "");
-    setError(null);
+  function onPayloadChange(value: string) {
+    setPayloadDraft(value);
+
+    if (editing) {
+      localStorage.setItem(draftKey(editing.id), value);
+    }
   }
 
   async function savePayloadSource(clear = false) {
@@ -182,8 +221,36 @@ export function GamesManager() {
     });
 
     if (ok) {
+      const sKey = snapshotKey(editing.id);
+      const dKey = draftKey(editing.id);
+
+      if (clear) {
+        localStorage.removeItem(sKey);
+        localStorage.removeItem(dKey);
+        setPayloadSnapshot("");
+      } else {
+        localStorage.setItem(sKey, payloadDraft);
+        localStorage.removeItem(dKey);
+        setPayloadSnapshot(payloadDraft);
+      }
+
       setEditing(null);
     }
+  }
+
+  function restoreSnapshot() {
+    setPayloadDraft(payloadSnapshot);
+
+    if (editing) {
+      localStorage.setItem(draftKey(editing.id), payloadSnapshot);
+    }
+  }
+
+  function openUrl(game: GameRow) {
+    setEditing(game);
+    setEditingMode("url");
+    setUrlDraft(game.scriptUrl ?? "");
+    setError(null);
   }
 
   async function saveUrl(clear = false) {
@@ -200,25 +267,48 @@ export function GamesManager() {
     }
   }
 
+  const visibleGames = games.filter((game) => (game.kind ?? "game") === kind);
+
   return (
     <div className="space-y-5">
       <Panel>
+        <div className="flex flex-wrap gap-2 border-b border-zinc-800 p-4">
+          {(["game", "module"] as GameKind[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setKind(value)}
+              className={
+                kind === value
+                  ? "lw-btn lw-btn-accent"
+                  : "lw-btn lw-btn-ghost"
+              }
+            >
+              {value === "game" ? "games" : "modules"}
+            </button>
+          ))}
+        </div>
+
         <div className="p-4">
-          <h2 className="lw-title">register a game</h2>
+          <h2 className="lw-title">
+            register a {kind === "module" ? "module" : "game"}
+          </h2>
           <p className="lw-muted mt-1 text-[12px]">
-            registration is optional - games also self-register the first time a
-            loader runs them. use this to control delivery mode or upload gated
-            payloads.
+            {kind === "module"
+              ? "modules are always api-delivered and pulled by the loader. add a module here, then edit its payload below. the five built-in modules are locked and cannot be removed."
+              : "registration is optional - games also self-register the first time a loader runs them. use this to control delivery mode or upload gated payloads."}
           </p>
 
           <form onSubmit={registerGame} className="mt-3 grid gap-3 md:grid-cols-6">
             <label className="space-y-1">
-              <span className="lw-label">gameid</span>
+              <span className="lw-label">
+                {kind === "module" ? "module id" : "gameid"}
+              </span>
               <input
                 required
                 value={form.gameId}
                 onChange={(event) => setForm({ ...form, gameId: event.target.value })}
-                placeholder="155615604"
+                placeholder={kind === "module" ? "esp" : "155615604"}
                 className="lw-input"
               />
             </label>
@@ -229,24 +319,28 @@ export function GamesManager() {
                 required
                 value={form.name}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder="Prison Life"
+                placeholder={kind === "module" ? "ESP" : "Prison Life"}
                 className="lw-input"
               />
             </label>
 
             <label className="space-y-1">
-              <span className="lw-label">delivery</span>
+              <span className="lw-label">kind</span>
               <select
-                value={form.delivery}
-                onChange={(event) => setForm({ ...form, delivery: event.target.value })}
+                value={form.kind}
+                onChange={(event) => setForm({ ...form, kind: event.target.value as GameKind })}
                 className="lw-select"
               >
-                <option value="direct">direct</option>
-                <option value="api">api</option>
+                <option value="game">game</option>
+                <option value="module">module</option>
               </select>
             </label>
 
-            {form.delivery === "direct" ? (
+            {form.kind === "module" ? (
+              <p className="lw-muted md:col-span-2 text-center text-[12px]">
+                api delivery - set the script via the payload editor after saving.
+              </p>
+            ) : form.delivery === "direct" ? (
               <label className="space-y-1 md:col-span-2">
                 <span className="lw-label">script url</span>
                 <input
@@ -262,9 +356,23 @@ export function GamesManager() {
               </p>
             )}
 
+            {form.kind !== "module" ? (
+              <label className="space-y-1">
+                <span className="lw-label">delivery</span>
+                <select
+                  value={form.delivery}
+                  onChange={(event) => setForm({ ...form, delivery: event.target.value })}
+                  className="lw-select"
+                >
+                  <option value="direct">direct</option>
+                  <option value="api">api</option>
+                </select>
+              </label>
+            ) : null}
+
             <div className="md:col-span-6">
               <button type="submit" className="lw-btn lw-btn-accent">
-                save game
+                save {kind === "module" ? "module" : "game"}
               </button>
             </div>
           </form>
@@ -279,14 +387,14 @@ export function GamesManager() {
 
       <Panel>
         {loading ? (
-          <p className="lw-muted p-4 text-[12px]">loading games...</p>
+          <p className="lw-muted p-4 text-[12px]">loading {kind}s...</p>
         ) : (
           <div className="overflow-x-auto p-2">
             <table className="lw-table">
               <thead>
                 <tr>
                   <th>name</th>
-                  <th>gameid</th>
+                  <th>{kind === "module" ? "module id" : "gameid"}</th>
                   <th>module key</th>
                   <th>delivery</th>
                   <th>flags</th>
@@ -295,7 +403,7 @@ export function GamesManager() {
                 </tr>
               </thead>
               <tbody>
-                {games.map((game) => (
+                {visibleGames.map((game) => (
                   <tr key={game.id}>
                     <td>{game.name}</td>
                     <td className="lw-mono">{game.gameId}</td>
@@ -305,6 +413,9 @@ export function GamesManager() {
                       <div className="flex flex-wrap gap-1">
                         {!game.enabled ? (
                           <span className="lw-pill lw-pill-red">disabled</span>
+                        ) : null}
+                        {game.locked ? (
+                          <span className="lw-pill lw-pill-amber">locked</span>
                         ) : null}
                         {game.autoRegistered ? (
                           <span className="lw-pill lw-pill-blue">auto</span>
@@ -324,8 +435,8 @@ export function GamesManager() {
                         {game.delivery === "api" ? (
                           <button
                             type="button"
-                            onClick={() => openPayload(game)}
-                            className="hover:text-[#cce335]"
+                            onClick={() => void openPayload(game)}
+                            className="hover:text-[var(--lw-accent)]"
                           >
                             payload
                           </button>
@@ -333,7 +444,7 @@ export function GamesManager() {
                           <button
                             type="button"
                             onClick={() => openUrl(game)}
-                            className="hover:text-[#cce335]"
+                            className="hover:text-[var(--lw-accent)]"
                           >
                             edit url
                           </button>
@@ -351,21 +462,27 @@ export function GamesManager() {
                         >
                           {game.enabled ? "disable" : "enable"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteGame(game.id)}
-                          className="lw-dim hover:text-[#e05555]"
-                        >
-                          delete
-                        </button>
+                        {game.locked ? (
+                          <span className="lw-dim" title="protected entry">
+                            locked
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void deleteGame(game.id)}
+                            className="lw-dim hover:text-[#e05555]"
+                          >
+                            delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))}
-                {games.length === 0 ? (
+                {visibleGames.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="lw-dim py-4 text-center">
-                      no games registered yet.
+                      no {kind}s registered yet.
                     </td>
                   </tr>
                 ) : null}
@@ -387,7 +504,7 @@ export function GamesManager() {
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="lw-muted hover:text-[#cccccc]"
+                className="lw-muted hover:text-[var(--lw-text)]"
               >
                 close
               </button>
@@ -432,19 +549,21 @@ export function GamesManager() {
                   <code className="lw-mono">
                     /api/payload/{editing.moduleKey}
                   </code>{" "}
-                  to authenticated sessions only.
+                  to authenticated sessions only. your in-progress edit is saved
+                  to this browser so it survives a refresh; the previous saved
+                  version is kept as a safety snapshot.
                 </p>
 
                 <textarea
                   value={payloadDraft}
-                  onChange={(event) => setPayloadDraft(event.target.value)}
+                  onChange={(event) => onPayloadChange(event.target.value)}
                   rows={14}
                   spellCheck={false}
                   placeholder="-- paste obfuscated or plain lua source here..."
                   className="lw-input lw-mono mt-3"
                 />
 
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => void savePayloadSource(false)}
@@ -462,7 +581,28 @@ export function GamesManager() {
                       remove payload
                     </button>
                   ) : null}
+                  {payloadSnapshot.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={restoreSnapshot}
+                      className="lw-btn lw-btn-ghost"
+                      title="restore the last saved version"
+                    >
+                      restore previous
+                    </button>
+                  ) : null}
                 </div>
+
+                {payloadSnapshot.length > 0 ? (
+                  <details className="mt-4">
+                    <summary className="lw-muted cursor-pointer text-[12px]">
+                      previous saved version ({payloadSnapshot.length} chars)
+                    </summary>
+                    <pre className="lw-input lw-mono mt-2 max-h-48 overflow-auto text-[11px]">
+                      {payloadSnapshot}
+                    </pre>
+                  </details>
+                ) : null}
               </>
             )}
           </div>

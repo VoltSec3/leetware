@@ -21,6 +21,7 @@ export const config = {
     lifetime: process.env.ROLE_LIFETIME ?? "1541160182300803192",
     developer: process.env.ROLE_DEVELOPER ?? "1541160224579395715",
   },
+  giveawayRoleId: process.env.GIVEAWAY_ROLE_ID ?? "1541185021480665250",
   apiUrl: (process.env.INTERNAL_API_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   apiKey: required("INTERNAL_API_KEY"),
 };

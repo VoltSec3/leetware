@@ -15,6 +15,8 @@ type Overview = {
   expiringSoon: number;
   hwidResetsToday: number;
   authsToday: number;
+  payloadsAccessedToday: number;
+  sessionsToday: number;
   currentBuild: string;
 };
 
@@ -53,6 +55,8 @@ export function OverviewCards() {
     { label: "expiring soon", value: overview.expiringSoon },
     { label: "hwid resets today", value: overview.hwidResetsToday },
     { label: "authentications today", value: overview.authsToday },
+    { label: "payloads accessed today", value: overview.payloadsAccessedToday },
+    { label: "sessions today", value: overview.sessionsToday },
     { label: "current build", value: overview.currentBuild },
   ];
 

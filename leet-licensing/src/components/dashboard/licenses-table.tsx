@@ -96,7 +96,7 @@ export function LicensesTable() {
 
   return (
     <Panel>
-      <div className="flex flex-wrap items-end gap-3 border-b border-[#282828] p-4">
+      <div className="flex flex-wrap items-end gap-3 border-b border-[var(--lw-border-dark)] p-4">
         <label className="space-y-1">
           <span className="lw-label">search</span>
           <input
@@ -167,7 +167,7 @@ export function LicensesTable() {
                   <td className="lw-mono">
                     <Link
                       href={`/dashboard/licenses/${license.id}`}
-                      className="hover:text-[#cce335]"
+                      className="hover:text-[var(--lw-accent)]"
                     >
                       {license.id.slice(0, 10)}…
                     </Link>
@@ -188,7 +188,7 @@ export function LicensesTable() {
                     <div className="flex gap-2">
                       <Link
                         href={`/dashboard/licenses/${license.id}`}
-                        className="hover:text-[#cce335]"
+                        className="hover:text-[var(--lw-accent)]"
                       >
                         view
                       </Link>

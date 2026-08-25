@@ -1,13 +1,44 @@
+--[[ leetware runtime guard: do not remove. this file only executes inside the official loader. ]]
+do
+	local function __leet_runtime_token()
+		local seed = {0x6C,0x65,0x65,0x74,0x77,0x61,0x72,0x65,0x2D,0x72,0x74,0x2D,0x76,0x31}
+		local key = {0x1F,0x3A,0x9C,0x55,0x7B,0x02,0xC4,0xED,0x36,0x88,0x4D,0x0B,0x91,0x5E}
+		local out = {}
+		for i = 1, #seed do
+			out[i] = string.char(bit32.bxor(seed[i], key[((i - 1) % #key) + 1]))
+		end
+		return table.concat(out)
+	end
+
+	local rt = _G.__leet_rt
+	if type(rt) ~= "table" or rt.active ~= true or type(rt.verify) ~= "function" then
+		error("leetware: this script must be executed through the leetware loader.", 0)
+	end
+
+	local ok, provided = pcall(rt.verify)
+	if not ok or provided ~= __leet_runtime_token() then
+		error("leetware: runtime verification failed.", 0)
+	end
+end
+--[[ end leetware runtime guard ]]
+
 local repo='https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/refs/heads/main/'
 local Library=loadstring(game:HttpGet(repo..'Library.lua'))()
 local ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
 local SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
 
-local espRepo='https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/ESP.luau'
-local chamsRepo='https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Chams.luau'
-local tracersRepo='https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Tracers.luau'
-local aimbotRepo='https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Aimbot.luau'
-local utilsRepo='https://raw.githubusercontent.com/VoltSec3/leetware/main/Modules/Utils.luau'
+-- Modules are delivered by the loader through the authenticated API and exposed
+-- on _G.__leet_modules. They are never fetched directly from a raw URL here,
+-- which keeps them behind the loader runtime guard.
+local function GetModule(key)
+	local module = _G.__leet_modules and _G.__leet_modules[key]
+
+	if not module or type(module.new) ~= "function" then
+		error("leetware: required module '" .. tostring(key) .. "' was not loaded by the loader.", 0)
+	end
+
+	return module
+end
 
 local Players=game:GetService("Players")
 local RunService=game:GetService("RunService")
@@ -126,11 +157,11 @@ local function LoadModule(url,name)
     return module
 end
 
-local ESPModule=LoadModule(espRepo,'ESP')
-local ChamsModule=LoadModule(chamsRepo,'Chams')
-local TracersModule=LoadModule(tracersRepo,'Tracers')
-local AimbotModule=LoadModule(aimbotRepo,'Aimbot')
-local Utils=loadstring(game:HttpGet(utilsRepo))()
+local ESPModule=GetModule('esp')
+local ChamsModule=GetModule('chams')
+local TracersModule=GetModule('tracers')
+local AimbotModule=GetModule('aimbot')
+local Utils=GetModule('utils')
 
 local ESPController=ESPModule.new({
     Players=Players,

@@ -27,7 +27,6 @@ local ESPSettings={
         Thickness=2,
         TeamCheck=false,
         TeamColor=false,
-        Rainbow=false,
         AutoThickness=false
     },
 
@@ -68,7 +67,6 @@ local ESPSettings={
 
     Chams={
         Enabled=false,
-        Rainbow=false,
         Color=Color3.fromRGB(255,0,0),
         Transparency=0.5,
         Outline=true,
@@ -79,7 +77,6 @@ local ESPSettings={
 
     Tracers={
         Enabled=false,
-        Rainbow=false,
         ShowNotInView=false,
         Color=Color3.fromRGB(255,0,0),
         Thickness=1,
@@ -103,8 +100,6 @@ local ESPSettings={
         MinHealth=0,
         FovColor=Color3.fromRGB(255,0,0),
         TargetedFovColor=Color3.fromRGB(0,255,0),
-        RainbowFov=false,
-        RainbowSpeed=0.005,
         Triggerbot=false,
         TriggerbotDelay=0,
         ExcludeTeams={},
@@ -175,9 +170,6 @@ local AimbotController=AimbotModule.new({
     Utils=Utils
 })
 
-local RainbowTools=false
-local RainbowHue=0
-local RainbowObjects={}
 local GunTransparency=0
 local GunTransparencyObjects={}
 
@@ -286,10 +278,11 @@ end
 
 local DoorCollision=false
 local DoorParts={}
-local DoorScanInterval=0.25
+local DoorScanInterval=0.5
 local DoorScanTimer=0
 
 local BlatantToolValues={}
+local PlayerToolsCache=nil
 
 local AntiAimEnabled=false
 local AntiAimRotationTime=0.18
@@ -302,9 +295,12 @@ local AntiAimCharacter=nil
 local AntiAimOriginalAutoRotate=nil
 local AntiAimPreview=nil
 local AntiAimShowPreview=false
-local AntiAimPreviewRainbow=false
-local AntiAimPreviewHue=0
 local AntiAimRandom=Random.new()
+local AntiAimOverlapParams=OverlapParams.new()
+local AntiAimCollisionTimer=0
+local AntiAimCollisionBlocked=false
+AntiAimOverlapParams.FilterType=Enum.RaycastFilterType.Include
+AntiAimOverlapParams.FilterDescendantsInstances={Workspace}
 
 local function GetAntiAimRotation()
     return math.rad(AntiAimRandom:NextInteger(0,math.floor(AntiAimRandomization)))
@@ -319,6 +315,8 @@ end
 
 local function SetupAntiAimCharacter(character)
     AntiAimCharacter=character
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
     AntiAimRotation=GetAntiAimRotation()
     AntiAimNextRotation=GetAntiAimRotation()
     AntiAimNextChange=os.clock()+AntiAimRotationTime
@@ -387,10 +385,7 @@ local function UpdateAntiAimPreview(character,rotation)
         AntiAimPreview:PivotTo(delta*AntiAimPreview:GetPivot())
     end
 
-    AntiAimPreviewHue=(AntiAimPreviewHue+0.01)%1
-    local color=AntiAimPreviewRainbow
-        and Color3.fromHSV(AntiAimPreviewHue,1,1)
-        or Color3.fromRGB(150,150,150)
+    local color=Color3.fromRGB(150,150,150)
 
     for _,object in ipairs(AntiAimPreview:GetDescendants()) do
         if object:IsA('BasePart') then
@@ -407,12 +402,20 @@ local function IsAntiAimBlocked(character,root,humanoid)
         return true
     end
 
-    local overlapParams=OverlapParams.new()
-    overlapParams.FilterType=Enum.RaycastFilterType.Include
-    overlapParams.FilterDescendantsInstances={Workspace}
+    if AntiAimCollisionTimer>0 then
+        return AntiAimCollisionBlocked
+    end
 
-    for _,part in ipairs(Workspace:GetPartBoundsInRadius(root.Position,1,overlapParams)) do
+    AntiAimCollisionTimer=0.15
+    AntiAimCollisionBlocked=false
+
+    for _,part in ipairs(Workspace:GetPartBoundsInRadius(
+        root.Position,
+        1,
+        AntiAimOverlapParams
+    )) do
         if part:IsA('TrussPart') then
+            AntiAimCollisionBlocked=true
             return true
         end
     end
@@ -431,6 +434,8 @@ local function RestoreAntiAimCharacter()
 
     AntiAimCharacter=nil
     AntiAimOriginalAutoRotate=nil
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
 end
 
 local function SetAntiAimEnabled(enabled)
@@ -444,7 +449,7 @@ local function SetAntiAimEnabled(enabled)
     end
 end
 
-local function ApplyAntiAim()
+local function ApplyAntiAim(deltaTime)
     if not AntiAimEnabled then
         return
     end
@@ -465,6 +470,8 @@ local function ApplyAntiAim()
     if not humanoid or not root then
         return
     end
+
+    AntiAimCollisionTimer-=deltaTime
 
     if IsAntiAimBlocked(character,root,humanoid) then
         humanoid.AutoRotate=AntiAimOriginalAutoRotate
@@ -495,6 +502,10 @@ local function ApplyAntiAim()
 end
 
 local function GetPlayerTools()
+    if PlayerToolsCache then
+        return PlayerToolsCache
+    end
+
     local tools={}
     local backpack=Player:FindFirstChildOfClass('Backpack')
     local character=Player.Character
@@ -515,7 +526,13 @@ local function GetPlayerTools()
         end
     end
 
-    return tools
+    PlayerToolsCache=tools
+    return PlayerToolsCache
+end
+
+local function RefreshPlayerTools()
+    PlayerToolsCache=nil
+    return GetPlayerTools()
 end
 
 local function GetToolValue(tool,name)
@@ -621,110 +638,12 @@ local function RefreshBlatantToolMods()
     end
 end
 
-local function GetRainbowColor(offset)
-    return Color3.fromHSV((RainbowHue+offset)%1,1,1)
-end
-
-local function SaveRainbowObject(object)
-    if RainbowObjects[object] then
-        return
-    end
-
-    local data={
-        Instance=object,
-        CFrame=nil,
-        Color=nil,
-        BrickColor=nil,
-        TextureID=nil,
-        TextureContent=nil,
-        Texture=nil,
-        VertexColor=nil
-    }
-
-    if object:IsA("BasePart") then
-        data.CFrame=object.CFrame
-        data.Color=object.Color
-        data.BrickColor=object.BrickColor
-    end
-
-    if object:IsA("MeshPart") then
-        data.TextureID=object.TextureID
-
-        pcall(function()
-            data.TextureContent=object.TextureContent
-        end)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        data.TextureID=object.TextureId
-        data.VertexColor=object.VertexColor
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        data.Texture=object.Texture
-    end
-
-    RainbowObjects[object]=data
-end
-
-local function ProcessRainbowObject(object,offset)
-    if object:IsA("BasePart") then
-        SaveRainbowObject(object)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    end
-
-    if object:IsA("MeshPart") then
-        SaveRainbowObject(object)
-
-        object.TextureID=""
-
-        pcall(function()
-            object.TextureContent=Content.none
-        end)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        SaveRainbowObject(object)
-
-        object.TextureId=""
-        object.VertexColor=Vector3.new(1,1,1)
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        SaveRainbowObject(object)
-
-        object.Texture=""
-    end
-end
-
-local function ProcessRainbowTool(tool)
-    if not tool:IsA("Tool") then
-        return
-    end
-
-    local objects=tool:GetDescendants()
-    local count=math.max(#objects,1)
-
-    for index,object in ipairs(objects) do
-        ProcessRainbowObject(object,index/count)
-    end
-end
-
-local function ProcessRainbowContainer(container)
-    for _,object in ipairs(container:GetChildren()) do
-        if object:IsA("Tool") then
-            ProcessRainbowTool(object)
-        end
-    end
-end
-
 local function SaveGunTransparency(object)
     if GunTransparencyObjects[object]~=nil then
         return
     end
 
-    GunTransparencyObjects[object]=object.Transparency
+    GunTransparencyObjects[object]=object.LocalTransparencyModifier
 end
 
 local function ProcessGunTransparencyTool(tool)
@@ -735,7 +654,10 @@ local function ProcessGunTransparencyTool(tool)
     for _,object in ipairs(tool:GetDescendants()) do
         if object:IsA('BasePart') then
             SaveGunTransparency(object)
-            object.Transparency=GunTransparency
+
+            if object.LocalTransparencyModifier~=GunTransparency then
+                object.LocalTransparencyModifier=GunTransparency
+            end
         end
     end
 end
@@ -748,52 +670,20 @@ local function ProcessGunTransparencyContainer(container)
     end
 end
 
+local function ProcessGunTransparencyTools(tools)
+    for _,tool in ipairs(tools) do
+        ProcessGunTransparencyTool(tool)
+    end
+end
+
 local function RestoreGunTransparency()
     for object,transparency in pairs(GunTransparencyObjects) do
         if object and object.Parent then
-            object.Transparency=transparency
+            object.LocalTransparencyModifier=transparency
         end
     end
 
     table.clear(GunTransparencyObjects)
-end
-
-local function RestoreRainbowObjects()
-    for object,data in pairs(RainbowObjects) do
-        if object and object.Parent then
-            if data.CFrame then
-                object.CFrame=data.CFrame
-            end
-
-            if data.Color then
-                object.Color=data.Color
-            end
-
-            if data.BrickColor then
-                object.BrickColor=data.BrickColor
-            end
-
-            if object:IsA("MeshPart") then
-                pcall(function()
-                    object.TextureID=data.TextureID or ""
-                end)
-
-                pcall(function()
-                    object.TextureContent=data.TextureContent
-                end)
-            elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-                object.TextureId=data.TextureID or ""
-
-                if data.VertexColor then
-                    object.VertexColor=data.VertexColor
-                end
-            elseif object:IsA("Texture") or object:IsA("Decal") then
-                object.Texture=data.Texture or ""
-            end
-        end
-    end
-
-    table.clear(RainbowObjects)
 end
 
 local function GetDoorContainers()
@@ -823,8 +713,13 @@ local function ProcessDoorPart(part)
 
     SaveDoorPart(part)
 
-    part.CanCollide=false
-    part.Transparency=0.5
+    if part.CanCollide then
+        part.CanCollide=false
+    end
+
+    if part.Transparency~=0.5 then
+        part.Transparency=0.5
+    end
 end
 
 local function ScanDoors()
@@ -886,19 +781,6 @@ local Tabs={
 
 local MainVisualsGroupBox=Tabs.Main:AddLeftGroupbox('Visuals')
 local BlatantGroupBox=Tabs.Main:AddRightGroupbox('Blatant')
-MainVisualsGroupBox:AddToggle('RainbowTools',{
-    Text='Rainbow Tools',
-    Default=false
-})
-
-Toggles.RainbowTools:OnChanged(function()
-    RainbowTools=Toggles.RainbowTools.Value
-
-    if not RainbowTools then
-        RestoreRainbowObjects()
-    end
-end)
-
 MainVisualsGroupBox:AddSlider('GunTransparency',{
     Text='Gun Transparency',
     Default=0,
@@ -913,6 +795,18 @@ Options.GunTransparency:OnChanged(function()
 
     if GunTransparency<=0 then
         RestoreGunTransparency()
+    else
+        local backpack=Player:FindFirstChildOfClass('Backpack')
+
+        if backpack then
+            ProcessGunTransparencyContainer(backpack)
+        end
+
+        local character=Player.Character
+
+        if character then
+            ProcessGunTransparencyContainer(character)
+        end
     end
 end)
 
@@ -1004,15 +898,6 @@ Toggles.AntiAimShowPreview:OnChanged(function()
     end
 end)
 
-AntiAimGroupBox:AddToggle('AntiAimPreviewRainbow',{
-    Text='SNR Rainbow',
-    Default=false
-})
-
-Toggles.AntiAimPreviewRainbow:OnChanged(function()
-    AntiAimPreviewRainbow=Toggles.AntiAimPreviewRainbow.Value
-end)
-
 BlatantGroupBox:AddToggle('DoorCollision',{
     Text='Door Collision',
     Default=false
@@ -1092,15 +977,6 @@ BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor',{
 
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box.Color=Options.ESPBoxColor.Value
-end)
-
-BoxGroupBox:AddToggle('ESPRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Box.Rainbow
-})
-
-Toggles.ESPRainbow:OnChanged(function()
-    ESPSettings.Box.Rainbow=Toggles.ESPRainbow.Value
 end)
 
 BoxGroupBox:AddToggle('ESPTeamCheck',{
@@ -1247,15 +1123,6 @@ ChamsToggle:OnChanged(function()
     ESPSettings.Chams.Enabled=ChamsToggle.Value
 end)
 
-ChamsGroupBox:AddToggle('ESPChamsRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Chams.Rainbow
-})
-
-Toggles.ESPChamsRainbow:OnChanged(function()
-    ESPSettings.Chams.Rainbow=Toggles.ESPChamsRainbow.Value
-end)
-
 ChamsGroupBox:AddSlider('ESPChamsTransparency',{
     Text='Transparency',
     Default=math.floor(ESPSettings.Chams.Transparency*100),
@@ -1335,15 +1202,6 @@ TracerToggle:AddColorPicker('ESPTracerColor',{
 
 TracerToggle:OnChanged(function()
     ESPSettings.Tracers.Enabled=TracerToggle.Value
-end)
-
-TracerGroupBox:AddToggle('ESPTracersRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Tracers.Rainbow
-})
-
-Toggles.ESPTracersRainbow:OnChanged(function()
-    ESPSettings.Tracers.Rainbow=Toggles.ESPTracersRainbow.Value
 end)
 
 TracerGroupBox:AddToggle('ESPTracersShowNotInView',{
@@ -1614,15 +1472,6 @@ Options.AimbotTargetedFovColor:OnChanged(function()
     ESPSettings.Aimbot.TargetedFovColor=Options.AimbotTargetedFovColor.Value
 end)
 
-AimbotSettingsGroupBox:AddToggle('AimbotRainbowFov',{
-    Text='Rainbow FOV',
-    Default=ESPSettings.Aimbot.RainbowFov
-})
-
-Toggles.AimbotRainbowFov:OnChanged(function()
-    ESPSettings.Aimbot.RainbowFov=Toggles.AimbotRainbowFov.Value
-end)
-
 local InfoGroupBox=Tabs.Visuals:AddLeftGroupbox('Information')
 
 local ShowNameToggle=InfoGroupBox:AddToggle('ESPShowName',{
@@ -1805,14 +1654,42 @@ local fps=0
 local frames=0
 local last=os.clock()
 local ToolRefreshTimer=0
-local RainbowToolTimer=0
+local PlayerToolsTimer=0
 local GunTransparencyTimer=0
 local CustomSoundTimer=0
-local DoorVisualTimer=0
 
 Library:SetWatermark("leetware | loading")
 
-RunService.Heartbeat:Connect(function()
+local FrameContext={
+    Camera=nil,
+    Players=Players:GetPlayers(),
+    Tools=nil
+}
+
+local PlayerAddedConnection=Players.PlayerAdded:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
+
+local PlayerRemovingConnection=Players.PlayerRemoving:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
+
+local function UpdateController(controller,deltaTime)
+    if controller and type(controller.Update)=='function' then
+        controller:Update(deltaTime,FrameContext)
+    end
+end
+
+RunService.RenderStepped:Connect(function(deltaTime)
+    FrameContext.Camera=Workspace.CurrentCamera
+
+    PlayerToolsTimer+=deltaTime
+
+    if not FrameContext.Tools or PlayerToolsTimer>=0.25 then
+        PlayerToolsTimer=0
+        FrameContext.Tools=RefreshPlayerTools()
+    end
+
     frames+=1
 
     local now=os.clock()
@@ -1832,12 +1709,13 @@ RunService.Heartbeat:Connect(function()
             )
         )
     end
-end)
 
-RunService.RenderStepped:Connect(function(deltaTime)
-    RainbowHue=(RainbowHue+deltaTime*0.5)%1
+    UpdateController(AimbotController,deltaTime)
+    UpdateController(ESPController,deltaTime)
+    UpdateController(ChamsController,deltaTime)
+    UpdateController(TracersController,deltaTime)
 
-    ApplyAntiAim()
+    ApplyAntiAim(deltaTime)
 
     local blatantToolsEnabled=(Toggles.NoSpread and Toggles.NoSpread.Value)
         or (Toggles.InfiniteRange and Toggles.InfiniteRange.Value)
@@ -1854,45 +1732,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
         ToolRefreshTimer=0
     end
 
-    if RainbowTools then
-        RainbowToolTimer+=deltaTime
-
-        if RainbowToolTimer>=0.05 then
-            RainbowToolTimer=0
-
-            local backpack=Player:FindFirstChildOfClass("Backpack")
-
-            if backpack then
-                ProcessRainbowContainer(backpack)
-            end
-
-            local character=Player.Character
-
-            if character then
-                ProcessRainbowContainer(character)
-            end
-        end
-    else
-        RainbowToolTimer=0
-    end
-
     if GunTransparency>0 then
         GunTransparencyTimer+=deltaTime
 
-        if GunTransparencyTimer>=0.1 then
+        if GunTransparencyTimer>=0.25 then
             GunTransparencyTimer=0
 
-            local backpack=Player:FindFirstChildOfClass('Backpack')
-
-            if backpack then
-                ProcessGunTransparencyContainer(backpack)
-            end
-
-            local character=Player.Character
-
-            if character then
-                ProcessGunTransparencyContainer(character)
-            end
+            ProcessGunTransparencyTools(FrameContext.Tools)
         end
     else
         GunTransparencyTimer=0
@@ -1904,7 +1750,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         if CustomSoundTimer>=0.25 then
             CustomSoundTimer=0
 
-            for _,tool in ipairs(GetPlayerTools()) do
+            for _,tool in ipairs(FrameContext.Tools) do
                 UpdateCustomGunSound(tool)
             end
         end
@@ -1914,38 +1760,38 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     if DoorCollision then
         DoorScanTimer+=deltaTime
-        DoorVisualTimer+=deltaTime
 
         if DoorScanTimer>=DoorScanInterval then
             DoorScanTimer=0
             ScanDoors()
         end
 
-        if DoorVisualTimer>=0.05 then
-            DoorVisualTimer=0
-            local doorColor=GetRainbowColor(0)
+        local doorColor=Color3.fromRGB(150,150,150)
 
-            for part in pairs(DoorParts) do
-                if part and part.Parent then
+        for part in pairs(DoorParts) do
+            if part and part.Parent then
+                if part.Color~=doorColor then
                     part.Color=doorColor
-                    part.BrickColor=BrickColor.new(doorColor)
+                end
+
+                if part.Transparency~=0.5 then
                     part.Transparency=0.5
+                end
+
+                if part.CanCollide then
                     part.CanCollide=false
                 end
             end
         end
     else
         DoorScanTimer=0
-        DoorVisualTimer=0
     end
 end)
 
 Library:OnUnload(function()
-    RainbowTools=false
     DoorCollision=false
     AntiAimEnabled=false
 
-    RestoreRainbowObjects()
     RestoreGunTransparency()
     RestoreDoorParts()
     RestoreCustomGunSounds()
@@ -1971,6 +1817,16 @@ Library:OnUnload(function()
     if AimbotController then
         AimbotController:Destroy()
         AimbotController=nil
+    end
+
+    if PlayerAddedConnection then
+        PlayerAddedConnection:Disconnect()
+        PlayerAddedConnection=nil
+    end
+
+    if PlayerRemovingConnection then
+        PlayerRemovingConnection:Disconnect()
+        PlayerRemovingConnection=nil
     end
 
     Library.Unloaded=true

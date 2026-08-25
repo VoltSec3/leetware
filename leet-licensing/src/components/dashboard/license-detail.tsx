@@ -170,7 +170,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/dashboard/licenses" className="lw-muted hover:text-[#cce335]">
+        <Link href="/dashboard/licenses" className="lw-muted hover:text-[var(--lw-accent)]">
           ← back to licenses
         </Link>
         <div className="flex flex-wrap gap-2">
@@ -301,7 +301,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
               </Row>
             </dl>
 
-            <div className="mt-4 space-y-3 border-t border-[#282828] pt-3">
+            <div className="mt-4 space-y-3 border-t border-[var(--lw-border-dark)] pt-3">
               <div className="flex items-center gap-2">
                 <span className="lw-muted w-16 text-[12px]">extend</span>
                 <input
@@ -370,7 +370,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/dashboard/users/${license.user.id}`}
-                    className="font-bold hover:text-[#cce335]"
+                    className="font-bold hover:text-[var(--lw-accent)]"
                   >
                     {license.user.username}
                   </Link>
@@ -474,7 +474,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
               allowlist enforced by the backend on every loader request.
             </p>
             {robloxUser && license.robloxAccounts.length === 0 ? (
-              <div className="mb-3 flex items-center gap-3 border border-[#282828] p-2">
+              <div className="mb-3 flex items-center gap-3 border border-[var(--lw-border-dark)] p-2">
                 {robloxUser.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -489,7 +489,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
                     href={`https://www.roblox.com/users/${robloxUser.userId}/profile`}
                     target="_blank"
                     rel="noreferrer"
-                    className="hover:text-[#cce335]"
+                    className="hover:text-[var(--lw-accent)]"
                   >
                     @{robloxUser.username} ({robloxUser.userId})
                   </a>
@@ -586,7 +586,7 @@ export function LicenseDetailPanel({ licenseId }: LicenseDetailProps) {
             {license.auditLogs.map((log) => (
               <li
                 key={log.id}
-                className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-[#161616] py-1.5 last:border-b-0"
+                className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-[var(--lw-border-dark)] py-1.5 last:border-b-0"
               >
                 <span className="min-w-[160px]">{log.event}</span>
                 <span className="lw-mono lw-dim">

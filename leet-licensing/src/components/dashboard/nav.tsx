@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 
 import { BottomBar } from "@/components/site/bottombar";
-import { Rainbow } from "@/components/site/panel";
 import { SignOutButton } from "@/components/dashboard/signout-button";
-import { NavLinks } from "@/components/dashboard/nav-links";
+import { Sidebar } from "@/components/site/sidebar";
 
 export async function DashboardNav() {
   const admin = await getAuthenticatedAdmin();
@@ -16,6 +14,7 @@ export async function DashboardNav() {
           { href: "/dashboard", label: "overview" },
           { href: "/dashboard/users", label: "users" },
           { href: "/dashboard/support", label: "support" },
+          { href: "/dashboard/settings", label: "settings" },
         ]
       : [
           { href: "/dashboard", label: "overview" },
@@ -23,26 +22,19 @@ export async function DashboardNav() {
           { href: "/dashboard/games", label: "games" },
           { href: "/dashboard/users", label: "users" },
           { href: "/dashboard/support", label: "support" },
+          { href: "/dashboard/settings", label: "settings" },
         ];
 
   return (
     <>
-      <header className="lw-panel lw-surface border-x-0 border-t-0">
-        <Rainbow />
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-1 px-4 py-2">
-          <div className="flex flex-wrap items-center gap-6">
-            <Link href="/dashboard" className="lw-title text-[14px]">
-              leetware admin
-            </Link>
-            <nav className="flex flex-wrap items-center gap-4">
-              <NavLinks links={links} />
-            </nav>
-          </div>
-          <div className="flex items-center gap-5 pl-5">
-            <SignOutButton />
+      <Sidebar links={links}>
+        <div className="w-full">
+          <div className="lw-dim truncate text-[12px]">{admin?.email ?? "admin"}</div>
+          <div className="mt-1">
+            <SignOutButton className="w-full" />
           </div>
         </div>
-      </header>
+      </Sidebar>
       <BottomBar variant="admin" />
     </>
   );

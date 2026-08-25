@@ -13,12 +13,6 @@ local function loadModule(path, name)
 	return chunk()
 end
 
--- Install the runtime guard before anything else. This publishes the loader
--- handle that every game and module script verifies before executing, so the
--- scripts cannot be run outside the loader.
-local Guard = loadModule("Loader/Core/Guard.luau", "Guard")
-Guard.install()
-
 local Config = loadModule("Loader/Core/Config.luau", "Config")
 local HWID = loadModule("Loader/Core/HWID.luau", "HWID")
 local Auth = loadModule("Loader/Core/Auth.luau", "Auth")

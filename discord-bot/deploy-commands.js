@@ -2,8 +2,9 @@ import { REST, Routes } from "discord.js";
 
 import { config } from "./lib/config.js";
 import { data as updaterole } from "./commands/updaterole.js";
+import { data as giveaway } from "./commands/giveaway.js";
 
-const commands = [updaterole.toJSON()].map((command) => command);
+const commands = [updaterole.toJSON(), giveaway.toJSON()];
 
 const rest = new REST().setToken(config.botToken);
 

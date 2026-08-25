@@ -27,7 +27,6 @@ local ESPSettings={
         Thickness=2,
         TeamCheck=false,
         TeamColor=false,
-        Rainbow=false,
         AutoThickness=false
     },
 
@@ -68,7 +67,6 @@ local ESPSettings={
 
     Chams={
         Enabled=false,
-        Rainbow=false,
         Color=Color3.fromRGB(255,0,0),
         Transparency=0.5,
         Outline=true,
@@ -79,7 +77,6 @@ local ESPSettings={
 
     Tracers={
         Enabled=false,
-        Rainbow=false,
         ShowNotInView=false,
         Color=Color3.fromRGB(255,0,0),
         Thickness=1,
@@ -103,8 +100,6 @@ local ESPSettings={
         MinHealth=0,
         FovColor=Color3.fromRGB(255,0,0),
         TargetedFovColor=Color3.fromRGB(0,255,0),
-        RainbowFov=false,
-        RainbowSpeed=0.005,
         Triggerbot=false,
         TriggerbotDelay=0,
         ExcludeTeams={},
@@ -175,122 +170,6 @@ local AimbotController=AimbotModule.new({
     Utils=Utils
 })
 
-local RainbowTools=false
-local RainbowHue=0
-local RainbowObjects={}
-local GunTransparency=0
-local GunTransparencyObjects={}
-
-local CustomGunSounds=false
-local CustomGunSoundValues={}
-local CustomGunSoundIds=nil
-
-local CustomGunSoundFiles={
-    Shoot={
-        URL='https://files.catbox.moe/lip2i4.mp3',
-        File='leetware_shoot.mp3'
-    },
-    Reload={
-        URL='https://files.catbox.moe/c4qtkm.mp3',
-        File='leetware_reload.mp3'
-    }
-}
-
-local function LoadCustomGunSounds()
-    if CustomGunSoundIds then
-        return true
-    end
-
-    local ids={}
-
-    for name,data in pairs(CustomGunSoundFiles) do
-        local success,result=pcall(function()
-            if not isfile(data.File) then
-                writefile(data.File,game:HttpGet(data.URL))
-            end
-
-            return getcustomasset(data.File)
-        end)
-
-        if not success then
-            Library:Notify('Failed to load custom '..string.lower(name)..' sound',3)
-            return false
-        end
-
-        ids[name]=result
-    end
-
-    CustomGunSoundIds=ids
-    return true
-end
-
-local function SaveCustomGunSoundValue(tool,sound,name)
-    CustomGunSoundValues[tool]=CustomGunSoundValues[tool] or {
-        Sounds={},
-        Attributes={},
-        Captured={}
-    }
-
-    if not CustomGunSoundValues[tool].Captured[name] then
-        CustomGunSoundValues[tool].Sounds[name]=sound.SoundId
-        CustomGunSoundValues[tool].Attributes[name]=tool:GetAttribute(name)
-        CustomGunSoundValues[tool].Captured[name]=true
-    end
-end
-
-local function UpdateCustomGunSound(tool)
-    if not CustomGunSoundIds or not tool:IsA('Tool') then
-        return
-    end
-
-    local handle=tool:FindFirstChild('Handle')
-
-    if not handle then
-        return
-    end
-
-    local sounds={
-        Shoot={Object=handle:FindFirstChild('ShootSound'),Id=CustomGunSoundIds.Shoot},
-        Reload={Object=handle:FindFirstChild('ReloadSound'),Id=CustomGunSoundIds.Reload}
-    }
-
-    for name,data in pairs(sounds) do
-        if data.Object and data.Object:IsA('Sound') then
-            SaveCustomGunSoundValue(tool,data.Object,name)
-            data.Object.SoundId=data.Id
-            tool:SetAttribute(name..'SoundId',data.Id)
-        end
-    end
-end
-
-local function RestoreCustomGunSounds()
-    for tool,data in pairs(CustomGunSoundValues) do
-        if tool and tool.Parent then
-            for name,soundId in pairs(data.Sounds) do
-                local handle=tool:FindFirstChild('Handle')
-                local sound=handle and handle:FindFirstChild(name..'Sound')
-
-                if sound and sound:IsA('Sound') then
-                    sound.SoundId=soundId
-                end
-            end
-
-            for name,value in pairs(data.Attributes) do
-                tool:SetAttribute(name,value)
-            end
-        end
-    end
-
-    table.clear(CustomGunSoundValues)
-end
-
-local DoorCollision=false
-local DoorParts={}
-local DoorScanInterval=0.25
-local DoorScanTimer=0
-
-local BlatantToolValues={}
-
 local AntiAimEnabled=false
 local AntiAimRotationTime=0.18
 local AntiAimRandomization=360
@@ -302,9 +181,12 @@ local AntiAimCharacter=nil
 local AntiAimOriginalAutoRotate=nil
 local AntiAimPreview=nil
 local AntiAimShowPreview=false
-local AntiAimPreviewRainbow=false
-local AntiAimPreviewHue=0
 local AntiAimRandom=Random.new()
+local AntiAimOverlapParams=OverlapParams.new()
+local AntiAimCollisionTimer=0
+local AntiAimCollisionBlocked=false
+AntiAimOverlapParams.FilterType=Enum.RaycastFilterType.Include
+AntiAimOverlapParams.FilterDescendantsInstances={Workspace}
 
 local function GetAntiAimRotation()
     return math.rad(AntiAimRandom:NextInteger(0,math.floor(AntiAimRandomization)))
@@ -319,6 +201,8 @@ end
 
 local function SetupAntiAimCharacter(character)
     AntiAimCharacter=character
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
     AntiAimRotation=GetAntiAimRotation()
     AntiAimNextRotation=GetAntiAimRotation()
     AntiAimNextChange=os.clock()+AntiAimRotationTime
@@ -387,10 +271,7 @@ local function UpdateAntiAimPreview(character,rotation)
         AntiAimPreview:PivotTo(delta*AntiAimPreview:GetPivot())
     end
 
-    AntiAimPreviewHue=(AntiAimPreviewHue+0.01)%1
-    local color=AntiAimPreviewRainbow
-        and Color3.fromHSV(AntiAimPreviewHue,1,1)
-        or Color3.fromRGB(150,150,150)
+    local color=Color3.fromRGB(150,150,150)
 
     for _,object in ipairs(AntiAimPreview:GetDescendants()) do
         if object:IsA('BasePart') then
@@ -407,12 +288,20 @@ local function IsAntiAimBlocked(character,root,humanoid)
         return true
     end
 
-    local overlapParams=OverlapParams.new()
-    overlapParams.FilterType=Enum.RaycastFilterType.Include
-    overlapParams.FilterDescendantsInstances={Workspace}
+    if AntiAimCollisionTimer>0 then
+        return AntiAimCollisionBlocked
+    end
 
-    for _,part in ipairs(Workspace:GetPartBoundsInRadius(root.Position,1,overlapParams)) do
+    AntiAimCollisionTimer=0.15
+    AntiAimCollisionBlocked=false
+
+    for _,part in ipairs(Workspace:GetPartBoundsInRadius(
+        root.Position,
+        1,
+        AntiAimOverlapParams
+    )) do
         if part:IsA('TrussPart') then
+            AntiAimCollisionBlocked=true
             return true
         end
     end
@@ -431,6 +320,8 @@ local function RestoreAntiAimCharacter()
 
     AntiAimCharacter=nil
     AntiAimOriginalAutoRotate=nil
+    AntiAimCollisionTimer=0
+    AntiAimCollisionBlocked=false
 end
 
 local function SetAntiAimEnabled(enabled)
@@ -444,7 +335,7 @@ local function SetAntiAimEnabled(enabled)
     end
 end
 
-local function ApplyAntiAim()
+local function ApplyAntiAim(deltaTime)
     if not AntiAimEnabled then
         return
     end
@@ -465,6 +356,8 @@ local function ApplyAntiAim()
     if not humanoid or not root then
         return
     end
+
+    AntiAimCollisionTimer-=deltaTime
 
     if IsAntiAimBlocked(character,root,humanoid) then
         humanoid.AutoRotate=AntiAimOriginalAutoRotate
@@ -494,381 +387,6 @@ local function ApplyAntiAim()
     end
 end
 
-local function GetPlayerTools()
-    local tools={}
-    local backpack=Player:FindFirstChildOfClass('Backpack')
-    local character=Player.Character
-
-    if backpack then
-        for _,object in ipairs(backpack:GetChildren()) do
-            if object:IsA('Tool') then
-                table.insert(tools,object)
-            end
-        end
-    end
-
-    if character then
-        for _,object in ipairs(character:GetChildren()) do
-            if object:IsA('Tool') then
-                table.insert(tools,object)
-            end
-        end
-    end
-
-    return tools
-end
-
-local function GetToolValue(tool,name)
-    local value=tool:GetAttribute(name)
-    local child=tool:FindFirstChild(name)
-
-    if value==nil and child and child:IsA('ValueBase') then
-        value=child.Value
-    end
-
-    return value
-end
-
-local function SetToolValue(tool,name,value)
-    tool:SetAttribute(name,value)
-
-    local child=tool:FindFirstChild(name)
-
-    if child and child:IsA('ValueBase') then
-        child.Value=value
-    end
-end
-
-local function RememberToolValue(tool,name)
-    BlatantToolValues[tool]=BlatantToolValues[tool] or {}
-
-    if BlatantToolValues[tool][name]==nil then
-        BlatantToolValues[tool][name]={
-            Attribute=tool:GetAttribute(name),
-            Value=GetToolValue(tool,name),
-            Child=tool:FindFirstChild(name)
-        }
-    end
-end
-
-local function RestoreToolValue(tool,name)
-    local original=BlatantToolValues[tool] and BlatantToolValues[tool][name]
-
-    if not original or not tool.Parent then
-        return
-    end
-
-    if original.Attribute==nil then
-        tool:SetAttribute(name,nil)
-    else
-        tool:SetAttribute(name,original.Attribute)
-    end
-
-    local child=tool:FindFirstChild(name)
-
-    if child and child:IsA('ValueBase') and original.Value~=nil then
-        child.Value=original.Value
-    end
-end
-
-local function ApplyBlatantToolMod(enabled,names,value)
-    for _,tool in ipairs(GetPlayerTools()) do
-        for _,name in ipairs(names) do
-            if enabled then
-                RememberToolValue(tool,name)
-                SetToolValue(tool,name,value)
-            else
-                RestoreToolValue(tool,name)
-            end
-        end
-    end
-end
-
-local function RestoreBlatantToolMods()
-    for tool,values in pairs(BlatantToolValues) do
-        if tool and tool.Parent then
-            for name in pairs(values) do
-                RestoreToolValue(tool,name)
-            end
-        end
-    end
-
-    table.clear(BlatantToolValues)
-end
-
-local function RefreshBlatantToolMods()
-    for _,tool in ipairs(GetPlayerTools()) do
-        if Toggles.NoSpread and Toggles.NoSpread.Value then
-            RememberToolValue(tool,'SpreadRadius')
-            SetToolValue(tool,'SpreadRadius',0)
-        end
-
-        if Toggles.InfiniteRange and Toggles.InfiniteRange.Value then
-            RememberToolValue(tool,'Range')
-            SetToolValue(tool,'Range',100000)
-        end
-
-        if Toggles.InfiniteAmmo and Toggles.InfiniteAmmo.Value then
-            local maxAmmo=tonumber(GetToolValue(tool,'MaxAmmo'))
-
-            if maxAmmo then
-                RememberToolValue(tool,'CurrentAmmo')
-                RememberToolValue(tool,'Local_CurrentAmmo')
-                SetToolValue(tool,'CurrentAmmo',maxAmmo)
-                SetToolValue(tool,'Local_CurrentAmmo',maxAmmo)
-            end
-        end
-    end
-end
-
-local function GetRainbowColor(offset)
-    return Color3.fromHSV((RainbowHue+offset)%1,1,1)
-end
-
-local function SaveRainbowObject(object)
-    if RainbowObjects[object] then
-        return
-    end
-
-    local data={
-        Instance=object,
-        CFrame=nil,
-        Color=nil,
-        BrickColor=nil,
-        TextureID=nil,
-        TextureContent=nil,
-        Texture=nil,
-        VertexColor=nil
-    }
-
-    if object:IsA("BasePart") then
-        data.CFrame=object.CFrame
-        data.Color=object.Color
-        data.BrickColor=object.BrickColor
-    end
-
-    if object:IsA("MeshPart") then
-        data.TextureID=object.TextureID
-
-        pcall(function()
-            data.TextureContent=object.TextureContent
-        end)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        data.TextureID=object.TextureId
-        data.VertexColor=object.VertexColor
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        data.Texture=object.Texture
-    end
-
-    RainbowObjects[object]=data
-end
-
-local function ProcessRainbowObject(object,offset)
-    if object:IsA("BasePart") then
-        SaveRainbowObject(object)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    end
-
-    if object:IsA("MeshPart") then
-        SaveRainbowObject(object)
-
-        object.TextureID=""
-
-        pcall(function()
-            object.TextureContent=Content.none
-        end)
-
-        local color=GetRainbowColor(offset)
-
-        object.Color=color
-        object.BrickColor=BrickColor.new(color)
-    elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-        SaveRainbowObject(object)
-
-        object.TextureId=""
-        object.VertexColor=Vector3.new(1,1,1)
-    elseif object:IsA("Texture") or object:IsA("Decal") then
-        SaveRainbowObject(object)
-
-        object.Texture=""
-    end
-end
-
-local function ProcessRainbowTool(tool)
-    if not tool:IsA("Tool") then
-        return
-    end
-
-    local objects=tool:GetDescendants()
-    local count=math.max(#objects,1)
-
-    for index,object in ipairs(objects) do
-        ProcessRainbowObject(object,index/count)
-    end
-end
-
-local function ProcessRainbowContainer(container)
-    for _,object in ipairs(container:GetChildren()) do
-        if object:IsA("Tool") then
-            ProcessRainbowTool(object)
-        end
-    end
-end
-
-local function SaveGunTransparency(object)
-    if GunTransparencyObjects[object]~=nil then
-        return
-    end
-
-    GunTransparencyObjects[object]=object.Transparency
-end
-
-local function ProcessGunTransparencyTool(tool)
-    if not tool:IsA('Tool') then
-        return
-    end
-
-    for _,object in ipairs(tool:GetDescendants()) do
-        if object:IsA('BasePart') then
-            SaveGunTransparency(object)
-            object.Transparency=GunTransparency
-        end
-    end
-end
-
-local function ProcessGunTransparencyContainer(container)
-    for _,object in ipairs(container:GetChildren()) do
-        if object:IsA('Tool') then
-            ProcessGunTransparencyTool(object)
-        end
-    end
-end
-
-local function RestoreGunTransparency()
-    for object,transparency in pairs(GunTransparencyObjects) do
-        if object and object.Parent then
-            object.Transparency=transparency
-        end
-    end
-
-    table.clear(GunTransparencyObjects)
-end
-
-local function RestoreRainbowObjects()
-    for object,data in pairs(RainbowObjects) do
-        if object and object.Parent then
-            if data.CFrame then
-                object.CFrame=data.CFrame
-            end
-
-            if data.Color then
-                object.Color=data.Color
-            end
-
-            if data.BrickColor then
-                object.BrickColor=data.BrickColor
-            end
-
-            if object:IsA("MeshPart") then
-                pcall(function()
-                    object.TextureID=data.TextureID or ""
-                end)
-
-                pcall(function()
-                    object.TextureContent=data.TextureContent
-                end)
-            elseif object:IsA("SpecialMesh") or object:IsA("FileMesh") then
-                object.TextureId=data.TextureID or ""
-
-                if data.VertexColor then
-                    object.VertexColor=data.VertexColor
-                end
-            elseif object:IsA("Texture") or object:IsA("Decal") then
-                object.Texture=data.Texture or ""
-            end
-        end
-    end
-
-    table.clear(RainbowObjects)
-end
-
-local function GetDoorContainers()
-    return {
-        Workspace:FindFirstChild("Doors"),
-        Workspace:FindFirstChild("Prison_Fences"),
-        Workspace:FindFirstChild("CellDoors")
-    }
-end
-
-local function SaveDoorPart(part)
-    if DoorParts[part] then
-        return
-    end
-
-    DoorParts[part]={
-        Color=part.Color,
-        Transparency=part.Transparency,
-        CanCollide=part.CanCollide
-    }
-end
-
-local function ProcessDoorPart(part)
-    if not part:IsA("BasePart") then
-        return
-    end
-
-    SaveDoorPart(part)
-
-    part.CanCollide=false
-    part.Transparency=0.5
-end
-
-local function ScanDoors()
-    if not DoorCollision then
-        return
-    end
-
-    local found={}
-
-    for _,container in ipairs(GetDoorContainers()) do
-        if container then
-            for _,object in ipairs(container:GetDescendants()) do
-                if object:IsA("BasePart") then
-                    found[object]=true
-
-                    if not DoorParts[object] then
-                        SaveDoorPart(object)
-                    end
-
-                    ProcessDoorPart(object)
-                end
-            end
-        end
-    end
-
-    for part in pairs(DoorParts) do
-        if not found[part] or not part.Parent then
-            DoorParts[part]=nil
-        end
-    end
-end
-
-local function RestoreDoorParts()
-    for part,data in pairs(DoorParts) do
-        if part and part.Parent then
-            part.Color=data.Color
-            part.Transparency=data.Transparency
-            part.CanCollide=data.CanCollide
-        end
-    end
-
-    table.clear(DoorParts)
-end
-
 -- ui init
 
 local Window=Library:CreateWindow({
@@ -883,61 +401,6 @@ local Tabs={
     Aimbot=Window:AddTab('Aimbot'),
     ['UI Settings']=Window:AddTab('UI Settings')
 }
-
-local MainVisualsGroupBox=Tabs.Main:AddLeftGroupbox('Visuals')
-local BlatantGroupBox=Tabs.Main:AddRightGroupbox('Blatant')
-MainVisualsGroupBox:AddToggle('RainbowTools',{
-    Text='Rainbow Tools',
-    Default=false
-})
-
-Toggles.RainbowTools:OnChanged(function()
-    RainbowTools=Toggles.RainbowTools.Value
-
-    if not RainbowTools then
-        RestoreRainbowObjects()
-    end
-end)
-
-MainVisualsGroupBox:AddSlider('GunTransparency',{
-    Text='Gun Transparency',
-    Default=0,
-    Min=0,
-    Max=1,
-    Rounding=2,
-    Compact=false
-})
-
-Options.GunTransparency:OnChanged(function()
-    GunTransparency=Options.GunTransparency.Value
-
-    if GunTransparency<=0 then
-        RestoreGunTransparency()
-    end
-end)
-
-MainVisualsGroupBox:AddToggle('CustomGunSounds',{
-    Text='Custom Gun Sounds',
-    Default=false
-})
-
-Toggles.CustomGunSounds:OnChanged(function()
-    CustomGunSounds=Toggles.CustomGunSounds.Value
-
-    if CustomGunSounds then
-        if not LoadCustomGunSounds() then
-            CustomGunSounds=false
-            Toggles.CustomGunSounds:SetValue(false)
-            return
-        end
-
-        for _,tool in ipairs(GetPlayerTools()) do
-            UpdateCustomGunSound(tool)
-        end
-    else
-        RestoreCustomGunSounds()
-    end
-end)
 
 local AntiAimGroupBox=Tabs.Main:AddLeftGroupbox('Anti Aim')
 
@@ -1004,62 +467,6 @@ Toggles.AntiAimShowPreview:OnChanged(function()
     end
 end)
 
-AntiAimGroupBox:AddToggle('AntiAimPreviewRainbow',{
-    Text='SNR Rainbow',
-    Default=false
-})
-
-Toggles.AntiAimPreviewRainbow:OnChanged(function()
-    AntiAimPreviewRainbow=Toggles.AntiAimPreviewRainbow.Value
-end)
-
-BlatantGroupBox:AddToggle('DoorCollision',{
-    Text='Door Collision',
-    Default=false
-})
-
-Toggles.DoorCollision:OnChanged(function()
-    DoorCollision=Toggles.DoorCollision.Value
-    DoorScanTimer=0
-
-    if DoorCollision then
-        ScanDoors()
-    else
-        RestoreDoorParts()
-    end
-end)
-
-BlatantGroupBox:AddToggle('NoSpread',{
-    Text='No Spread',
-    Default=false
-})
-
-Toggles.NoSpread:OnChanged(function()
-    ApplyBlatantToolMod(Toggles.NoSpread.Value,{'SpreadRadius'},0)
-end)
-
-BlatantGroupBox:AddToggle('InfiniteRange',{
-    Text='Infinite Range',
-    Default=false
-})
-
-Toggles.InfiniteRange:OnChanged(function()
-    ApplyBlatantToolMod(Toggles.InfiniteRange.Value,{'Range'},100000)
-end)
-
-BlatantGroupBox:AddToggle('InfiniteAmmo',{
-    Text='Infinite Ammo',
-    Default=false
-})
-
-Toggles.InfiniteAmmo:OnChanged(function()
-    if Toggles.InfiniteAmmo.Value then
-        RefreshBlatantToolMods()
-    else
-        ApplyBlatantToolMod(false,{'CurrentAmmo','Local_CurrentAmmo'})
-    end
-end)
-
 local BoxGroupBox=Tabs.Visuals:AddLeftGroupbox('Box')
 
 BoxGroupBox:AddToggle('ESPEnabled',{
@@ -1092,15 +499,6 @@ BoxGroupBox:AddLabel('Box Color'):AddColorPicker('ESPBoxColor',{
 
 Options.ESPBoxColor:OnChanged(function()
     ESPSettings.Box.Color=Options.ESPBoxColor.Value
-end)
-
-BoxGroupBox:AddToggle('ESPRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Box.Rainbow
-})
-
-Toggles.ESPRainbow:OnChanged(function()
-    ESPSettings.Box.Rainbow=Toggles.ESPRainbow.Value
 end)
 
 BoxGroupBox:AddToggle('ESPTeamCheck',{
@@ -1247,15 +645,6 @@ ChamsToggle:OnChanged(function()
     ESPSettings.Chams.Enabled=ChamsToggle.Value
 end)
 
-ChamsGroupBox:AddToggle('ESPChamsRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Chams.Rainbow
-})
-
-Toggles.ESPChamsRainbow:OnChanged(function()
-    ESPSettings.Chams.Rainbow=Toggles.ESPChamsRainbow.Value
-end)
-
 ChamsGroupBox:AddSlider('ESPChamsTransparency',{
     Text='Transparency',
     Default=math.floor(ESPSettings.Chams.Transparency*100),
@@ -1335,15 +724,6 @@ TracerToggle:AddColorPicker('ESPTracerColor',{
 
 TracerToggle:OnChanged(function()
     ESPSettings.Tracers.Enabled=TracerToggle.Value
-end)
-
-TracerGroupBox:AddToggle('ESPTracersRainbow',{
-    Text='Rainbow',
-    Default=ESPSettings.Tracers.Rainbow
-})
-
-Toggles.ESPTracersRainbow:OnChanged(function()
-    ESPSettings.Tracers.Rainbow=Toggles.ESPTracersRainbow.Value
 end)
 
 TracerGroupBox:AddToggle('ESPTracersShowNotInView',{
@@ -1614,15 +994,6 @@ Options.AimbotTargetedFovColor:OnChanged(function()
     ESPSettings.Aimbot.TargetedFovColor=Options.AimbotTargetedFovColor.Value
 end)
 
-AimbotSettingsGroupBox:AddToggle('AimbotRainbowFov',{
-    Text='Rainbow FOV',
-    Default=ESPSettings.Aimbot.RainbowFov
-})
-
-Toggles.AimbotRainbowFov:OnChanged(function()
-    ESPSettings.Aimbot.RainbowFov=Toggles.AimbotRainbowFov.Value
-end)
-
 local InfoGroupBox=Tabs.Visuals:AddLeftGroupbox('Information')
 
 local ShowNameToggle=InfoGroupBox:AddToggle('ESPShowName',{
@@ -1807,7 +1178,28 @@ local last=os.clock()
 
 Library:SetWatermark("leetware | loading")
 
-RunService.Heartbeat:Connect(function()
+local FrameContext={
+    Camera=nil,
+    Players=Players:GetPlayers()
+}
+
+local PlayerAddedConnection=Players.PlayerAdded:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
+
+local PlayerRemovingConnection=Players.PlayerRemoving:Connect(function()
+    FrameContext.Players=Players:GetPlayers()
+end)
+
+local function UpdateController(controller,deltaTime)
+    if controller and type(controller.Update)=='function' then
+        controller:Update(deltaTime,FrameContext)
+    end
+end
+
+RunService.RenderStepped:Connect(function(deltaTime)
+    FrameContext.Camera=Workspace.CurrentCamera
+
     frames+=1
 
     local now=os.clock()
@@ -1827,81 +1219,18 @@ RunService.Heartbeat:Connect(function()
             )
         )
     end
-end)
 
-RunService.RenderStepped:Connect(function(deltaTime)
-    RainbowHue=(RainbowHue+deltaTime*0.5)%1
+    UpdateController(AimbotController,deltaTime)
+    UpdateController(ESPController,deltaTime)
+    UpdateController(ChamsController,deltaTime)
+    UpdateController(TracersController,deltaTime)
 
-    ApplyAntiAim()
-    RefreshBlatantToolMods()
-
-    if RainbowTools then
-        local backpack=Player:FindFirstChildOfClass("Backpack")
-
-        if backpack then
-            ProcessRainbowContainer(backpack)
-        end
-
-        local character=Player.Character
-
-        if character then
-            ProcessRainbowContainer(character)
-        end
-    end
-
-    if GunTransparency>0 then
-        local backpack=Player:FindFirstChildOfClass('Backpack')
-
-        if backpack then
-            ProcessGunTransparencyContainer(backpack)
-        end
-
-        local character=Player.Character
-
-        if character then
-            ProcessGunTransparencyContainer(character)
-        end
-    end
-
-    if CustomGunSounds then
-        for _,tool in ipairs(GetPlayerTools()) do
-            UpdateCustomGunSound(tool)
-        end
-    end
-
-    if DoorCollision then
-        DoorScanTimer+=deltaTime
-
-        if DoorScanTimer>=DoorScanInterval then
-            DoorScanTimer=0
-            ScanDoors()
-        end
-
-        local doorColor=GetRainbowColor(0)
-
-        for part in pairs(DoorParts) do
-            if part and part.Parent then
-                part.Color=doorColor
-                part.BrickColor=BrickColor.new(doorColor)
-                part.Transparency=0.5
-                part.CanCollide=false
-            end
-        end
-    else
-        DoorScanTimer=0
-    end
+    ApplyAntiAim(deltaTime)
 end)
 
 Library:OnUnload(function()
-    RainbowTools=false
-    DoorCollision=false
     AntiAimEnabled=false
 
-    RestoreRainbowObjects()
-    RestoreGunTransparency()
-    RestoreDoorParts()
-    RestoreCustomGunSounds()
-    RestoreBlatantToolMods()
     RestoreAntiAimCharacter()
     DestroyAntiAimPreview()
 
@@ -1923,6 +1252,16 @@ Library:OnUnload(function()
     if AimbotController then
         AimbotController:Destroy()
         AimbotController=nil
+    end
+
+    if PlayerAddedConnection then
+        PlayerAddedConnection:Disconnect()
+        PlayerAddedConnection=nil
+    end
+
+    if PlayerRemovingConnection then
+        PlayerRemovingConnection:Disconnect()
+        PlayerRemovingConnection=nil
     end
 
     Library.Unloaded=true

@@ -47,6 +47,7 @@ async function getCurrentBuild(): Promise<string> {
 
 const AUTH_EVENTS = ["activate.success"];
 const HWID_RESET_EVENTS = ["account.hwid_reset", "admin.hwid_reset"];
+const PAYLOAD_ACCESS_EVENTS = ["payload.accessed"];
 
 export async function GET() {
   try {
@@ -72,6 +73,8 @@ export async function GET() {
     expiringSoon,
     hwidResetsToday,
     authsToday,
+    payloadsAccessedToday,
+    sessionsToday,
   ] = await Promise.all([
     prisma.license.count(),
     prisma.license.count({ where: { status: LicenseStatus.UNUSED } }),
@@ -97,6 +100,15 @@ export async function GET() {
     prisma.auditLog.count({
       where: { event: { in: AUTH_EVENTS }, createdAt: { gte: startOfToday } },
     }),
+    prisma.auditLog.count({
+      where: {
+        event: { in: PAYLOAD_ACCESS_EVENTS },
+        createdAt: { gte: startOfToday },
+      },
+    }),
+    prisma.loaderSession.count({
+      where: { createdAt: { gte: startOfToday } },
+    }),
   ]);
 
   const currentBuild = await getCurrentBuild();
@@ -113,6 +125,8 @@ export async function GET() {
       expiringSoon,
       hwidResetsToday,
       authsToday,
+      payloadsAccessedToday,
+      sessionsToday,
       currentBuild,
     },
   });

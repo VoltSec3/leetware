@@ -20,7 +20,7 @@ export default async function LicenseDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-screen">
       <DashboardNav />
-      <main className="mx-auto max-w-6xl px-4 py-5 pb-12">
+      <main className="lw-main mx-auto max-w-6xl px-4 py-5 pb-12">
         <LicenseDetailPanel licenseId={id} />
       </main>
     </div>

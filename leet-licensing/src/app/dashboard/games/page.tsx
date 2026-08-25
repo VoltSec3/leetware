@@ -14,7 +14,7 @@ export default async function GamesPage() {
   return (
     <div className="min-h-screen">
       <DashboardNav />
-      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-12">
+      <main className="lw-main mx-auto max-w-6xl space-y-5 px-4 py-5 pb-12">
         <div>
           <h1 className="lw-title text-[15px]">Games</h1>
           <p className="mt-2 text-zinc-400">

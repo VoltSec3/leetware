@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { MessageFlags, SlashCommandBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("updaterole")
@@ -7,7 +7,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
   const { fetchRoleState } = await import("../lib/api.js");
   const { applyTierRole } = await import("../lib/roles.js");

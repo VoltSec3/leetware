@@ -1,0 +1,100 @@
+{
+  "giveaways": [
+    {
+      "id": "xNMO756OUkfa",
+      "type": "license",
+      "tier": "developer",
+      "count": 10,
+      "expiryWeeks": 1,
+      "title": "10x Developer Licenses",
+      "description": "Test",
+      "endsAt": 1787523683337,
+      "channelId": "1541195487623905441",
+      "messageId": null,
+      "status": "cancelled",
+      "paused": false,
+      "pausedAt": null,
+      "entries": [],
+      "winners": [],
+      "requirements": []
+    },
+    {
+      "id": "7lT58LALP1TR",
+      "type": "license",
+      "tier": "premium",
+      "count": 1,
+      "expiryWeeks": 1,
+      "title": "1x Premium License",
+      "description": "Test",
+      "endsAt": 1787524198490,
+      "channelId": "1541195487623905441",
+      "messageId": "1541197839663636512",
+      "status": "cancelled",
+      "paused": false,
+      "pausedAt": null,
+      "entries": [],
+      "winners": [],
+      "requirements": []
+    },
+    {
+      "id": "L3uNZQOtAX8D",
+      "type": "license",
+      "tier": "premium",
+      "count": 1,
+      "expiryWeeks": 1,
+      "title": "1x Premium License Giveaway",
+      "description": "Test",
+      "endsAt": 1787524495843,
+      "channelId": "1541195487623905441",
+      "messageId": "1541199086735331340",
+      "status": "cancelled",
+      "paused": false,
+      "pausedAt": null,
+      "entries": [
+        "670684798875992084"
+      ],
+      "winners": [],
+      "requirements": []
+    },
+    {
+      "id": "42OZlsNPpKuH",
+      "type": "license",
+      "tier": "premium",
+      "count": 1,
+      "expiryWeeks": 1,
+      "title": "1x Premium License Giveaway",
+      "description": "Test",
+      "endsAt": 1787524520109,
+      "channelId": "1541195487623905441",
+      "messageId": "1541199188744867891",
+      "status": "ended",
+      "paused": false,
+      "pausedAt": null,
+      "entries": [
+        "670684798875992084"
+      ],
+      "winners": [
+        "670684798875992084"
+      ],
+      "requirements": []
+    },
+    {
+      "id": "0DoTfITXm0is",
+      "type": "basic",
+      "tier": "standard",
+      "count": 1,
+      "expiryWeeks": 4,
+      "title": "1x Standard License Giveaway",
+      "description": "pls dont partake if u have a license already",
+      "endsAt": 1787770238776,
+      "channelId": "1541195487623905441",
+      "messageId": "1541882521317285891",
+      "status": "active",
+      "paused": false,
+      "pausedAt": null,
+      "entries": [],
+      "winners": [],
+      "requirements": []
+    }
+  ]
+}

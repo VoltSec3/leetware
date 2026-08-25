@@ -89,10 +89,6 @@ local function compileSource(source, label)
 end
 
 function Dispatcher.load(auth, hwid)
-	-- Always pull the shared, API-delivered modules first so the resolved
-	-- game script can consume them from _G.__leet_modules.
-	Dispatcher.loadModules(auth, hwid)
-
 	local gameId = Dispatcher.getGameId()
 	local entry = Dispatcher.resolve(gameId, auth)
 
@@ -121,68 +117,13 @@ function Dispatcher.load(auth, hwid)
 		warn("[leetware] No usable source for " .. tostring(entry.name) .. ", using boilerplate")
 	end
 
-	-- Boilerplate is API-delivered (gated). Only fall back to the raw file if
-	-- the authenticated fetch fails (e.g. the API is unreachable).
-	local source = Dispatcher.fetchBoilerplate(auth, hwid)
+	local source = game:HttpGet(Config.BOILERPLATE_URL)
 
 	return compileSource(source, "boilerplate"), {
 		name = "Universal Boilerplate",
 		moduleKey = "boilerplate",
 		gameId = gameId,
 	}
-end
-
--- Pulls the enabled module catalog and fetches each module's source through
--- the authenticated payload endpoint, exposing the loaded modules on
--- _G.__leet_modules keyed by moduleKey.
-function Dispatcher.loadModules(auth, hwid)
-	local modules = _G.__leet_modules or {}
-	_G.__leet_modules = modules
-
-	local list = {}
-
-	local ok, data = pcall(function()
-		return auth.get("/modules")
-	end)
-
-	if ok and data and type(data.modules) == "table" then
-		list = data.modules
-	end
-
-	for _, entry in ipairs(list) do
-		local key = entry.moduleKey
-
-		if key and not modules[key] then
-			local pOk, source = auth.payload(key, hwid)
-
-			if pOk and type(source) == "string" and #source > 0 then
-				local okRun, result = pcall(compileSource, source, "module:" .. tostring(key))
-
-				if okRun and result then
-					modules[key] = result
-					print("[leetware] Loaded module:", key)
-				else
-					warn("[leetware] Failed to load module " .. tostring(key) .. ": " .. tostring(result))
-				end
-			end
-		end
-	end
-
-	return modules
-end
-
--- Boilerplate is served via the gated payload endpoint. Falls back to the raw
--- repository copy only when the authenticated fetch fails.
-function Dispatcher.fetchBoilerplate(auth, hwid)
-	local ok, source = pcall(function()
-		return auth.payload("boilerplate", hwid)
-	end)
-
-	if ok and type(source) == "string" and #source > 0 then
-		return source
-	end
-
-	return game:HttpGet(Config.BOILERPLATE_URL)
 end
 
 return Dispatcher
